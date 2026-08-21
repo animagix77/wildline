@@ -162,16 +162,20 @@ export function applyDamage(target, amount, attacker) {
     const d = Math.hypot(dx, dz) || 1;
     target.hitDirX = dx / d; target.hitDirZ = dz / d;
   }
-  if (attacker && !target.target && !target.def.building && target.team !== TEAM.NEUTRAL) {
-    // being shot at from out of vision makes you turn and look
-    if (!target.order || target.order.type === 'idle' || target.order.type === 'hold') target.target = attacker;
-  }
+  /* Fight back. The old rule only fired when the victim was already idle AND had
+     no target — i.e. almost never — so animals walked through rifle fire without
+     reacting. Entity.provoke decides what to do with it. */
+  if (attacker && target.team !== TEAM.NEUTRAL && target.provoke) target.provoke(attacker);
   if (target.team === TEAM.MACHINE) SFX.hitMetal(); else SFX.bite();
-  if (target.hp <= 0) kill(target);
+  if (target.hp <= 0) kill(target, attacker);
 }
 
-export function kill(e) {
+export function kill(e, killer) {
   if (!e.alive) return;
+  if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
+    killer.kills = (killer.kills || 0) + 1;
+    if (killer.refreshVeterancy) killer.refreshVeterancy();
+  }
   e.alive = false;
   e.hp = 0;
   e.deadAt = G.wallTime;

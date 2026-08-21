@@ -10,7 +10,7 @@ import { toast } from './ui.js';
 import { showEndScreen } from './screens.js';
 import { addScore, getStats } from './score.js';
 import { commsEvent } from './comms.js';
-import { recordResult, setPending } from './campaign.js';
+import { recordResult, setPending, campState, bankSurvivors } from './campaign.js';
 import { SFX } from './audio.js';
 import { ring, burst } from './combat.js';
 
@@ -227,6 +227,17 @@ export function populate() {
   for (let i = 0; i < 4; i++)
     spawn('wolf', BASE.x + rand(6, 16), BASE.z + rand(-10, 8));
 
+  /* Veterans who survived the last strike muster at the Heart Tree, rank intact. */
+  if (G.campaignSite) {
+    const pack = campState().pack || [];
+    pack.forEach((u, i) => {
+      const a = (i / Math.max(1, pack.length)) * Math.PI * 2;
+      const e = spawn(u.type, BASE.x + Math.cos(a) * 15, BASE.z + Math.sin(a) * 15, { kills: u.kills });
+      if (e.vet) commsEvent('grove', 0.12);   // the corp notices familiar faces
+    });
+    if (pack.length) toast(`${pack.length} veteran${pack.length > 1 ? 's' : ''} answered the call`);
+  }
+
   /* ---- groves ---- */
   G.groves = GROVE_POINTS.map(p => {
     const g = spawn('grove', p.x, p.z);
@@ -303,6 +314,9 @@ export function populate() {
 function endMission(win) {
   const stats = getStats(win);
   if (G.campaignSite) {
+    if (win) {
+      bankSurvivors(G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding));
+    }
     recordResult(G.campaignSite, win, stats.rank);
     showEndScreen(win, stats, () => { setPending({ mode: 'return' }); location.reload(); },
       { buttonLabel: win ? 'Return to the valley' : 'Back to the valley map' });

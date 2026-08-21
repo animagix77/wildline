@@ -22,6 +22,8 @@ const _v2 = new THREE.Vector3();
 const _neigh = [];
 const _face = new THREE.Vector3();
 const HIT_TIME = 0.18;
+const PACK_ALERT = 15;      // metres a cry for help carries
+const RANK_GEO = new THREE.OctahedronGeometry(0.16, 0);
 
 /* --------------------------------------------------------------- health -- */
 const hbBgGeo = new THREE.PlaneGeometry(1, 1);
@@ -59,6 +61,11 @@ export class Entity {
     this.leash = null;
     this.hitT = 0;
     this.hitDirX = 0; this.hitDirZ = 1;
+    this.kills = 0;
+    this.vet = 0;                 // veterancy rank, 0..3
+    this.provokedBy = null;
+    this.provokeUntil = 0;
+    this.chargeT = 0;
     this.rootedUntil = 0;
     this.stuck = 0;
     this.lastPos = new THREE.Vector3();
@@ -112,12 +119,19 @@ export class Entity {
       this.mesh.add(ring);
     }
 
+    if (opts.kills) { this.kills = opts.kills; this.refreshVeterancy(); }
     this.anim = this.mesh.userData.anim || null;
     if (this.anim && this.anim.torso) this.anim.torsoY = this.anim.torso.position.y;
     addEntity(this);
   }
 
-  get speed() { return this.def.speed || 0; }
+  get speed() {
+    /* Melee animals get a closing burst. Without it a wolf crosses a guard's
+       17m firing lane at walking pace and simply dies on the way in — the whole
+       reason claws felt hopeless against rifles. */
+    const base = this.def.speed || 0;
+    return this.chargeT > 0 ? base * 1.45 : base;
+  }
   isRooted() { return G.time < this.rootedUntil; }
 
   aimPoint() {
@@ -136,6 +150,80 @@ export class Entity {
       out.y += (HB_Y[this.type] || 3) * 0.6;
     }
     return out;
+  }
+
+  /* Kills earn rank: tougher, and they hit harder. Applied on the spot so a unit
+     that earns a rank mid-fight feels it immediately. */
+  refreshVeterancy() {
+    const k = this.kills || 0;
+    const rank = k >= 13 ? 3 : k >= 7 ? 2 : k >= 3 ? 1 : 0;
+    if (rank === this.vet) return;
+    const frac = this.hp / this.maxHp;
+    this.vet = rank;
+    this.maxHp = Math.round(this.def.hp * (1 + 0.15 * rank));
+    this.hp = Math.min(this.maxHp, Math.max(this.hp, this.maxHp * frac));
+    this.dmgMult = 1 + 0.12 * rank;
+    this.showRank();
+  }
+
+  /* Rank pips floating over the unit — cheap, unlit, and only on veterans. */
+  showRank() {
+    if (this.rankPips) { this.mesh.remove(this.rankPips); this.rankPips = null; }
+    if (!this.vet) return;
+    const g = new THREE.Group();
+    for (let i = 0; i < this.vet; i++) {
+      const pip = new THREE.Mesh(RANK_GEO, GLOW(0xffe27a));
+      pip.position.set((i - (this.vet - 1) / 2) * 0.42, 0, 0);
+      pip.raycast = () => {};
+      g.add(pip);
+    }
+    g.position.y = ((HB_Y[this.type] || 3) + 0.75) / (this.vScale || 1);
+    g.renderOrder = 6;
+    this.rankPips = g;
+    this.mesh.add(g);
+  }
+
+  /* Something shot us. Animals are not passive: unless the player gave an
+     explicit attack order (which is a contract we honour), the unit turns on
+     whoever is hurting it, chases within a leash of where it was standing, and
+     then resumes what it was doing. */
+  provoke(attacker, quiet) {
+    if (!attacker || !attacker.alive || attacker.team === this.team) return;
+    this.lastAttacker = attacker;
+    if (this.isBuilding) { if (!this.target) this.target = attacker; return; }
+
+    /* Pack response. Shooting one wolf brings the ones beside it — this is what
+       actually makes claws viable against rifles, because the answer to a gun
+       line is focused numbers arriving together, not one animal at a time.
+       `quiet` stops the alert cascading across the whole army. */
+    if (!quiet) {
+      const near = G.grid.near(this.pos.x, this.pos.z, PACK_ALERT, _neigh);
+      let alerted = 0;
+      for (let i = 0; i < near.length && alerted < 5; i++) {
+        const o = near[i];
+        if (o === this || !o.alive || o.isBuilding || o.team !== this.team) continue;
+        if (o.provokedBy || o.order.type === 'attack') continue;
+        if (dist2D(o.pos, this.pos) > PACK_ALERT) continue;
+        o.provoke(attacker, true);
+        alerted++;
+      }
+    }
+
+    if (this.order.type === 'attack') return;          // obeying a direct order
+
+    if (!this.provokedBy) {
+      this.resumeOrder = {
+        type: this.order.type,
+        pos: this.order.pos ? this.order.pos.clone() : null,
+        target: this.order.target,
+      };
+      this.provokeAnchor = this.pos.clone();
+    }
+    this.provokedBy = attacker;
+    this.provokeUntil = G.time + 5;
+    this.target = attacker;
+    // and it breaks into a run to get there
+    if (!this.def.ranged && dist2D(this.pos, attacker.pos) > 6) this.chargeT = 2.4;
   }
 
   /* ------------------------------------------------------------ orders -- */
@@ -157,6 +245,25 @@ export class Entity {
 
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
 
+    if (this.chargeT > 0) this.chargeT -= dt;
+
+    /* resolve an outstanding grudge */
+    if (this.provokedBy) {
+      const done = !this.provokedBy.alive
+        || G.time > this.provokeUntil
+        || dist2D(this.pos, this.provokeAnchor) > 26;      // don't be led away
+      if (done) {
+        this.provokedBy = null;
+        this.target = null;
+        if (this.resumeOrder) {
+          const r = this.resumeOrder; this.resumeOrder = null;
+          this.setOrder(r.type === 'idle' ? 'stop' : r.type, r.pos, r.target);
+        }
+      } else {
+        this.target = this.provokedBy;
+      }
+    }
+
     /* --- target validity & acquisition --- */
     if (this.target && (!this.target.alive)) this.target = null;
     const ot = this.order.type;
@@ -169,7 +276,11 @@ export class Entity {
       else {
         const t = acquire(this);
         // anchor to the post it was standing on, not to wherever the chase reached
-        if (t) { this.target = t; if (ot !== 'move' && !this.leash) this.leash = this.pos.clone(); }
+        if (t) {
+          this.target = t;
+          if (ot !== 'move' && !this.leash) this.leash = this.pos.clone();
+          if (!this.def.ranged && dist2D(this.pos, t.pos) > 8) this.chargeT = 2.2;
+        }
       }
     }
     // leash: don't chase forever when auto-acquired. Blacklist the target briefly,
@@ -190,11 +301,12 @@ export class Entity {
     if (tgt) {
       const d = dist2D(this.pos, tgt.pos) - tgt.radius;
       inRange = d <= this.def.range;
-      if (!inRange && ot !== 'move' && ot !== 'hold') {
+      const mayChase = !!this.provokedBy || (ot !== 'move' && ot !== 'hold');
+      if (!inRange && mayChase) {
         goal = tgt.pos; goalRadius = this.def.range + tgt.radius - 0.4;
       }
     }
-    if (!goal && (ot === 'move' || ot === 'attackmove') && this.order.pos) {
+    if (!goal && !this.provokedBy && (ot === 'move' || ot === 'attackmove') && this.order.pos) {
       // attack-move means "fight what you meet"; standing still to shoot is the
       // whole point of having a range stat
       if (!(inRange && ot === 'attackmove')) goal = this.order.pos;
@@ -360,7 +472,7 @@ export class Entity {
   attack(tgt) {
     this.cooldown = this.def.rate;
     // siege units hit structures far harder than they hit flesh
-    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1);
+    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1);
     if (this.def.ranged) {
       this.muzzlePoint(_v2);
       muzzleFlash(_v2, this.def.projectile.color);
@@ -457,6 +569,10 @@ export class Entity {
       this.hb.g.quaternion.copy(G.camera.quaternion);
       // keep bar upright regardless of parent yaw
       this.hb.g.quaternion.premultiply(_q.setFromAxisAngle(_yAxis, -this.mesh.rotation.y));
+    }
+    if (this.rankPips) {
+      this.rankPips.quaternion.copy(G.camera.quaternion);
+      this.rankPips.quaternion.premultiply(_q.setFromAxisAngle(_yAxis, -this.mesh.rotation.y));
     }
     if (this.ring) this.ring.visible = this.selected;
   }
@@ -680,8 +796,12 @@ export function acquire(e) {
     if (o === e._shunned && G.time < e._shunnedUntil) continue;
     const d = dist2D(e.pos, o.pos) - o.radius;
     if (d > range) continue;
-    // prefer live threats over walls and scenery
-    const score = d + (o.def.wall ? 40 : 0) + (o.isBuilding ? 12 : 0);
+    /* Prefer whatever is actually a threat: the thing shooting us first, then
+       other shooters, then bodies, then structures, then walls last. Distance
+       still breaks ties. */
+    let score = d + (o.def.wall ? 40 : 0) + (o.isBuilding ? 12 : 0);
+    if (o === e.lastAttacker) score -= 14;
+    else if (o.def.ranged && !o.isBuilding) score -= 6;
     if (score < bd) { bd = score; best = o; }
   }
   return best;

@@ -148,6 +148,42 @@ Two guards run on every build: a fast regex scan for duplicate top-level names, 
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
 
+### Fighting back
+
+Animals used to walk through rifle fire without reacting: the old retaliation rule
+only fired when a unit was *already idle and had no target*, which is almost never,
+and a unit on a plain move order would acquire a target but never divert to it. Three
+things fixed it, none of them magic numbers:
+
+- **Provocation.** Being damaged makes a unit turn on its attacker, chase within a
+  26 m leash of where it was standing, and then resume what it was doing. An explicit
+  attack order is still honoured — that contract is not broken.
+- **Pack response.** A cry for help carries 15 m. Shoot one wolf and its neighbours
+  answer, up to five, without cascading across the army. This is what actually makes
+  claws viable against rifles: the answer to a gun line is focused numbers arriving
+  together. Measured — one wolf shot, all six engaged, guard dead, zero losses.
+- **Charge.** Melee units get +45% speed for ~2 s when closing from range, so they
+  cross a guard's 17 m firing lane in 0.75 s instead of 1.09 s.
+
+Targeting is threat-aware too: whatever shot you last is preferred, then other
+shooters, then bodies, then structures, with walls last.
+
+### Veterans — the Honor Guard
+
+Kills earn rank, and the pack that walks out of a won mission walks into the next one.
+
+| rank | kills | HP | damage | |
+|---|---|---|---|---|
+| Green | 0–2 | base | ×1.00 | |
+| Blooded | 3–6 | ×1.15 | ×1.12 | ◆ |
+| Veteran | 7–12 | ×1.30 | ×1.24 | ◆◆ |
+| Elite | 13+ | ×1.45 | ×1.36 | ◆◆◆ |
+
+Survivors are banked on victory, sorted by experience, capped at 10 population so a
+snowball can't carry the campaign, and mustered at the Heart Tree next mission with
+gold rank pips over their heads. Structures don't earn rank — the Heart Tree's thorns
+get plenty of kills and shouldn't level up.
+
 ### Impact and death
 
 Getting hit reads as **displacement, never scale**. Inflating a unit when it is shot is

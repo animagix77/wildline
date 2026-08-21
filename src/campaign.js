@@ -70,7 +70,12 @@ export function campState() {
   try { return JSON.parse(localStorage.getItem(KEY)) || freshState(); }
   catch { return freshState(); }
 }
-function freshState() { return { started: false, liberated: [], ranks: {}, attempts: {} }; }
+function freshState() { return { started: false, liberated: [], ranks: {}, attempts: {}, pack: [] }; }
+
+/* The pack that walks out of a won mission walks into the next one. Capped by
+   population so a snowball can't carry the campaign — this is Dark Crusade's
+   Honor Guard, not an ever-growing doomstack. */
+export const PACK_POP_CAP = 10;
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
 
 export function campReset() { try { localStorage.removeItem(KEY); localStorage.removeItem(PENDING); } catch {} }
@@ -136,6 +141,35 @@ export function perkIds(st) {
 }
 
 /* ----------------------------------------------------------- resolution -- */
+/* Called on victory with the surviving wild units. Keeps the most experienced,
+   under the population cap. */
+export function bankSurvivors(survivors) {
+  const st = campState();
+  const ranked = survivors
+    .map(e => ({ type: e.type, kills: e.kills || 0, pop: e.def.pop || 1 }))
+    .sort((a, b) => b.kills - a.kills);
+  const kept = [];
+  let pop = 0;
+  for (const u of ranked) {
+    if (pop + u.pop > PACK_POP_CAP) continue;
+    kept.push({ type: u.type, kills: u.kills });
+    pop += u.pop;
+  }
+  st.pack = kept;
+  save(st);
+  return kept;
+}
+
+export function packSummary(st) {
+  const by = {};
+  for (const u of (st.pack || [])) {
+    const r = u.kills >= 13 ? 3 : u.kills >= 7 ? 2 : u.kills >= 3 ? 1 : 0;
+    const k = u.type + '|' + r;
+    by[k] = (by[k] || 0) + 1;
+  }
+  return by;
+}
+
 export function recordResult(siteId, win, rank) {
   const st = campState();
   st.started = true;
