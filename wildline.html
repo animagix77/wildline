@@ -860,6 +860,17 @@ body.menu #comms{display:none!important}
 .cta-btn .cf-cup{ font-size:15px; }
 @media (max-height:700px){ .es-cta{ margin:12px 0 2px; padding:12px 16px 14px; } .cta-ask{ margin-bottom:10px; } }
 
+
+/* ---------- veteran pack on the campaign map ---------- */
+.camp-pack{ display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+  padding:9px 12px; border-radius:4px; border:1px solid var(--edge);
+  background:rgba(9,15,11,.6); }
+.camp-pack h5{ font-size:9px; letter-spacing:2.2px; text-transform:uppercase;
+  color:var(--dim); margin-right:4px; font-weight:600; }
+.camp-pack .pk{ display:inline-flex; align-items:center; gap:4px; font-size:16px; }
+.camp-pack .pk b{ font-size:11px; color:var(--bone); font-weight:600; }
+.camp-pack .pk-r{ font-size:8px; color:#ffe27a; letter-spacing:1px; font-style:normal; }
+
 </style>
 </head>
 <body>
@@ -1721,9 +1732,10 @@ const MAPS = {
     turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
     coolants: [[26, -68], [26, -30], [86, -50]],
     depots: [[56, -76], [56, -27]],
+    core: { x: 58, z: -50 },
     weather: 'clear',
     water: [{ x: -12, z: 34, r: 22, drain: 0.0055 }],
-    pumps: [[30, -20]],
+    pumps: [[32, -23]],
   },
 
   /* ------------------------------------------------------- tier 1 sites -- */
@@ -1735,11 +1747,12 @@ const MAPS = {
     compound: { x: 62, z: -46, hw: 27, hd: 22 },
     groves: [{ x: -30, z: 20 }, { x: 10, z: 62 }, { x: -60, z: -20 }, { x: 4, z: -16 }, { x: 66, z: 30 }],
     turrets: [[44, -30], [80, -30], [62, -60]],
-    coolants: [[48, -56], [76, -56], [62, -32]],
-    depots: [[62, -50]],
+    coolants: [[48, -58], [76, -58], [62, -30]],
+    depots: [[45, -46]],
+    core: { x: 62, z: -46 },
     weather: 'mist',
     water: [{ x: -20, z: 30, r: 18, drain: 0.004 }],
-    pumps: [[40, -34]],
+    pumps: [[41, -36]],
   },
   'milltown': {
     id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
@@ -1750,10 +1763,11 @@ const MAPS = {
     groves: [{ x: -36, z: 24 }, { x: 2, z: 60 }, { x: -62, z: -18 }, { x: 20, z: 0 }, { x: -18, z: -58 }, { x: 74, z: 28 }],
     turrets: [[26, -34], [78, -34], [26, -74], [78, -74]],
     coolants: [[36, -68], [36, -40], [72, -54]],
-    depots: [[52, -74], [52, -34]],
+    depots: [[52, -72], [52, -36]],
+    core: { x: 52, z: -54 },
     weather: 'rain',
     water: [{ x: -26, z: 38, r: 20, drain: 0.006 }, { x: 24, z: 40, r: 14, drain: 0.006 }],
-    pumps: [[28, -30], [76, -30]],
+    pumps: [[26, -42], [70, -34]],
   },
 
   /* ------------------------------------------------------- tier 2 sites -- */
@@ -1767,13 +1781,14 @@ const MAPS = {
     groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 14, z: -8 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
     turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
     coolants: [[28, -62], [28, -32], [82, -48]],
-    depots: [[55, -72], [55, -26]],
+    depots: [[49, -68], [51, -30]],
+    core: { x: 55, z: -48 },
     weather: 'mist',
     /* the fen IS the map: three shallow meres, drained fast, and four pumps.
        Ignore the water here and the economy is gone before the fourth sweep. */
     water: [{ x: -30, z: 28, r: 24, drain: 0.010 }, { x: 10, z: 52, r: 18, drain: 0.010 },
             { x: -58, z: -30, r: 20, drain: 0.010 }],
-    pumps: [[26, -26], [84, -26], [26, -70], [84, -70]],
+    pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
   },
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
@@ -1785,10 +1800,11 @@ const MAPS = {
     groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 18, z: -6 }, { x: 72, z: 32 }],
     turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
     coolants: [[30, -66], [30, -34], [86, -50]],
-    depots: [[58, -74], [58, -28]],
+    depots: [[58, -70], [62, -32]],
+    core: { x: 58, z: -50 },
     weather: 'snow',
     water: [{ x: -34, z: 40, r: 16, drain: 0.0035 }],
-    pumps: [[46, -22]],
+    pumps: [[44, -28]],
   },
 
   /* ------------------------------------------------------- tier 3 site --- */
@@ -1803,9 +1819,10 @@ const MAPS = {
     turrets: [[12, -18], [12, -78], [92, -18], [92, -78], [36, -30], [36, -66], [70, -30], [70, -66]],
     coolants: [[20, -64], [20, -32], [86, -48]],
     depots: [[42, -74], [62, -74], [52, -24]],
+    core: { x: 52, z: -48 },
     weather: 'storm',
     water: [{ x: -30, z: 34, r: 22, drain: 0.008 }],
-    pumps: [[18, -24], [86, -24], [52, -76]],
+    pumps: [[16, -24], [86, -24], [52, -76]],
   },
 
   /* ---------------------------------------------------- the stronghold --- */
@@ -1819,10 +1836,11 @@ const MAPS = {
     groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -24, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
     turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
     coolants: [[10, -62], [10, -26], [92, -44]],
-    depots: [[34, -76], [66, -76], [50, -14]],
+    depots: [[34, -76], [66, -76], [50, -18]],
+    core: { x: 50, z: -44 },
     weather: 'storm',
     water: [{ x: -36, z: 36, r: 20, drain: 0.007 }, { x: -70, z: -40, r: 16, drain: 0.007 }],
-    pumps: [[8, -16], [94, -16], [50, -78]],
+    pumps: [[8, -16], [94, -16], [48, -74]],
   },
 };
 
@@ -1840,10 +1858,11 @@ MAPS['groundbreak'] = {
   groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 14, z: -4 }, { x: 70, z: 30 }],
   turrets: [[30, -28], [78, -28]],
   coolants: [[32, -62], [76, -62], [54, -26]],
-  depots: [[54, -70]],
+  depots: [[54, -68]],
+  core: { x: 54, z: -48 },
   weather: 'rain',
   water: [{ x: -22, z: 34, r: 20, drain: 0.005 }],
-  pumps: [[36, -22]],
+  pumps: [[36, -26]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
 
@@ -1857,14 +1876,55 @@ MAPS['pourhouse'] = {
   groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 16, z: -6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
   turrets: [[26, -26], [86, -26], [56, -70]],
   coolants: [[30, -60], [82, -60], [56, -24]],
-  depots: [[56, -68], [30, -30]],
+  depots: [[50, -64], [32, -32]],
+  core: { x: 56, z: -46 },
   weather: 'storm',
   water: [{ x: -28, z: 36, r: 26, drain: 0.009 }, { x: 20, z: -70, r: 16, drain: 0.009 }],
-  pumps: [[28, -22], [84, -22]],
+  pumps: [[32, -22], [80, -22]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
 const DEFAULT_MAP = 'verdant-hollow';
+
+/* Structure radii, mirrored from config so this stays a pure data check. */
+const R = { core: 9, depot: 5.5, coolant: 4.6, turret: 2.2, pump: 3.4 };
+
+/* Every authored structure must clear every other one and sit inside its own
+   perimeter. The Core used to be a hard-coded literal and quietly overlapped a
+   Depot on relay-shed, which flung units away at 256 m/s. Data bugs like that
+   should be loud, so `validateAllMaps()` is run at boot in dev builds. */
+function validateMap(m) {
+  const items = [];
+  const push = (kind, x, z) => items.push({ kind, x, z, r: R[kind] });
+  const c = m.core || m.compound;
+  push('core', c.x, c.z);
+  (m.depots || []).forEach(([x, z]) => push('depot', x, z));
+  (m.coolants || []).forEach(([x, z]) => push('coolant', x, z));
+  (m.turrets || []).forEach(([x, z]) => push('turret', x, z));
+  (m.pumps || []).forEach(([x, z]) => push('pump', x, z));
+  const bad = [];
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    for (let j = i + 1; j < items.length; j++) {
+      const b = items[j];
+      const d = Math.hypot(a.x - b.x, a.z - b.z), need = a.r + b.r;
+      if (d < need) bad.push(`${a.kind}(${a.x},${a.z}) overlaps ${b.kind}(${b.x},${b.z}) — ${d.toFixed(1)}m of ${need}m`);
+    }
+    /* Centre must be inside the perimeter. A wall-mounted turret's rim is allowed
+       to overhang — that is how they are meant to sit. */
+    if (Math.abs(a.x - m.compound.x) > m.compound.hw ||
+        Math.abs(a.z - m.compound.z) > m.compound.hd) {
+      bad.push(`${a.kind}(${a.x},${a.z}) is outside the perimeter`);
+    }
+  }
+  return bad;
+}
+
+function validateAllMaps() {
+  const report = {};
+  for (const id in MAPS) { const bad = validateMap(MAPS[id]); if (bad.length) report[id] = bad; }
+  return report;
+}
 
 function loadMap(id) {
   const m = MAPS[id] || MAPS[DEFAULT_MAP];
@@ -1932,6 +1992,18 @@ const SITES = {
     blurb: 'Named after the CFO’s kayak. The kayak is also named Gary.',
     perk: { id: 'highground', name: 'High Ground', desc: 'Wildlife cap +6. Thin air builds character.' },
   },
+  groundbreak: {
+    id: 'groundbreak', name: 'The Groundbreaking', tier: 2, map: 'groundbreak',
+    mx: 44, my: 20, links: ['substation-gary'],
+    blurb: 'Half a data centre and a very optimistic sign. Hit it before the sign is right.',
+    perk: { id: 'quarry', name: 'The Quarry', desc: 'Bears and beavers cost 15% less. There is a great deal of loose rock now.' },
+  },
+  pourhouse: {
+    id: 'pourhouse', name: 'Pourhouse Flats', tier: 3, map: 'pourhouse',
+    mx: 66, my: 96, links: ['coldrake', 'mirefen'],
+    blurb: 'They are pouring the slab over the floodplain. The floodplain has other ideas.',
+    perk: { id: 'floodplain', name: 'Floodplain', desc: 'Lakes drain 30% slower everywhere. The water table remembers.' },
+  },
   coldrake: {
     id: 'coldrake', name: 'Coldrake Logistics Hub', tier: 3, map: 'coldrake',
     mx: 74, my: 82, links: ['milltown', 'mirefen'],
@@ -1940,7 +2012,7 @@ const SITES = {
   },
   'the-campus': {
     id: 'the-campus', name: 'The Campus', tier: 5, map: 'the-campus', stronghold: true,
-    mx: 84, my: 42, links: ['mirefen', 'substation-gary', 'coldrake'], needLiberated: 4,
+    mx: 84, my: 42, links: ['mirefen', 'substation-gary', 'coldrake', 'pourhouse'], needLiberated: 5,
     blurb: 'TerraByte HQ. Seventeen espresso bars, zero windows, one very large Server Core.',
     perk: { id: 'done', name: 'The Valley, Reclaimed', desc: 'Campaign complete.' },
   },
@@ -1950,9 +2022,25 @@ const KEY = 'wildline.campaign.v1';
 const PENDING = 'wildline.pending.v1';
 
 /* ------------------------------------------------------------- state io -- */
+/* Normalise whatever is in storage. Guarding only against unparseable JSON was
+   not enough: any truthy value (an array, a number, an older schema missing
+   `ranks`) sailed through and then threw deep inside the map screen, where the
+   player had no recovery path at all because "Abandon Run" is hidden until
+   `started` is true. Everything is coerced to its expected shape here instead. */
 function campState() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || freshState(); }
-  catch { return freshState(); }
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(KEY)); } catch { raw = null; }
+  const o = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  return {
+    started: !!o.started,
+    liberated: Array.isArray(o.liberated)
+      ? o.liberated.filter(id => Object.prototype.hasOwnProperty.call(SITES, id)) : [],
+    ranks: obj(o.ranks),
+    attempts: obj(o.attempts),
+    pack: Array.isArray(o.pack) ? o.pack.filter(u => u && DEFS[u.type]) : [],
+    history: Array.isArray(o.history) ? o.history.slice(-4) : [],
+  };
 }
 function freshState() { return { started: false, liberated: [], ranks: {}, attempts: {}, pack: [] }; }
 
@@ -1988,7 +2076,7 @@ function scalingFor(st, siteId) {
   const site = SITES[siteId];
   const tier = 0.85 + site.tier * 0.14;                       // authored difficulty
   const progress = 1 + 0.12 * st.liberated.length;            // the corp hardens as it loses
-  const recent = Object.values(st.ranks).slice(-2);
+  const recent = (Array.isArray(st.history) && st.history.length ? st.history : Object.values(st.ranks || {})).slice(-2);
   let adapt = recent.length
     ? recent.reduce((a, r) => a + (RANK_ADAPT[r] || 1), 0) / recent.length
     : 1;
@@ -1999,7 +2087,29 @@ function scalingFor(st, siteId) {
 
 /* Applied once at mission boot, after applyDifficulty(GROVE). Fresh page per
    mission, so straight mutation is safe. */
+/* Snapshot the post-difficulty baseline so a second call cannot compound.
+   applyDifficulty next door already does this; matching it removes a silent
+   difficulty explosion that was one refactor away. */
+let CAMP_BASE = null;
 function applyCampaignMods(st, siteId) {
+  if (!CAMP_BASE) {
+    CAMP_BASE = {
+      machinePopCap: RULES.machinePopCap, garrisonGuards: RULES.garrisonGuards,
+      garrisonDrones: RULES.garrisonDrones, waveEvery: RULES.waveEvery,
+      firstWaveAt: RULES.firstWaveAt, startBiomass: RULES.startBiomass,
+      popCap: RULES.popCap, spellCooldown: RULES.spellCooldown,
+      spawnEvery: DEFS.depot.spawnEvery,
+      dmg: { guard: DEFS.guard.dmg, drone: DEFS.drone.dmg, turret: DEFS.turret.dmg },
+    };
+  }
+  const B = CAMP_BASE;
+  RULES.machinePopCap = B.machinePopCap; RULES.garrisonGuards = B.garrisonGuards;
+  RULES.garrisonDrones = B.garrisonDrones; RULES.waveEvery = B.waveEvery;
+  RULES.firstWaveAt = B.firstWaveAt; RULES.startBiomass = B.startBiomass;
+  RULES.popCap = B.popCap; RULES.spellCooldown = B.spellCooldown;
+  DEFS.depot.spawnEvery = B.spawnEvery;
+  for (const k of ['guard', 'drone', 'turret']) DEFS[k].dmg = B.dmg[k];
+
   const { challenge } = scalingFor(st, siteId);
   RULES.machinePopCap = Math.max(6, Math.round(RULES.machinePopCap * challenge));
   RULES.garrisonGuards = Math.max(3, Math.round(RULES.garrisonGuards * challenge));
@@ -2011,11 +2121,24 @@ function applyCampaignMods(st, siteId) {
 
   /* perks from liberated ground */
   const perks = perkIds(st);
-  if (perks.includes('fertile')) { RULES.startBiomass = Math.round(RULES.startBiomass * 1.25); G.biomass = RULES.startBiomass; }
+  if (perks.includes('fertile')) RULES.startBiomass = Math.round(RULES.startBiomass * 1.25);
   if (perks.includes('deeproots')) RULES.spellCooldown = Math.round(RULES.spellCooldown * 0.75);
-  if (perks.includes('highground')) { RULES.popCap += 6; G.popCap = RULES.popCap; }
+  if (perks.includes('highground')) RULES.popCap += 6;
   if (perks.includes('supplycut')) DEFS.depot.spawnEvery *= 1.3;
+  if (perks.includes('quarry')) { DEFS.bear.cost = Math.round(70 * 0.85); DEFS.beaver.cost = Math.round(45 * 0.85); }
+  else { DEFS.bear.cost = 70; DEFS.beaver.cost = 45; }
+  G.drainMult = perks.includes('floodplain') ? 0.7 : 1;
   if (!perks.includes('locals')) G.lockedUnits = ['local'];   // the town has not joined yet
+  else G.lockedUnits = null;
+
+  /* applyDifficulty seeded G.nextWave from the UNSCALED firstWaveAt, and nothing
+     re-derived it here — so the opening lull was a flat 95s at every site,
+     including the hardest, where it should have been 59s. */
+  if (!G.time) {
+    G.nextWave = RULES.firstWaveAt;
+    G.biomass = RULES.startBiomass;
+    G.popCap = RULES.popCap;
+  }
 
   return { challenge, perks };
 }
@@ -2030,6 +2153,7 @@ function perkIds(st) {
 function bankSurvivors(survivors) {
   const st = campState();
   const ranked = survivors
+    .filter(e => e && e.alive && !e.isBuilding && e.team === 'wild' && DEFS[e.type])
     .map(e => ({ type: e.type, kills: e.kills || 0, pop: e.def.pop || 1 }))
     .sort((a, b) => b.kills - a.kills);
   const kept = [];
@@ -2058,10 +2182,12 @@ function recordResult(siteId, win, rank) {
   const st = campState();
   st.started = true;
   st.attempts[siteId] = (st.attempts[siteId] || 0) + 1;
-  if (win && !st.liberated.includes(siteId)) {
-    st.liberated.push(siteId);
-    st.ranks[siteId] = rank || 'C';
-  }
+  if (win && !st.liberated.includes(siteId)) st.liberated.push(siteId);
+  /* Record the rank either way. Only banking wins meant repeated failures could
+     never lower the adapt band, so the "reads your recent mission ranks" promise
+     only ever worked in the player's favour. */
+  st.ranks[siteId] = rank || (win ? 'C' : 'D');
+  st.history = (Array.isArray(st.history) ? st.history : []).concat(rank || (win ? 'C' : 'D')).slice(-4);
   save(st);
   return st;
 }
@@ -2189,11 +2315,15 @@ function ensureEl() {
 function updateComms(dt) {
   if (G.phase !== 'playing' || G.over) { if (commsEl) commsEl.classList.remove('on'); return; }
   timer -= dt;
-  if (timer > 0 || !queue.length) {
+  if (timer > 0) {
     if (commsEl && timer < 1.2) commsEl.classList.remove('on');   // slide out ahead of the next one
-    if (timer > -8) return;                             // minimum gap between statements
+    return;
   }
-  if (!queue.length) return;
+  if (commsEl) commsEl.classList.remove('on');
+  /* Enforce a real gap between statements. The old guard sat inside a branch that
+     could only be reached when it was already returning, so consecutive notices
+     ran back to back with no breathing room at all. */
+  if (timer > -2.5 || !queue.length) return;
   const line = queue.shift();
   const box = ensureEl();
   box.querySelector('.comms-line').textContent = '“' + line + '”';
@@ -2509,7 +2639,7 @@ function activeDraw() {
 
 function updateWater(dt) {
   if (!lakes.length) return;
-  const draw = activeDraw();
+  const draw = activeDraw() * (G.drainMult !== undefined ? G.drainMult : 1);
   let anyDry = false;
 
   for (const L of lakes) {
@@ -2539,16 +2669,16 @@ function updateWater(dt) {
    readable curve from the nearest lake's level. */
 function groveWaterFactor(x, z) {
   if (!lakes.length) return 1;
-  let best = 0;
+  let best = 0, lvl = 1;
   for (const L of lakes) {
     const d = Math.hypot(x - L.x, z - L.z);
     const reach = L.r * 2.6;                     // catchment
     if (d > reach) continue;
     const share = 1 - smoothstep(L.r * 0.9, reach, d);
-    best = Math.max(best, share);
+    // the level that matters is THIS lake's, not the map average
+    if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  const lvl = G.waterLevel !== undefined ? G.waterLevel : 1;
   return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
 }
 
@@ -5472,12 +5602,13 @@ class Entity {
     this.type = type;
     this.def = def;
     this.team = opts.team || def.team;
-    this.hp = this.maxHp = opts.hp || def.hp;
+    this.baseHp = opts.hp || def.hp;
+    this.hp = this.maxHp = this.baseHp;
     this.radius = def.radius;
     this.flying = !!def.flying;
     this.isBuilding = !!def.building;
     this.alive = true;
-    this.cooldown = rand(0, def.rate || 1);
+    this.cooldown = 0;          // seeded from the id once addEntity has assigned one
     this.target = null;
     this.order = { type: 'idle', pos: null, target: null };
     this.leash = null;
@@ -5541,10 +5672,15 @@ class Entity {
       this.mesh.add(ring);
     }
 
+    addEntity(this);
+    /* De-synchronise the first shot without a dice roll: the offset comes from the
+       entity id, which only exists after addEntity(), so identical armies behave
+       identically every run instead of trading coin flips on who shoots first. */
+    this.cooldown = ((this.id * 0.6180339887) % 1) * (def.rate || 1);
+
     if (opts.kills) { this.kills = opts.kills; this.refreshVeterancy(); }
     this.anim = this.mesh.userData.anim || null;
     if (this.anim && this.anim.torso) this.anim.torsoY = this.anim.torso.position.y;
-    addEntity(this);
   }
 
   get speed() {
@@ -5582,7 +5718,7 @@ class Entity {
     if (rank === this.vet) return;
     const frac = this.hp / this.maxHp;
     this.vet = rank;
-    this.maxHp = Math.round(this.def.hp * (1 + 0.15 * rank));
+    this.maxHp = Math.round((this.baseHp || this.def.hp) * (1 + 0.15 * rank));
     this.hp = Math.min(this.maxHp, Math.max(this.hp, this.maxHp * frac));
     this.dmgMult = 1 + 0.12 * rank;
     this.showRank();
@@ -5650,6 +5786,14 @@ class Entity {
 
   /* ------------------------------------------------------------ orders -- */
   setOrder(type, pos, target) {
+    /* A player order is by definition newer than any grudge, so it clears the
+       provoke state outright. Without this the update loop kept overwriting
+       `target` with the provoker and, on expiry, replayed the order the player
+       had ALREADY replaced — so a squad re-tasked while under fire (the normal
+       case in an RTS) obeyed neither the old order nor the new one. */
+    this.provokedBy = null;
+    this.resumeOrder = null;
+    this.provokeAnchor = null;
     this.order.type = type;
     this.order.pos = pos ? pos.clone() : null;
     this.order.target = target || null;
@@ -6203,6 +6347,16 @@ class Entity {
 
   destroyMesh() {
     G.entityRoot.remove(this.mesh);
+    /* The selection ring and health bar are built per entity, so they are ours
+       to release; everything else is shared from a cache and must be left alone. */
+    if (this.ring) { this.ring.geometry.dispose(); this.ring.material.dispose(); this.ring = null; }
+    if (this.hb) {
+      this.hb.bg.material.dispose();
+      this.hb.fill.material.dispose();
+      this.hb = null;
+    }
+    if (this.rankPips) { this.rankPips.children.forEach(p => p.geometry === undefined || 0); this.rankPips = null; }
+    this._shunned = null; this.lastAttacker = null; this.provokedBy = null;
   }
 }
 
@@ -7291,7 +7445,11 @@ function populate() {
   /* ---- compound ---- */
   buildPerimeter();
 
-  const core = spawn('core', 58, -50);
+  /* Authored per map, defaulting to the compound's own centre. The literal that
+     used to live here was verdant-hollow's, so on relay-shed the Core's collision
+     radius swallowed a Depot centre and ejected units at 256 m/s. */
+  const cp = layout().core || { x: COMPOUND.x, z: COMPOUND.z };
+  const core = spawn('core', cp.x, cp.z);
   core.onDeath = () => {
     G.over = true;
     endMission(true);
@@ -7364,11 +7522,13 @@ function populate() {
 
   // starting garrison — sized by difficulty, not hard-coded
   for (let i = 0; i < RULES.garrisonGuards; i++) {
-    const g = spawn('guard', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
+    const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                             COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(g);
   }
   for (let i = 0; i < RULES.garrisonDrones; i++) {
-    const d = spawn('drone', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
+    const d = spawn('drone', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                             COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
   }
 }
@@ -7378,6 +7538,11 @@ function populate() {
 function endMission(win) {
   const stats = getStats(win);
   if (G.campaignSite) {
+    /* Clear the strike HERE, not in the end-screen button. Leaving it set meant a
+       refresh instead of a click dropped the player back into the briefing for a
+       site they had just liberated — and re-winning it overwrote the banked
+       veteran pack with whatever survived the replay. */
+    setPending({ mode: 'return' });
     if (win) {
       bankSurvivors(G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding));
     }
@@ -7501,7 +7666,7 @@ function updateWorld(dt) {
     for (const mark of [0.5, 0.25]) {
       if (c.left / c.time <= mark && !c.warned[mark]) {
         c.warned[mark] = true;
-        toast(`Construction ${Math.round(mark * 100)}% of the way to completion`, 'warn');
+        toast(`Construction ${Math.round((1 - mark) * 100)}% complete`, 'warn');
         commsEvent('build', 1);
       }
     }
@@ -7638,7 +7803,11 @@ function updateAI(dt) {
     if (d.spawnTimer <= 0) {
       d.spawnTimer = d.def.spawnEvery;
       if (G.machinePop >= RULES.machinePopCap) continue;
-      const g = spawn(Math.random() < 0.25 ? 'drone' : 'guard',
+      /* Deterministic 1-in-4 cycle rather than a dice roll. Drones and guards are
+         different threats, so rolling several drones early made a run materially
+         harder for reasons the player could not see or plan around. */
+      d.spawnN = (d.spawnN || 0) + 1;
+      const g = spawn(d.spawnN % 4 === 0 ? 'drone' : 'guard',
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
       assignPatrol(g);
     }
@@ -8876,6 +9045,22 @@ function showCampaignMap() {
   }
   panel.appendChild(board);
 
+  /* The pack that survived the last strike — otherwise the player has no way to
+     know what carries over until it spawns in the next mission. */
+  const packBy = packSummary(st);
+  const packKeys = Object.keys(packBy);
+  if (packKeys.length) {
+    const RANKN = ['Green', 'Blooded', 'Veteran', 'Elite'];
+    const ICON = { wolf: '🐺', boar: '🐗', bear: '🐻', raven: '🦅', porcupine: '🦔', beaver: '🦫', local: '🎯' };
+    const box = sxEl('div', 'camp-pack');
+    box.innerHTML = '<h5>Your pack</h5>' + packKeys.sort().map(k => {
+      const [type, r] = k.split('|');
+      return `<span class="pk" title="${RANKN[+r]} ${type}">${ICON[type] || '•'}<b>×${packBy[k]}</b>${
+        +r > 0 ? `<i class="pk-r">${'◆'.repeat(+r)}</i>` : ''}</span>`;
+    }).join('');
+    panel.appendChild(box);
+  }
+
   const foot = sxEl('div', 'camp-foot');
   foot.appendChild(info);
   const btns = sxEl('div', 'camp-btns');
@@ -8890,11 +9075,12 @@ function showCampaignMap() {
   const reset = sxEl('button', 'ss-begin camp-reset', '<span>Abandon Run</span>');
   reset.type = 'button';
   reset.addEventListener('click', () => {
-    if (!st.started) return;
     campReset(); campEl.remove(); campEl = null; showCampaignMap();
   });
   btns.appendChild(strike); btns.appendChild(back);
-  if (st.started) btns.appendChild(reset);
+  // any progress at all earns an escape hatch — a legacy save with liberated sites
+  // but no `started` flag used to leave the player with no way to reset
+  if (st.started || st.liberated.length || (st.pack && st.pack.length)) btns.appendChild(reset);
   foot.appendChild(btns);
   panel.appendChild(foot);
 
@@ -9726,8 +9912,20 @@ scene.add(G.fxRoot);
    loadMap() must run before buildScene(): terrain, shader uniforms and the
    compound footprint are all read at construction time. */
 const pending = pendingMission();
-const pendingSite = pending && pending.mode === 'campaign' ? SITES[pending.site] : null;
+// hasOwnProperty: `{"site":"constructor"}` used to resolve to a truthy non-site
+// and crash the boot before the title screen could render
+const pendingSite = (pending && pending.mode === 'campaign'
+  && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
 loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+
+/* Data check: overlapping structures used to ship silently. Loud in the console
+   and reachable from the page so a layout edit can be checked in one call. */
+window.__validateMaps = validateAllMaps;
+{
+  const bad = validateAllMaps();
+  const ids = Object.keys(bad);
+  if (ids.length) console.error('[wildline] map layout problems:', bad);
+}
 
 /* The world is built immediately so the title/briefing screen has a live 3D
    backdrop to orbit, but no entities exist until the player commits. */

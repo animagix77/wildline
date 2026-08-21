@@ -52,12 +52,13 @@ export class Entity {
     this.type = type;
     this.def = def;
     this.team = opts.team || def.team;
-    this.hp = this.maxHp = opts.hp || def.hp;
+    this.baseHp = opts.hp || def.hp;
+    this.hp = this.maxHp = this.baseHp;
     this.radius = def.radius;
     this.flying = !!def.flying;
     this.isBuilding = !!def.building;
     this.alive = true;
-    this.cooldown = rand(0, def.rate || 1);
+    this.cooldown = 0;          // seeded from the id once addEntity has assigned one
     this.target = null;
     this.order = { type: 'idle', pos: null, target: null };
     this.leash = null;
@@ -121,10 +122,15 @@ export class Entity {
       this.mesh.add(ring);
     }
 
+    addEntity(this);
+    /* De-synchronise the first shot without a dice roll: the offset comes from the
+       entity id, which only exists after addEntity(), so identical armies behave
+       identically every run instead of trading coin flips on who shoots first. */
+    this.cooldown = ((this.id * 0.6180339887) % 1) * (def.rate || 1);
+
     if (opts.kills) { this.kills = opts.kills; this.refreshVeterancy(); }
     this.anim = this.mesh.userData.anim || null;
     if (this.anim && this.anim.torso) this.anim.torsoY = this.anim.torso.position.y;
-    addEntity(this);
   }
 
   get speed() {
@@ -162,7 +168,7 @@ export class Entity {
     if (rank === this.vet) return;
     const frac = this.hp / this.maxHp;
     this.vet = rank;
-    this.maxHp = Math.round(this.def.hp * (1 + 0.15 * rank));
+    this.maxHp = Math.round((this.baseHp || this.def.hp) * (1 + 0.15 * rank));
     this.hp = Math.min(this.maxHp, Math.max(this.hp, this.maxHp * frac));
     this.dmgMult = 1 + 0.12 * rank;
     this.showRank();
@@ -230,6 +236,14 @@ export class Entity {
 
   /* ------------------------------------------------------------ orders -- */
   setOrder(type, pos, target) {
+    /* A player order is by definition newer than any grudge, so it clears the
+       provoke state outright. Without this the update loop kept overwriting
+       `target` with the provoker and, on expiry, replayed the order the player
+       had ALREADY replaced — so a squad re-tasked while under fire (the normal
+       case in an RTS) obeyed neither the old order nor the new one. */
+    this.provokedBy = null;
+    this.resumeOrder = null;
+    this.provokeAnchor = null;
     this.order.type = type;
     this.order.pos = pos ? pos.clone() : null;
     this.order.target = target || null;
@@ -783,6 +797,16 @@ export class Entity {
 
   destroyMesh() {
     G.entityRoot.remove(this.mesh);
+    /* The selection ring and health bar are built per entity, so they are ours
+       to release; everything else is shared from a cache and must be left alone. */
+    if (this.ring) { this.ring.geometry.dispose(); this.ring.material.dispose(); this.ring = null; }
+    if (this.hb) {
+      this.hb.bg.material.dispose();
+      this.hb.fill.material.dispose();
+      this.hb = null;
+    }
+    if (this.rankPips) { this.rankPips.children.forEach(p => p.geometry === undefined || 0); this.rankPips = null; }
+    this._shunned = null; this.lastAttacker = null; this.provokedBy = null;
   }
 }
 

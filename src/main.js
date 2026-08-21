@@ -16,7 +16,7 @@ import { toast } from './ui.js';
 import { vw, vh } from './utils.js';
 import { initFog, updateFog, fogRevealAll } from './fog.js';
 import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
-import { loadMap, DEFAULT_MAP } from './maps.js';
+import { loadMap, DEFAULT_MAP, validateAllMaps } from './maps.js';
 import { SITES, pendingMission, setPending, applyCampaignMods, campState } from './campaign.js';
 import { initScore, updateScore, setProjector } from './score.js';
 import { initPerf, perfFrame } from './perf.js';
@@ -51,8 +51,20 @@ scene.add(G.fxRoot);
    loadMap() must run before buildScene(): terrain, shader uniforms and the
    compound footprint are all read at construction time. */
 const pending = pendingMission();
-const pendingSite = pending && pending.mode === 'campaign' ? SITES[pending.site] : null;
+// hasOwnProperty: `{"site":"constructor"}` used to resolve to a truthy non-site
+// and crash the boot before the title screen could render
+const pendingSite = (pending && pending.mode === 'campaign'
+  && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
 loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+
+/* Data check: overlapping structures used to ship silently. Loud in the console
+   and reachable from the page so a layout edit can be checked in one call. */
+window.__validateMaps = validateAllMaps;
+{
+  const bad = validateAllMaps();
+  const ids = Object.keys(bad);
+  if (ids.length) console.error('[wildline] map layout problems:', bad);
+}
 
 /* The world is built immediately so the title/briefing screen has a live 3D
    backdrop to orbit, but no entities exist until the player commits. */

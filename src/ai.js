@@ -30,7 +30,11 @@ export function updateAI(dt) {
     if (d.spawnTimer <= 0) {
       d.spawnTimer = d.def.spawnEvery;
       if (G.machinePop >= RULES.machinePopCap) continue;
-      const g = spawn(Math.random() < 0.25 ? 'drone' : 'guard',
+      /* Deterministic 1-in-4 cycle rather than a dice roll. Drones and guards are
+         different threats, so rolling several drones early made a run materially
+         harder for reasons the player could not see or plan around. */
+      d.spawnN = (d.spawnN || 0) + 1;
+      const g = spawn(d.spawnN % 4 === 0 ? 'drone' : 'guard',
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
       assignPatrol(g);
     }

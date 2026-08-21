@@ -124,7 +124,7 @@ function activeDraw() {
 
 export function updateWater(dt) {
   if (!lakes.length) return;
-  const draw = activeDraw();
+  const draw = activeDraw() * (G.drainMult !== undefined ? G.drainMult : 1);
   let anyDry = false;
 
   for (const L of lakes) {
@@ -154,16 +154,16 @@ export function updateWater(dt) {
    readable curve from the nearest lake's level. */
 export function groveWaterFactor(x, z) {
   if (!lakes.length) return 1;
-  let best = 0;
+  let best = 0, lvl = 1;
   for (const L of lakes) {
     const d = Math.hypot(x - L.x, z - L.z);
     const reach = L.r * 2.6;                     // catchment
     if (d > reach) continue;
     const share = 1 - smoothstep(L.r * 0.9, reach, d);
-    best = Math.max(best, share);
+    // the level that matters is THIS lake's, not the map average
+    if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  const lvl = G.waterLevel !== undefined ? G.waterLevel : 1;
   return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
 }
 

@@ -7,7 +7,7 @@
 
 import { RULES, DEFS } from './config.js';
 import { G } from './state.js';
-import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete } from './campaign.js';
+import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete, packSummary } from './campaign.js';
 import { rankFor } from './score.js';
 
 /* ======================================================== difficulties == */
@@ -689,6 +689,22 @@ export function showCampaignMap() {
   }
   panel.appendChild(board);
 
+  /* The pack that survived the last strike — otherwise the player has no way to
+     know what carries over until it spawns in the next mission. */
+  const packBy = packSummary(st);
+  const packKeys = Object.keys(packBy);
+  if (packKeys.length) {
+    const RANKN = ['Green', 'Blooded', 'Veteran', 'Elite'];
+    const ICON = { wolf: '🐺', boar: '🐗', bear: '🐻', raven: '🦅', porcupine: '🦔', beaver: '🦫', local: '🎯' };
+    const box = sxEl('div', 'camp-pack');
+    box.innerHTML = '<h5>Your pack</h5>' + packKeys.sort().map(k => {
+      const [type, r] = k.split('|');
+      return `<span class="pk" title="${RANKN[+r]} ${type}">${ICON[type] || '•'}<b>×${packBy[k]}</b>${
+        +r > 0 ? `<i class="pk-r">${'◆'.repeat(+r)}</i>` : ''}</span>`;
+    }).join('');
+    panel.appendChild(box);
+  }
+
   const foot = sxEl('div', 'camp-foot');
   foot.appendChild(info);
   const btns = sxEl('div', 'camp-btns');
@@ -703,11 +719,12 @@ export function showCampaignMap() {
   const reset = sxEl('button', 'ss-begin camp-reset', '<span>Abandon Run</span>');
   reset.type = 'button';
   reset.addEventListener('click', () => {
-    if (!st.started) return;
     campReset(); campEl.remove(); campEl = null; showCampaignMap();
   });
   btns.appendChild(strike); btns.appendChild(back);
-  if (st.started) btns.appendChild(reset);
+  // any progress at all earns an escape hatch — a legacy save with liberated sites
+  // but no `started` flag used to leave the player with no way to reset
+  if (st.started || st.liberated.length || (st.pack && st.pack.length)) btns.appendChild(reset);
   foot.appendChild(btns);
   panel.appendChild(foot);
 

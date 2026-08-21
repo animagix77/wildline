@@ -119,11 +119,15 @@ function ensureEl() {
 export function updateComms(dt) {
   if (G.phase !== 'playing' || G.over) { if (commsEl) commsEl.classList.remove('on'); return; }
   timer -= dt;
-  if (timer > 0 || !queue.length) {
+  if (timer > 0) {
     if (commsEl && timer < 1.2) commsEl.classList.remove('on');   // slide out ahead of the next one
-    if (timer > -8) return;                             // minimum gap between statements
+    return;
   }
-  if (!queue.length) return;
+  if (commsEl) commsEl.classList.remove('on');
+  /* Enforce a real gap between statements. The old guard sat inside a branch that
+     could only be reached when it was already returning, so consecutive notices
+     ran back to back with no breathing room at all. */
+  if (timer > -2.5 || !queue.length) return;
   const line = queue.shift();
   const box = ensureEl();
   box.querySelector('.comms-line').textContent = '“' + line + '”';

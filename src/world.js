@@ -254,7 +254,11 @@ export function populate() {
   /* ---- compound ---- */
   buildPerimeter();
 
-  const core = spawn('core', 58, -50);
+  /* Authored per map, defaulting to the compound's own centre. The literal that
+     used to live here was verdant-hollow's, so on relay-shed the Core's collision
+     radius swallowed a Depot centre and ejected units at 256 m/s. */
+  const cp = layout().core || { x: COMPOUND.x, z: COMPOUND.z };
+  const core = spawn('core', cp.x, cp.z);
   core.onDeath = () => {
     G.over = true;
     endMission(true);
@@ -327,11 +331,13 @@ export function populate() {
 
   // starting garrison — sized by difficulty, not hard-coded
   for (let i = 0; i < RULES.garrisonGuards; i++) {
-    const g = spawn('guard', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
+    const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                             COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(g);
   }
   for (let i = 0; i < RULES.garrisonDrones; i++) {
-    const d = spawn('drone', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
+    const d = spawn('drone', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                             COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
   }
 }
@@ -341,6 +347,11 @@ export function populate() {
 function endMission(win) {
   const stats = getStats(win);
   if (G.campaignSite) {
+    /* Clear the strike HERE, not in the end-screen button. Leaving it set meant a
+       refresh instead of a click dropped the player back into the briefing for a
+       site they had just liberated — and re-winning it overwrote the banked
+       veteran pack with whatever survived the replay. */
+    setPending({ mode: 'return' });
     if (win) {
       bankSurvivors(G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding));
     }
@@ -464,7 +475,7 @@ export function updateWorld(dt) {
     for (const mark of [0.5, 0.25]) {
       if (c.left / c.time <= mark && !c.warned[mark]) {
         c.warned[mark] = true;
-        toast(`Construction ${Math.round(mark * 100)}% of the way to completion`, 'warn');
+        toast(`Construction ${Math.round((1 - mark) * 100)}% complete`, 'warn');
         commsEvent('build', 1);
       }
     }
