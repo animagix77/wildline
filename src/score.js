@@ -1,5 +1,5 @@
 /* =========================================================================
-   WILDLINE — scoring, streaks, floating score popups and the on-screen readout.
+   Critters vs Compute — scoring, streaks, floating score popups and the on-screen readout.
 
    Deliberately decoupled from three.js: the host injects a projector via
    setProjector((worldPos) => ({x, y})) so this module never needs a camera.

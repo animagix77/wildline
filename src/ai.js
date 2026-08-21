@@ -95,9 +95,14 @@ function launchWave() {
   const n = G.waveNum;
   /* A sweep is an offensive surge so it may exceed the standing garrison cap, but
      not without limit — otherwise late waves stack unbounded on top of the trickle. */
-  const surgeRoom = Math.max(2, Math.round(RULES.machinePopCap * RULES.waveCapMult) - G.machinePop);
-  let guards = Math.min(10, 3 + n);
-  let drones = Math.min(5, Math.floor(n / 2) + 1);
+  // the surge ceiling rises with the sweep number too, or the clamp re-caps them
+  const surgeRoom = Math.max(2, Math.round(RULES.machinePopCap * (RULES.waveCapMult + n * 0.25)) - G.machinePop);
+  /* Sweeps must keep growing. Capping them at 10 guards meant wave 8 and wave 20
+     were identical, so a player who took the map and massed to the pop cap could
+     simply sit there forever — which removes the commit-timing decision entirely.
+     Early waves are unchanged; it is the late ones that now keep escalating. */
+  let guards = Math.min(20, 3 + n + Math.max(0, n - 4) * 2);
+  let drones = Math.min(10, 1 + Math.floor(n / 2) + Math.max(0, n - 5));
   if (guards + drones > surgeRoom) {
     const k = surgeRoom / (guards + drones);
     // floor the sweep at a real threat: the title screen promises escalation, and a

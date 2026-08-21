@@ -1,5 +1,5 @@
 /* =========================================================================
-   WILDLINE — full-screen states: the title screen and the run summary.
+   Critters vs Compute — full-screen states: the title screen and the run summary.
 
    Both are plain DOM injected into #app. The WebGL canvas is never touched;
    these sit above it. All motion is CSS (transform / opacity only).
@@ -156,8 +156,8 @@ function sxCoffeeCTA(win) {
     ? 'The racks are dark and the valley is loud again. Nicely done.'
     : 'The Heart Tree fell. The valley will grow another — take it again.';
   const ask = win
-    ? 'WILDLINE is free, has no ads and no tracking, and was built by one person. TerraByte has a marketing budget. I have a coffee cup.'
-    : 'WILDLINE is free, has no ads and no tracking. If it has been worth your evening, you know where the cup is.';
+    ? 'Critters vs Compute is free, has no ads and no tracking, and was built by one person. TerraByte has a marketing budget. I have a coffee cup.'
+    : 'Critters vs Compute is free, has no ads and no tracking. If it has been worth your evening, you know where the cup is.';
   box.innerHTML = `
     <div class="cta-line">${line}</div>
     <div class="cta-ask">${ask}</div>`;
@@ -202,7 +202,7 @@ export function showStartScreen(onStart) {
   /* ---- masthead ---- */
   panel.appendChild(sxEl('div', 'ss-head', `
     <div class="ss-rule"></div>
-    <h1 class="ss-mark">WILDLINE</h1>
+    <h1 class="ss-mark">CRITTERS VS COMPUTE</h1>
     <p class="ss-tag">You are the forest. They are the data centre. Take it back.</p>
     <div class="ss-rule"></div>
   `));

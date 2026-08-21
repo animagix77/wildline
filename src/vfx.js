@@ -1,19 +1,22 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { rand, terrainHeight, clamp } from './utils.js';
+import { postPunch } from './post.js';
 
 /* =========================================================================
-   WILDLINE — special-effects layer.
+   Critters vs Compute — special-effects layer.
 
    Everything here is pooled and procedural: fireballs, smoke, shockwaves,
    debris, ground scorch, muzzle flashes, burning wrecks, spirit wisps.
    No textures, no sprite sheets — icosahedra, quads and cones with animated
    materials, billboarded where it matters.
 
-   Deliberately NO real PointLights: adding/removing lights changes three's
-   program hash and recompiles every material mid-game. The "light" of an
-   explosion is faked with an additive ground-glow quad, which at RTS zoom
-   reads the same and costs nothing.
+   Explosions cast REAL light. Adding or removing a light mid-game recompiles
+   every material, so instead a fixed pool of PointLights is created once at
+   startup and never added or removed — a detonation borrows one, sets its
+   colour and intensity, and decays it back to zero. The program hash never
+   changes, and a fireball now actually lights the trees and units around it,
+   which is most of why explosions read as powerful rather than as decals.
 
    Draw order: fx keep renderOrder 0, i.e. UNDER the fog veil (renderOrder 5).
    That is intentional — an explosion inside unexplored fog is information the
@@ -34,6 +37,51 @@ const FIRE_C = new THREE.Color(0x3a1c10);
 const NATURE_A = new THREE.Color(0xe6ffc4);
 const NATURE_B = new THREE.Color(0x6fe06a);
 const NATURE_C = new THREE.Color(0x123816);
+
+/* ------------------------------------------------------------ lights --- */
+const LIGHT_POOL = 6;
+let lights = [];
+
+export function initVFXLights(scene) {
+  disposeVFXLights();
+  for (let i = 0; i < LIGHT_POOL; i++) {
+    const l = new THREE.PointLight(0xffb45a, 0, 60, 2);
+    l.castShadow = false;                 // shadow-casting point lights are ruinous
+    l.visible = true;                     // never toggled: visibility is intensity
+    scene.add(l);
+    lights.push({ l, life: 0, peak: 0, t: 0 });
+  }
+}
+export function disposeVFXLights() {
+  for (const e of lights) e.l.parent && e.l.parent.remove(e.l);
+  lights = [];
+}
+
+/* Borrow the dimmest slot — a big new blast should never be starved by an old one. */
+function flashLight(pos, colour, peak, life, dist) {
+  if (!lights.length) return;
+  let slot = lights[0];
+  for (const e of lights) if (e.t <= 0) { slot = e; break; }
+  if (slot.t > 0) {
+    for (const e of lights) if (e.peak * (e.t / e.life) < slot.peak * (slot.t / slot.life)) slot = e;
+    if (slot.peak * (slot.t / slot.life) > peak) return;   // existing flash is brighter
+  }
+  slot.l.position.set(pos.x, pos.y + 2, pos.z);
+  slot.l.color.set(colour);
+  slot.l.distance = dist;
+  slot.peak = peak; slot.life = life; slot.t = life;
+  slot.l.intensity = peak;
+}
+
+function updateLights(dt) {
+  for (const e of lights) {
+    if (e.t <= 0) { if (e.l.intensity !== 0) e.l.intensity = 0; continue; }
+    e.t -= dt;
+    const k = Math.max(0, e.t / e.life);
+    // fast attack, exponential falloff — a muzzle-flash curve, not a fade
+    e.l.intensity = e.peak * k * k;
+  }
+}
 
 const vfxLive = [];
 const pools = new Map();      // geoKey -> mesh[]
@@ -73,7 +121,7 @@ function push(item) {
 
 function flash(pos, r, color = 0xfff2c8) {
   const m = alloc('flash', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
-  m.material.color.set(color);
+  m.material.color.set(color).multiplyScalar(4.5);   // HDR: this is what blooms
   m.material.opacity = 0.95;
   m.position.copy(pos);
   m.scale.setScalar(r * 0.25);
@@ -82,7 +130,7 @@ function flash(pos, r, color = 0xfff2c8) {
 
 function groundGlow(pos, r, color = 0xffb45a) {
   const m = alloc('glow', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
-  m.material.color.set(color);
+  m.material.color.set(color).multiplyScalar(2.4);
   m.material.opacity = 0.7;
   m.rotation.set(-Math.PI / 2, 0, rand(0, 6.28));
   m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.3, pos.z);
@@ -93,7 +141,7 @@ function groundGlow(pos, r, color = 0xffb45a) {
 function shockRing(pos, r, color = 0xffc276, delay = 0) {
   if (delay > 0) { scheduled.push({ at: vt + delay, fn: () => shockRing(pos, r, color) }); return; }
   const m = alloc('ring', vfxRingGeo, { blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
-  m.material.color.set(color);
+  m.material.color.set(color).multiplyScalar(2.2);
   m.material.opacity = 0.85;
   m.rotation.x = -Math.PI / 2;
   m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.45, pos.z);
@@ -201,11 +249,13 @@ export function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   const p = clamp(power, 0.2, 3.2);
   if (G.rts) G.rts.shake = Math.min(1.5, (G.rts.shake || 0) + 0.22 + p * 0.28);
 
+  flashLight(pos, nature ? 0x9dff8a : 0xffa650, 4 + p * 26, 0.32 + p * 0.22, 30 + p * 34);
   flash(pos, 2.5 + p * 3.2, nature ? 0xd6ffc0 : 0xfff2c8);
   groundGlow(pos, 4 + p * 4.5, nature ? 0x7fe07a : 0xffb45a);
   shockRing(pos, 3.5 + p * 3.6, nature ? 0x9dff8a : 0xffc276);
   if (p >= 1.6) shockRing(pos, 5.5 + p * 4.2, nature ? 0x6fd06a : 0xff9a4a, 0.12);
 
+  if (p >= 1.5 && typeof postPunch === 'function') postPunch(0.0035 * p);
   if (fire) {
     const nF = Math.round(4 + p * 4);
     for (let i = 0; i < nF; i++) firePuff(pos, 5 + p * 4.5, 1 + p * 0.9, nature);
@@ -229,6 +279,7 @@ export function chainExplosion(pos, radius, count, power, opts) {
 
 /* Quick two-blade cross at a gun muzzle. Cheap enough for every shot. */
 export function muzzleFlash(pos, color = 0xffc85c) {
+  flashLight(pos, color, 1.6, 0.07, 14);
   for (let i = 0; i < 2; i++) {
     const m = alloc('muzzle', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
     m.material.color.set(color);
@@ -264,6 +315,7 @@ export function burnTick(e, dt) {
 
 export function updateVFX(dt) {
   vt += dt;
+  updateLights(dt);
 
   for (let i = scheduled.length - 1; i >= 0; i--) {
     if (scheduled[i].at <= vt) { const s = scheduled[i]; scheduled.splice(i, 1); s.fn(); }
@@ -300,7 +352,7 @@ export function updateVFX(dt) {
         const [a, b, c] = it.nature ? [NATURE_A, NATURE_B, NATURE_C] : [FIRE_A, FIRE_B, FIRE_C];
         if (age < 0.35) _c.lerpColors(a, b, age / 0.35);
         else _c.lerpColors(b, c, (age - 0.35) / 0.65);
-        m.material.color.copy(_c);
+        m.material.color.copy(_c).multiplyScalar(age < 0.4 ? 2.8 : 1.4);
         m.material.opacity = 0.9 * k;
         if (cam) m.quaternion.copy(cam.quaternion);
         break;

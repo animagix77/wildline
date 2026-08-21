@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /* =========================================================================
-   WILDLINE — tuning constants. Everything gameplay-tweakable lives here.
+   Critters vs Compute — tuning constants. Everything gameplay-tweakable lives here.
    ========================================================================= */
 
 export const WORLD = 240;          // world is WORLD x WORLD, centred on origin
@@ -27,19 +27,19 @@ export const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 80, dmg: 12, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 20, build: 3.5, pop: 1, death: 'topple',
+    armor: 0, vision: 26, cost: 16, build: 2.8, pop: 1, death: 'topple',
     blurb: 'Cheap, fast, dies fast. Bring friends.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 170, dmg: 26, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 3, vision: 24, cost: 35, build: 6, pop: 2, siege: 1.4, death: 'topple',
+    armor: 3, vision: 24, cost: 32, build: 5, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 5, vision: 24, cost: 80, build: 11, pop: 3, siege: 2.2, death: 'topple',
+    armor: 7, vision: 24, cost: 72, build: 9.5, pop: 3, siege: 2.2, death: 'topple',
     blurb: 'Siege. Deals double damage to structures.'
   },
   raven: {
@@ -75,7 +75,7 @@ export const DEFS = {
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
-    hp: 100, dmg: 10, rate: 0.55, range: 17, speed: 6.4, radius: 0.9,
+    hp: 100, dmg: 10, rate: 0.55, range: 15, speed: 6.4, radius: 0.9,
     armor: 1, vision: 26, ranged: true, pop: 1, death: 'topple',
     projectile: { color: 0xffc85c, speed: 90, size: 0.16 },
   },
@@ -87,7 +87,7 @@ export const DEFS = {
   },
   turret: {
     name: 'Sentry Turret', team: TEAM.MACHINE, icon: '🗼',
-    hp: 460, dmg: 16, rate: 0.85, range: 25, speed: 0, radius: 2.2,
+    hp: 460, dmg: 15, rate: 0.85, range: 21, speed: 0, radius: 2.2,
     armor: 4, vision: 27, ranged: true, building: true,
     projectile: { color: 0xff8a3d, speed: 110, size: 0.25 },
   },
@@ -133,19 +133,19 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   180,
-  baseIncome:     0.5,      // per second from the Heart Tree
-  grovIncome:     1.4,      // per second per bloomed grove
-  captureTime:    4.0,      // seconds standing on a grove
-  popCap:         40,
+  baseIncome:     0.8,      // per second from the Heart Tree
+  grovIncome:     2.2,      // per second per bloomed grove
+  captureTime:    3.0,      // seconds standing on a grove
+  popCap:         52,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
   waveCapMult:    2.0,      // a sweep may surge to this multiple of the standing cap
   waveEvery:      108,      // seconds between machine sweep attacks
   firstWaveAt:    95,
-  spellCost:      90,
-  spellCooldown:  35,
-  spellRadius:    14,
+  spellCost:      65,
+  spellCooldown:  26,
+  spellRadius:    16,
   spellDuration:  5,
 };
 

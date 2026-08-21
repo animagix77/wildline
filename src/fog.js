@@ -4,7 +4,7 @@ import { WORLD, HALF, TEAM, BASE } from './config.js';
 import { terrainHeight } from './utils.js';
 
 /* =========================================================================
-   WILDLINE — fog of war
+   Critters vs Compute — fog of war
    =========================================================================
 
    DESIGN NOTES

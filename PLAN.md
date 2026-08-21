@@ -1,4 +1,4 @@
-# WILDLINE — Gauntlet Loop Development Plan
+# CRITTERS VS COMPUTE — Gauntlet Loop Development Plan
 
 **Target:** a single, self-contained, production-ready `wildline.html` — a 3D RTS in which
 you command a valley's wildlife against a fortified hyperscale data centre.

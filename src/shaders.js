@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { COMPOUND, BASE } from './config.js';
 
 /* =========================================================================
-   WILDLINE — procedural GLSL suite.
+   Critters vs Compute — procedural GLSL suite.
 
    The project ships ZERO texture files: every square metre of ground, the
    sky, the grove pools, the Server Core shield and the Overgrowth field are

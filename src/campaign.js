@@ -2,7 +2,7 @@ import { RULES, DEFS } from './config.js';
 import { G } from './state.js';
 
 /* =========================================================================
-   The Reclamation — WILDLINE's campaign layer, Dark Crusade school:
+   The Reclamation — the campaign layer, Dark Crusade school:
    a territory graph with free strike order, a perk per liberated site, and
    an enemy that scales as it loses ground.
 

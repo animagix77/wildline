@@ -1,4 +1,4 @@
-# WILDLINE — Nature vs. Data Centres
+# Critters vs Compute
 
 A browser 3D RTS in the spirit of Command & Conquer and Warcraft. You command a valley's
 wildlife against a fortified hyperscale data centre.
@@ -51,14 +51,14 @@ than sliding. Measured across 11 passive runs (mine and an independent reviewer'
 
 | | Unit | Cost | Role |
 |---|---|---|---|
-| 🐺 | **Wolf** | 20 | Cheap and fast. Dies to anything with a rifle. Bring twelve. |
-| 🐗 | **Boar** | 35 | Armour 3 — small arms barely scratch it. 1.4× vs structures. |
-| 🐻 | **Bear** | 70 | Siege. **2.2× vs structures.** What actually kills coolant towers. |
+| 🐺 | **Wolf** | 16 | Cheap and fast. Dies to anything with a rifle. Bring twelve. |
+| 🐗 | **Boar** | 32 | Armour 3 — small arms barely scratch it. 1.4× vs structures. |
+| 🐻 | **Bear** | 72 | Siege. **2.2× vs structures.** What actually kills coolant towers. |
 | 🦅 | **Raven** | 35 | Flies. Ignores the perimeter entirely — the only way in that isn't a gate. |
 | 🦔 | **Porcupine** | 55 | Quill volley at 14 m. Slow (4.6) and armoured (5) — it holds a line but never chases one. |
 | 🦫 | **Beaver** | 45 | 1.8× siege on structures and the natural answer to intake pumps. Gnaws the drain shut. |
 | 🎯 | **Local** | 60 | The valley's people — a woman or a man with a hunting rifle, decided at the door. Range 20: outranges a Security Guard's 17, outranged by a turret's 25. The wild faction's real gun line. |
-| 🌿 | **Overgrowth** | 90 | Roots every machine in a 14 m circle for 5 s. 35 s cooldown. |
+| 🌿 | **Overgrowth** | 65 | Roots every machine in a 16 m circle for 5 s. 26 s cooldown. Your answer to a gun line. |
 
 The Heart Tree defends itself, flinging thorns at anything machine inside 24 m.
 

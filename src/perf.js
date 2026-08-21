@@ -1,5 +1,5 @@
 /* =========================================================================
-   WILDLINE — F3 performance overlay.
+   Critters vs Compute — F3 performance overlay.
 
    Hidden by default and genuinely free when hidden: perfFrame() returns on a
    single boolean before touching the clock, the DOM is not built until the

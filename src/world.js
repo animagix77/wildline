@@ -560,8 +560,8 @@ export function queueUnit(type) {
   /* Bloomed groves quicken the Heart Tree. Without this the serial queue capped
      sustained spend at ~6 biomass/s while six groves paid 12.6 — everything past
      the third grove was unspendable and could only be banked. */
-  const haste = 1 - 0.05 * (G.bloomed || 0);
-  const build = def.build * Math.max(0.65, haste);
+  const haste = 1 - 0.07 * (G.bloomed || 0);
+  const build = def.build * Math.max(0.55, haste);
   G.queue.push({ type, remaining: build, total: build });
   return true;
 }

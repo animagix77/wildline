@@ -6,13 +6,15 @@ import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
 import { updateAI } from './ai.js';
 import { updateCombatFX } from './combat.js';
-import { updateVFX } from './vfx.js';
+import { updateVFX, initVFXLights } from './vfx.js';
 import { commsEvent, updateComms } from './comms.js';
 import { updateWeather } from './weather.js';
 import { updateWater, renderWaterReflection } from './water.js';
+import { initPost, renderPost, resizePost } from './post.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND } from './config.js';
 import { toast } from './ui.js';
+import { showSplash, splashReady } from './splash.js';
 import { vw, vh } from './utils.js';
 import { initFog, updateFog, fogRevealAll } from './fog.js';
 import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
@@ -69,6 +71,8 @@ window.__validateMaps = validateAllMaps;
 /* The world is built immediately so the title/briefing screen has a live 3D
    backdrop to orbit, but no entities exist until the player commits. */
 buildScene(scene);
+initPost(renderer);          // HDR + bloom chain
+initVFXLights(scene);        // fixed light pool, never added or removed after this
 
 const rtsCamera = new RTSCamera(camera);
 G.rts = rtsCamera;
@@ -90,11 +94,17 @@ function fitViewport() {
   camera.aspect = vw() / vh();
   camera.updateProjectionMatrix();
   renderer.setSize(vw(), vh());
+  resizePost(renderer);
 }
 window.addEventListener('resize', fitViewport);
 document.addEventListener('visibilitychange', fitViewport);
 
 document.getElementById('loading').remove();
+
+/* The splash goes up first and the title screen waits behind it. Continue only
+   lights up once the world is actually built and a frame has been presented. */
+let splashDone = false;
+showSplash(() => { splashDone = true; openTitle(); });
 
 /* -------------------------------------------------------------- boot --- */
 G.phase = 'menu';
@@ -112,20 +122,22 @@ function launchMission() {
   toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
 }
 
-if (pendingSite) {
-  /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
-     perks earned from liberated ground. Order matters: applyDifficulty first. */
-  applyDifficulty(DIFFICULTIES[1]);
-  const mods = applyCampaignMods(campState(), pendingSite.id);
-  G.campaignSite = pendingSite.id;
-  showBriefing(pendingSite, mods, launchMission);
-} else {
-  showStartScreen(diff => {
-    applyDifficulty(diff);        // must precede populate(): the starting garrison size
-    launchMission();              // is read from RULES at spawn time
-  });
-  // returning from a finished mission drops you straight back onto the map
-  if (pending && pending.mode === 'return') { setPending(null); showCampaignMap(); }
+function openTitle() {
+  if (pendingSite) {
+    /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
+       perks earned from liberated ground. Order matters: applyDifficulty first. */
+    applyDifficulty(DIFFICULTIES[1]);
+    const mods = applyCampaignMods(campState(), pendingSite.id);
+    G.campaignSite = pendingSite.id;
+    showBriefing(pendingSite, mods, launchMission);
+  } else {
+    showStartScreen(diff => {
+      applyDifficulty(diff);        // must precede populate(): the starting garrison size
+      launchMission();              // is read from RULES at spawn time
+    });
+    // returning from a finished mission drops you straight back onto the map
+    if (pending && pending.mode === 'return') { setPending(null); showCampaignMap(); }
+  }
 }
 
 /* ------------------------------------------------------------- loop ---- */
@@ -201,6 +213,9 @@ function frame(now, manual) {
   perfFrame(dt);
 
   renderWaterReflection(renderer, scene, camera);
-  renderer.render(scene, camera);
+  renderPost(renderer, scene, camera, dt);
+
+  if (!framesPresented++) splashReady();   // the world is up and a frame is on screen
 }
+let framesPresented = 0;
 schedule();
