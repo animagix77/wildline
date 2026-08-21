@@ -160,14 +160,14 @@ function frame(now, manual) {
     updateAI(dt);
     updateWorld(dt);
     updateFog(dt);
-    reapDead();
+    reapDead(dt);
     updateScore(dt);
   } else if (G.phase === 'over') {
     // let the explosions finish playing out, and lift the veil for the flyover
     for (const e of G.entities) if (e.alive && e.isBuilding) e.update(dt);
     fogRevealAll();
     updateFog(dt);
-    reapDead();
+    reapDead(dt);
   }
 
   if (camera.aspect !== vw() / vh()) fitViewport();

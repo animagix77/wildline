@@ -1371,25 +1371,25 @@ const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 80, dmg: 12, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 20, build: 3.5, pop: 1,
+    armor: 0, vision: 26, cost: 20, build: 3.5, pop: 1, death: 'topple',
     blurb: 'Cheap, fast, dies fast. Bring friends.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 170, dmg: 26, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 3, vision: 24, cost: 35, build: 6, pop: 2, siege: 1.4,
+    armor: 3, vision: 24, cost: 35, build: 6, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2,
+    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2, death: 'topple',
     blurb: 'Siege. Deals double damage to structures.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 60, dmg: 10, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true,
+    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
@@ -1397,7 +1397,7 @@ const DEFS = {
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
     hp: 130, dmg: 14, rate: 0.65, range: 16, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true,
+    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
@@ -1406,13 +1406,13 @@ const DEFS = {
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
     hp: 100, dmg: 10, rate: 0.55, range: 17, speed: 6.4, radius: 0.9,
-    armor: 1, vision: 26, ranged: true, pop: 1,
+    armor: 1, vision: 26, ranged: true, pop: 1, death: 'topple',
     projectile: { color: 0xffc85c, speed: 90, size: 0.16 },
   },
   drone: {
     name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸',
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
-    armor: 0, vision: 32, ranged: true, flying: true, pop: 1,
+    armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
   },
   turret: {
@@ -4396,6 +4396,26 @@ function scorch(pos, r) {
   push({ kind: 'scorch', m, life: 16 });
 }
 
+/* Dust kicked up where a body hits the ground. */
+function dustPuff(pos, size = 1, n = 5) {
+  for (let i = 0; i < n; i++) {
+    const m = alloc('smoke', puffGeo, {});
+    m.material.color.setHex(0x6b6355);
+    m.material.opacity = 0.3;
+    m.position.set(pos.x + rand(-size, size), pos.y + rand(0, 0.4), pos.z + rand(-size, size));
+    m.scale.setScalar(size * rand(0.3, 0.6));
+    push({
+      kind: 'smoke', m, life: rand(0.5, 0.95), size: size * 0.9,
+      vel: new THREE.Vector3(rand(-1.4, 1.4), rand(0.5, 1.4), rand(-1.4, 1.4)),
+    });
+  }
+}
+
+/* Smoke bleeding off a machine that is on its way down. */
+function deathTrail(pos, size = 0.8) {
+  smokePuff(pos, size, 0, rand(0.6, 1.1));
+}
+
 /* A wild creature's death releases a spirit mote instead of shrapnel. */
 function spiritWisp(pos) {
   const m = alloc('wisp', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
@@ -4707,7 +4727,13 @@ function applyDamage(target, amount, attacker) {
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
   target.lastHitAt = G.time;
-  target.flash = 0.12;
+  /* remember which way the blow came from so the body is knocked the right way */
+  target.hitT = 0.18;
+  if (attacker) {
+    const dx = target.pos.x - attacker.pos.x, dz = target.pos.z - attacker.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    target.hitDirX = dx / d; target.hitDirZ = dz / d;
+  }
   if (attacker && !target.target && !target.def.building && target.team !== TEAM.NEUTRAL) {
     // being shot at from out of vision makes you turn and look
     if (!target.order || target.order.type === 'idle' || target.order.type === 'hold') target.target = attacker;
@@ -4735,16 +4761,20 @@ function kill(e) {
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
     SFX.death();
-    if (e.team === TEAM.MACHINE) {
-      // machines pop: sparks, shrapnel, a puff of burning fuel
-      explode(p, 0.35, {});
-      burst(p, 0x59e5ff, 6, 8, 0.5, 0.6);
+    /* Nothing that walks on legs detonates. A drone is a machine falling out of
+       the sky — its explosion happens when it hits the ground (see updateCorpse).
+       A guard is a person in a hi-vis vest: sparks off the gear, then they go
+       down. Only structures produce a fireball here. */
+    if (e.def.death === 'fall' && e.team === TEAM.MACHINE) {
+      burst(p, 0x59e5ff, 5, 7, 0.4, 0.5);
+    } else if (e.team === TEAM.MACHINE) {
+      burst(p, 0x59e5ff, 7, 7, 0.45, 0.55);
     } else {
-      // animals don't detonate — a soft burst and a spirit mote drifting up
       burst(p, 0x8a4a3a, 8, 7, 0.55, 0.7);
       spiritWisp(p);
     }
   }
+  e.onKilled && e.onKilled();
   // signal only — importing input.js here would make combat -> input -> world -> combat
   if (G.hoverEntity === e) G.hoverEntity = null;
   if (e.team === TEAM.MACHINE) addScore(e.isBuilding ? 'structure' : 'kill', e.type, e.pos);
@@ -4773,6 +4803,7 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _neigh = [];
 const _face = new THREE.Vector3();
+const HIT_TIME = 0.18;
 
 /* --------------------------------------------------------------- health -- */
 const hbBgGeo = new THREE.PlaneGeometry(1, 1);
@@ -4808,7 +4839,8 @@ class Entity {
     this.target = null;
     this.order = { type: 'idle', pos: null, target: null };
     this.leash = null;
-    this.flash = 0;
+    this.hitT = 0;
+    this.hitDirX = 0; this.hitDirZ = 1;
     this.rootedUntil = 0;
     this.stuck = 0;
     this.lastPos = new THREE.Vector3();
@@ -4824,6 +4856,9 @@ class Entity {
     this.mesh = opts.mesh || BUILDERS[type]();
     this.mesh.position.copy(this.pos);
     if (opts.rotY !== undefined) this.mesh.rotation.y = opts.rotY;
+    // YXZ: yaw first, then pitch/roll in the yawed frame — so "fall on your side"
+    // means the unit's side, not the world's
+    this.mesh.rotation.order = 'YXZ';
     this.mesh.userData.entity = this;
     this.mesh.traverse(o => { o.userData.entity = this; });
     this.vScale = V_SCALE[type] || 1;
@@ -4901,7 +4936,6 @@ class Entity {
   update(dt) {
     if (!this.alive) return;
     this.animT += dt;
-    if (this.flash > 0) this.flash -= dt;
 
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
 
@@ -5164,12 +5198,30 @@ class Entity {
     }
     this.mesh.position.copy(this.pos);
 
-    // hit flash / lunge punch
-    let s = this.vScale;
-    if (this.flash > 0) s *= 1 + this.flash * 1.6;
-    if (this.lunge > 0) { this.lunge -= dt * 6; s *= 1 + Math.max(0, this.lunge) * 0.12; }
+    /* Impact reads as DISPLACEMENT, not scale. Inflating a unit when it is shot
+       is a cartoon pop — it makes a wolf look like a squeaky toy. Instead the body
+       is knocked back along the hit vector and leans away from it, recovering over
+       ~0.18s. Scale stays locked at vScale for the entity's whole life. */
+    this.mesh.scale.setScalar(this.vScale);
+    let lean = 0;
+    if (this.hitT > 0) {
+      this.hitT -= dt;
+      const k = Math.max(0, this.hitT) / HIT_TIME;
+      const shove = k * k * (this.isBuilding ? 0.12 : 0.5);
+      this.mesh.position.x += this.hitDirX * shove;
+      this.mesh.position.z += this.hitDirZ * shove;
+      lean = k * k * 0.16;
+    }
+    if (this.lunge > 0) {
+      this.lunge -= dt * 6;
+      const k = Math.max(0, this.lunge);
+      // a melee attack throws its weight forward instead of ballooning
+      this.mesh.position.x += Math.sin(this.mesh.rotation.y) * k * 0.55;
+      this.mesh.position.z += Math.cos(this.mesh.rotation.y) * k * 0.55;
+      lean -= k * 0.10;
+    }
     if (this.recoil > 0) this.recoil -= dt * 8;
-    this.mesh.scale.setScalar(s);
+    if (!this.isBuilding) this.mesh.rotation.x = lean;
 
     this.animate(dt, speedNow);
 
@@ -5277,6 +5329,116 @@ class Entity {
         break;
       }
     }
+  }
+
+  /* --------------------------------------------------------- dying ------ */
+  /* Called the instant hp hits zero. Sets up a corpse that behaves like the
+     thing it was: flesh falls over, fliers fall out of the sky, machines that
+     were holding themselves up stop. */
+  onKilled() {
+    const style = this.def.death || (this.isBuilding ? 'collapse' : 'topple');
+    this.corpse = {
+      style, t: 0, settled: false, sinking: 0,
+      roll: 0, pitch: 0,
+      side: Math.random() < 0.5 ? 1 : -1,
+      rollVel: 0, pitchVel: 0, vy: 0,
+      trail: 0,
+      hold: this.isBuilding ? 1.6 : rand(2.6, 3.6),
+    };
+    const c = this.corpse;
+    if (style === 'topple') {
+      // a nudge to break the balance; heavier things start slower
+      c.rollVel = c.side * rand(0.5, 1.1) / (0.5 + this.def.radius);
+      // a body already moving carries that momentum into the fall
+      c.pitch = 0;
+      c.leadVel = { x: this.vel.x * 0.35, z: this.vel.z * 0.35 };
+    } else if (style === 'fall') {
+      c.vy = rand(0, 2);                       // a small kick before gravity wins
+      c.rollVel = rand(-4, 4);
+      c.pitchVel = rand(-3.5, 3.5);
+      c.leadVel = { x: this.vel.x * 0.55, z: this.vel.z * 0.55 };
+    }
+  }
+
+  /* Returns true when the corpse is finished and the entity can be removed. */
+  updateCorpse(dt) {
+    if (!this.corpse) return true;
+    const c = this.corpse;
+    const m = this.mesh;
+    c.t += dt;
+
+    if (c.style === 'fall') {
+      c.vy -= 24 * dt;
+      this.pos.y += c.vy * dt;
+      this.pos.x += c.leadVel.x * dt;
+      this.pos.z += c.leadVel.z * dt;
+      c.roll += c.rollVel * dt;
+      c.pitch += c.pitchVel * dt;
+
+      // machines burn on the way down
+      if (this.team === TEAM.MACHINE) {
+        c.trail -= dt;
+        if (c.trail <= 0) { c.trail = 0.07; deathTrail(this.pos, 0.55); }
+      }
+
+      const gy = terrainHeight(this.pos.x, this.pos.z);
+      if (this.pos.y <= gy + 0.35) {
+        this.pos.y = gy + 0.35;
+        dustPuff(this.pos, 1.1, 6);
+        if (this.team === TEAM.MACHINE) {
+          // a drone hitting the ground is the explosion — it does not lie there
+          explode(this.pos.clone(), 0.5, {});
+          return true;
+        }
+        // a bird that has been shot down comes to rest on its side
+        c.style = 'topple'; c.settled = true; c.settleAt = c.t;
+        c.roll = c.side * Math.PI / 2; c.pitch = 0;
+      }
+      m.position.copy(this.pos);
+      m.rotation.set(c.pitch, m.rotation.y, c.roll);
+      return false;
+    }
+
+    if (c.style === 'topple') {
+      if (!c.settled) {
+        // torque about the contact point; mass resists
+        c.rollVel += c.side * (7.5 / (0.55 + this.def.radius)) * dt;
+        c.roll += c.rollVel * dt;
+        if (c.leadVel) {                       // momentum carries the body a little
+          this.pos.x += c.leadVel.x * dt; this.pos.z += c.leadVel.z * dt;
+          c.leadVel.x *= 1 - dt * 3; c.leadVel.z *= 1 - dt * 3;
+        }
+        const limit = Math.PI / 2;
+        if (Math.abs(c.roll) >= limit) {
+          c.roll = c.side * limit;
+          if (Math.abs(c.rollVel) > 2.2) {
+            c.rollVel *= -0.22;                // one small bounce off the ground
+            dustPuff(this.pos, this.def.radius * 0.8, 4);
+          } else {
+            c.rollVel = 0; c.settled = true; c.settleAt = c.t;
+            dustPuff(this.pos, this.def.radius * 0.9, 5);
+          }
+        }
+      }
+      /* The pivot is the feet, so a 90-degree roll lays the body out along the
+         ground on its own — no fudge factor needed, just a hair of sink so it
+         doesn't hover over uneven terrain. */
+      m.position.set(this.pos.x, terrainHeight(this.pos.x, this.pos.z) - this.def.radius * 0.18, this.pos.z);
+      m.rotation.set(0, m.rotation.y, c.roll);
+
+      if (c.settled && c.t - c.settleAt > c.hold) {
+        c.sinking += dt;
+        m.position.y -= c.sinking * c.sinking * 2.2;
+        if (c.sinking > 1.4) return true;
+      }
+      return false;
+    }
+
+    /* collapse — structures settle into their own footprint and are gone */
+    const k = Math.min(1, c.t / 2.4);
+    m.position.set(this.pos.x, this.pos.y - k * k * 13, this.pos.z);
+    m.rotation.set(k * 0.10 * c.side, m.rotation.y, k * 0.16 * c.side);
+    return c.t > 2.4;
   }
 
   destroyMesh() {
@@ -6605,17 +6767,13 @@ function cancelQueue(i) {
 }
 
 /* Remove corpses once their death animation has played out. */
-function reapDead() {
+function reapDead(dt) {
+  const step = dt || G.dt || 0.016;
   for (let i = G.entities.length - 1; i >= 0; i--) {
     const e = G.entities[i];
     if (e.alive) continue;
-    const age = G.wallTime - e.deadAt;
-    const sink = e.isBuilding ? 2.5 : 1.2;
-    if (age < sink) {
-      e.mesh.position.y = e.pos.y - (age / sink) * (e.isBuilding ? 14 : 3);
-      e.mesh.rotation.z = (age / sink) * (e.isBuilding ? 0.25 : 1.4);
-      continue;
-    }
+    // each corpse animates itself — see Entity.updateCorpse
+    if (!e.updateCorpse(step)) continue;
     e.destroyMesh();
     G.entities.splice(i, 1);
     G.byId.delete(e.id);
@@ -8804,14 +8962,14 @@ function frame(now, manual) {
     updateAI(dt);
     updateWorld(dt);
     updateFog(dt);
-    reapDead();
+    reapDead(dt);
     updateScore(dt);
   } else if (G.phase === 'over') {
     // let the explosions finish playing out, and lift the veil for the flyover
     for (const e of G.entities) if (e.alive && e.isBuilding) e.update(dt);
     fogRevealAll();
     updateFog(dt);
-    reapDead();
+    reapDead(dt);
   }
 
   if (camera.aspect !== vw() / vh()) fitViewport();

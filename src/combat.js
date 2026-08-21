@@ -155,7 +155,13 @@ export function applyDamage(target, amount, attacker) {
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
   target.lastHitAt = G.time;
-  target.flash = 0.12;
+  /* remember which way the blow came from so the body is knocked the right way */
+  target.hitT = 0.18;
+  if (attacker) {
+    const dx = target.pos.x - attacker.pos.x, dz = target.pos.z - attacker.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    target.hitDirX = dx / d; target.hitDirZ = dz / d;
+  }
   if (attacker && !target.target && !target.def.building && target.team !== TEAM.NEUTRAL) {
     // being shot at from out of vision makes you turn and look
     if (!target.order || target.order.type === 'idle' || target.order.type === 'hold') target.target = attacker;
@@ -183,16 +189,20 @@ export function kill(e) {
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
     SFX.death();
-    if (e.team === TEAM.MACHINE) {
-      // machines pop: sparks, shrapnel, a puff of burning fuel
-      explode(p, 0.35, {});
-      burst(p, 0x59e5ff, 6, 8, 0.5, 0.6);
+    /* Nothing that walks on legs detonates. A drone is a machine falling out of
+       the sky — its explosion happens when it hits the ground (see updateCorpse).
+       A guard is a person in a hi-vis vest: sparks off the gear, then they go
+       down. Only structures produce a fireball here. */
+    if (e.def.death === 'fall' && e.team === TEAM.MACHINE) {
+      burst(p, 0x59e5ff, 5, 7, 0.4, 0.5);
+    } else if (e.team === TEAM.MACHINE) {
+      burst(p, 0x59e5ff, 7, 7, 0.45, 0.55);
     } else {
-      // animals don't detonate — a soft burst and a spirit mote drifting up
       burst(p, 0x8a4a3a, 8, 7, 0.55, 0.7);
       spiritWisp(p);
     }
   }
+  e.onKilled && e.onKilled();
   // signal only — importing input.js here would make combat -> input -> world -> combat
   if (G.hoverEntity === e) G.hoverEntity = null;
   if (e.team === TEAM.MACHINE) addScore(e.isBuilding ? 'structure' : 'kill', e.type, e.pos);

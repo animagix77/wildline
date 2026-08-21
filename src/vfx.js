@@ -161,6 +161,26 @@ function scorch(pos, r) {
   push({ kind: 'scorch', m, life: 16 });
 }
 
+/* Dust kicked up where a body hits the ground. */
+export function dustPuff(pos, size = 1, n = 5) {
+  for (let i = 0; i < n; i++) {
+    const m = alloc('smoke', puffGeo, {});
+    m.material.color.setHex(0x6b6355);
+    m.material.opacity = 0.3;
+    m.position.set(pos.x + rand(-size, size), pos.y + rand(0, 0.4), pos.z + rand(-size, size));
+    m.scale.setScalar(size * rand(0.3, 0.6));
+    push({
+      kind: 'smoke', m, life: rand(0.5, 0.95), size: size * 0.9,
+      vel: new THREE.Vector3(rand(-1.4, 1.4), rand(0.5, 1.4), rand(-1.4, 1.4)),
+    });
+  }
+}
+
+/* Smoke bleeding off a machine that is on its way down. */
+export function deathTrail(pos, size = 0.8) {
+  smokePuff(pos, size, 0, rand(0.6, 1.1));
+}
+
 /* A wild creature's death releases a spirit mote instead of shrapnel. */
 export function spiritWisp(pos) {
   const m = alloc('wisp', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });

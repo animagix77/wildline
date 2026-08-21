@@ -148,6 +148,27 @@ Two guards run on every build: a fast regex scan for duplicate top-level names, 
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
 
+### Impact and death
+
+Getting hit reads as **displacement, never scale**. Inflating a unit when it is shot is
+a cartoon pop that makes a wolf look like a squeaky toy, so the body is knocked back
+along the actual hit vector (recorded from the attacker in `applyDamage`) and leans
+away from it, recovering over 0.18 s. `mesh.scale` is locked for an entity's whole
+life. Melee throws its weight forward the same way instead of ballooning.
+
+Death is per-species, driven by a `death` field in `config.js` and animated by
+`Entity.updateCorpse`:
+
+| | |
+|---|---|
+| **Ground animals, Locals, Guards** | `topple` — angular velocity about the contact point, mass resisting (a bear falls visibly slower than a wolf), momentum carried from whatever they were doing, one small bounce, dust on landing, then they lie there before sinking. Because the mesh pivot is at the feet, a 90° roll lays the body out along the ground on its own. |
+| **Raven, Drone** | `fall` — ballistic arc with tumble, forward momentum preserved. A raven comes to rest on its side; a drone trails smoke on the way down and **its explosion is the ground impact**, not the moment it died. |
+| **Structures** | `collapse` — fireball, debris, scorch, then settling into their own footprint. |
+
+Nothing that walks on legs detonates. A Security Guard is a person in a hi-vis vest:
+sparks off the gear, then they go down. Verified by counting explosion primitives —
+a guard death produces **zero**, a wall produces fourteen.
+
 ### Design notes
 
 - **Draw calls were the frame budget**, not triangles. Each animal was a group of 9–13

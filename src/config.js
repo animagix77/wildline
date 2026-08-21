@@ -27,25 +27,25 @@ export const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 80, dmg: 12, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 20, build: 3.5, pop: 1,
+    armor: 0, vision: 26, cost: 20, build: 3.5, pop: 1, death: 'topple',
     blurb: 'Cheap, fast, dies fast. Bring friends.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 170, dmg: 26, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 3, vision: 24, cost: 35, build: 6, pop: 2, siege: 1.4,
+    armor: 3, vision: 24, cost: 35, build: 6, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2,
+    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2, death: 'topple',
     blurb: 'Siege. Deals double damage to structures.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 60, dmg: 10, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true,
+    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
@@ -53,7 +53,7 @@ export const DEFS = {
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
     hp: 130, dmg: 14, rate: 0.65, range: 16, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true,
+    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
@@ -62,13 +62,13 @@ export const DEFS = {
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
     hp: 100, dmg: 10, rate: 0.55, range: 17, speed: 6.4, radius: 0.9,
-    armor: 1, vision: 26, ranged: true, pop: 1,
+    armor: 1, vision: 26, ranged: true, pop: 1, death: 'topple',
     projectile: { color: 0xffc85c, speed: 90, size: 0.16 },
   },
   drone: {
     name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸',
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
-    armor: 0, vision: 32, ranged: true, flying: true, pop: 1,
+    armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
   },
   turret: {

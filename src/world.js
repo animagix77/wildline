@@ -492,17 +492,13 @@ export function cancelQueue(i) {
 }
 
 /* Remove corpses once their death animation has played out. */
-export function reapDead() {
+export function reapDead(dt) {
+  const step = dt || G.dt || 0.016;
   for (let i = G.entities.length - 1; i >= 0; i--) {
     const e = G.entities[i];
     if (e.alive) continue;
-    const age = G.wallTime - e.deadAt;
-    const sink = e.isBuilding ? 2.5 : 1.2;
-    if (age < sink) {
-      e.mesh.position.y = e.pos.y - (age / sink) * (e.isBuilding ? 14 : 3);
-      e.mesh.rotation.z = (age / sink) * (e.isBuilding ? 0.25 : 1.4);
-      continue;
-    }
+    // each corpse animates itself — see Entity.updateCorpse
+    if (!e.updateCorpse(step)) continue;
     e.destroyMesh();
     G.entities.splice(i, 1);
     G.byId.delete(e.id);

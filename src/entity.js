@@ -4,7 +4,7 @@ import { DEFS, TEAM } from './config.js';
 import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
 import { fireProjectile, applyDamage, burst } from './combat.js';
-import { muzzleFlash, burnTick } from './vfx.js';
+import { muzzleFlash, burnTick, dustPuff, deathTrail, explode } from './vfx.js';
 import { HALF } from './config.js';
 import { SFX } from './audio.js';
 
@@ -21,6 +21,7 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _neigh = [];
 const _face = new THREE.Vector3();
+const HIT_TIME = 0.18;
 
 /* --------------------------------------------------------------- health -- */
 const hbBgGeo = new THREE.PlaneGeometry(1, 1);
@@ -56,7 +57,8 @@ export class Entity {
     this.target = null;
     this.order = { type: 'idle', pos: null, target: null };
     this.leash = null;
-    this.flash = 0;
+    this.hitT = 0;
+    this.hitDirX = 0; this.hitDirZ = 1;
     this.rootedUntil = 0;
     this.stuck = 0;
     this.lastPos = new THREE.Vector3();
@@ -72,6 +74,9 @@ export class Entity {
     this.mesh = opts.mesh || BUILDERS[type]();
     this.mesh.position.copy(this.pos);
     if (opts.rotY !== undefined) this.mesh.rotation.y = opts.rotY;
+    // YXZ: yaw first, then pitch/roll in the yawed frame — so "fall on your side"
+    // means the unit's side, not the world's
+    this.mesh.rotation.order = 'YXZ';
     this.mesh.userData.entity = this;
     this.mesh.traverse(o => { o.userData.entity = this; });
     this.vScale = V_SCALE[type] || 1;
@@ -149,7 +154,6 @@ export class Entity {
   update(dt) {
     if (!this.alive) return;
     this.animT += dt;
-    if (this.flash > 0) this.flash -= dt;
 
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
 
@@ -412,12 +416,30 @@ export class Entity {
     }
     this.mesh.position.copy(this.pos);
 
-    // hit flash / lunge punch
-    let s = this.vScale;
-    if (this.flash > 0) s *= 1 + this.flash * 1.6;
-    if (this.lunge > 0) { this.lunge -= dt * 6; s *= 1 + Math.max(0, this.lunge) * 0.12; }
+    /* Impact reads as DISPLACEMENT, not scale. Inflating a unit when it is shot
+       is a cartoon pop — it makes a wolf look like a squeaky toy. Instead the body
+       is knocked back along the hit vector and leans away from it, recovering over
+       ~0.18s. Scale stays locked at vScale for the entity's whole life. */
+    this.mesh.scale.setScalar(this.vScale);
+    let lean = 0;
+    if (this.hitT > 0) {
+      this.hitT -= dt;
+      const k = Math.max(0, this.hitT) / HIT_TIME;
+      const shove = k * k * (this.isBuilding ? 0.12 : 0.5);
+      this.mesh.position.x += this.hitDirX * shove;
+      this.mesh.position.z += this.hitDirZ * shove;
+      lean = k * k * 0.16;
+    }
+    if (this.lunge > 0) {
+      this.lunge -= dt * 6;
+      const k = Math.max(0, this.lunge);
+      // a melee attack throws its weight forward instead of ballooning
+      this.mesh.position.x += Math.sin(this.mesh.rotation.y) * k * 0.55;
+      this.mesh.position.z += Math.cos(this.mesh.rotation.y) * k * 0.55;
+      lean -= k * 0.10;
+    }
     if (this.recoil > 0) this.recoil -= dt * 8;
-    this.mesh.scale.setScalar(s);
+    if (!this.isBuilding) this.mesh.rotation.x = lean;
 
     this.animate(dt, speedNow);
 
@@ -525,6 +547,116 @@ export class Entity {
         break;
       }
     }
+  }
+
+  /* --------------------------------------------------------- dying ------ */
+  /* Called the instant hp hits zero. Sets up a corpse that behaves like the
+     thing it was: flesh falls over, fliers fall out of the sky, machines that
+     were holding themselves up stop. */
+  onKilled() {
+    const style = this.def.death || (this.isBuilding ? 'collapse' : 'topple');
+    this.corpse = {
+      style, t: 0, settled: false, sinking: 0,
+      roll: 0, pitch: 0,
+      side: Math.random() < 0.5 ? 1 : -1,
+      rollVel: 0, pitchVel: 0, vy: 0,
+      trail: 0,
+      hold: this.isBuilding ? 1.6 : rand(2.6, 3.6),
+    };
+    const c = this.corpse;
+    if (style === 'topple') {
+      // a nudge to break the balance; heavier things start slower
+      c.rollVel = c.side * rand(0.5, 1.1) / (0.5 + this.def.radius);
+      // a body already moving carries that momentum into the fall
+      c.pitch = 0;
+      c.leadVel = { x: this.vel.x * 0.35, z: this.vel.z * 0.35 };
+    } else if (style === 'fall') {
+      c.vy = rand(0, 2);                       // a small kick before gravity wins
+      c.rollVel = rand(-4, 4);
+      c.pitchVel = rand(-3.5, 3.5);
+      c.leadVel = { x: this.vel.x * 0.55, z: this.vel.z * 0.55 };
+    }
+  }
+
+  /* Returns true when the corpse is finished and the entity can be removed. */
+  updateCorpse(dt) {
+    if (!this.corpse) return true;
+    const c = this.corpse;
+    const m = this.mesh;
+    c.t += dt;
+
+    if (c.style === 'fall') {
+      c.vy -= 24 * dt;
+      this.pos.y += c.vy * dt;
+      this.pos.x += c.leadVel.x * dt;
+      this.pos.z += c.leadVel.z * dt;
+      c.roll += c.rollVel * dt;
+      c.pitch += c.pitchVel * dt;
+
+      // machines burn on the way down
+      if (this.team === TEAM.MACHINE) {
+        c.trail -= dt;
+        if (c.trail <= 0) { c.trail = 0.07; deathTrail(this.pos, 0.55); }
+      }
+
+      const gy = terrainHeight(this.pos.x, this.pos.z);
+      if (this.pos.y <= gy + 0.35) {
+        this.pos.y = gy + 0.35;
+        dustPuff(this.pos, 1.1, 6);
+        if (this.team === TEAM.MACHINE) {
+          // a drone hitting the ground is the explosion — it does not lie there
+          explode(this.pos.clone(), 0.5, {});
+          return true;
+        }
+        // a bird that has been shot down comes to rest on its side
+        c.style = 'topple'; c.settled = true; c.settleAt = c.t;
+        c.roll = c.side * Math.PI / 2; c.pitch = 0;
+      }
+      m.position.copy(this.pos);
+      m.rotation.set(c.pitch, m.rotation.y, c.roll);
+      return false;
+    }
+
+    if (c.style === 'topple') {
+      if (!c.settled) {
+        // torque about the contact point; mass resists
+        c.rollVel += c.side * (7.5 / (0.55 + this.def.radius)) * dt;
+        c.roll += c.rollVel * dt;
+        if (c.leadVel) {                       // momentum carries the body a little
+          this.pos.x += c.leadVel.x * dt; this.pos.z += c.leadVel.z * dt;
+          c.leadVel.x *= 1 - dt * 3; c.leadVel.z *= 1 - dt * 3;
+        }
+        const limit = Math.PI / 2;
+        if (Math.abs(c.roll) >= limit) {
+          c.roll = c.side * limit;
+          if (Math.abs(c.rollVel) > 2.2) {
+            c.rollVel *= -0.22;                // one small bounce off the ground
+            dustPuff(this.pos, this.def.radius * 0.8, 4);
+          } else {
+            c.rollVel = 0; c.settled = true; c.settleAt = c.t;
+            dustPuff(this.pos, this.def.radius * 0.9, 5);
+          }
+        }
+      }
+      /* The pivot is the feet, so a 90-degree roll lays the body out along the
+         ground on its own — no fudge factor needed, just a hair of sink so it
+         doesn't hover over uneven terrain. */
+      m.position.set(this.pos.x, terrainHeight(this.pos.x, this.pos.z) - this.def.radius * 0.18, this.pos.z);
+      m.rotation.set(0, m.rotation.y, c.roll);
+
+      if (c.settled && c.t - c.settleAt > c.hold) {
+        c.sinking += dt;
+        m.position.y -= c.sinking * c.sinking * 2.2;
+        if (c.sinking > 1.4) return true;
+      }
+      return false;
+    }
+
+    /* collapse — structures settle into their own footprint and are gone */
+    const k = Math.min(1, c.t / 2.4);
+    m.position.set(this.pos.x, this.pos.y - k * k * 13, this.pos.z);
+    m.rotation.set(k * 0.10 * c.side, m.rotation.y, k * 0.16 * c.side);
+    return c.t > 2.4;
   }
 
   destroyMesh() {
