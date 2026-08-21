@@ -37,6 +37,7 @@ const MODULES = [
   'src/audio.js',
   'src/shaders.js',
   'src/meshes.js',
+  'src/vfx.js',
   'src/combat.js',
   'src/entity.js',
   'src/fog.js',

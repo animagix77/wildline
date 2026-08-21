@@ -387,6 +387,7 @@ function onKey(e) {
     case 'KeyX': queueUnit('boar'); return;
     case 'KeyC': queueUnit('bear'); return;
     case 'KeyV': queueUnit('raven'); return;
+    case 'KeyB': queueUnit('local'); return;
   }
 
   const m = /^Digit([1-5])$/.exec(e.code);

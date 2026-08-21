@@ -53,6 +53,7 @@ than sliding. Measured across 11 passive runs (mine and an independent reviewer'
 | 🐗 | **Boar** | 35 | Armour 3 — small arms barely scratch it. 1.4× vs structures. |
 | 🐻 | **Bear** | 70 | Siege. **2.2× vs structures.** What actually kills coolant towers. |
 | 🦅 | **Raven** | 35 | Flies. Ignores the perimeter entirely — the only way in that isn't a gate. |
+| 🎯 | **Local** | 110 | The valley's people — a woman or a man with a hunting rifle, decided at the door. Your only ground rifle: outranged only by turrets, out-damages a guard. Expensive. |
 | 🌿 | **Overgrowth** | 90 | Roots every machine in a 14 m circle for 5 s. 35 s cooldown. |
 
 The Heart Tree defends itself, flinging thorns at anything machine inside 24 m.
@@ -68,7 +69,7 @@ Classic RTS layout: **letters are commands, arrows and the screen edge move the 
 right click move or attack · **A**+click attack-move · **S** stop · **H** hold ·
 **Ctrl+1..5** set group, **1..5** recall
 
-**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **F**+click Overgrowth
+**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **B** local · **F**+click Overgrowth
 
 **F1** reference · **F3** performance overlay · **M** mute
 

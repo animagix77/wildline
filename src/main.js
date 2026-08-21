@@ -6,6 +6,7 @@ import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
 import { updateAI } from './ai.js';
 import { updateCombatFX } from './combat.js';
+import { updateVFX } from './vfx.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND } from './config.js';
 import { toast } from './ui.js';
@@ -147,6 +148,7 @@ function frame(now, manual) {
 
   tickShaders(G.time, dt);
   updateCombatFX(dt);
+  updateVFX(dt);
   rtsCamera.update(dt);
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over

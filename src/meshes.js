@@ -262,6 +262,60 @@ export const buildDrone = () => {
   return g;
 };
 
+/* Pissed-off locals. Two body plans — a woman and a man — built on the same
+   biped rig as the guard so the walk/recoil animation drives them unchanged.
+   Which one you get is decided per spawn; both templates are cached, so the
+   variety costs nothing after the first of each. */
+function buildLocalVariant(v) {
+  const g = new THREE.Group();
+  const W = v === 'w';
+  const SHIRT = W ? 0x8a4a3c : 0x5c6e46;     // rust flannel / olive jacket
+  const PANTS = W ? 0x3f4956 : 0x46505c;
+  const SKIN  = W ? 0xe0b08a : 0xc98e63;
+  const HAIR  = W ? 0x2e2018 : 0x3a3428;
+  const STOCK = 0x5a3e26, BARREL = 0x24282e;
+
+  const bodyParts = [
+    pBox(SHIRT, W ? 0.78 : 0.88, 1.05, 0.5, 0, 0, 0),
+    pBox(SKIN, 0.44, 0.42, 0.44, 0, 0.75, 0),                     // head
+    // armband in the forest's green — whose side they're on reads at a glance
+    pBox(0x7fd44a, 0.27, 0.14, 0.27, -0.5, 0.18, 0.04),
+    pBox(SHIRT, 0.24, 0.85, 0.24, -0.52, -0.05, 0.05),            // off arm
+  ];
+  if (W) {
+    bodyParts.push(pBox(HAIR, 0.48, 0.5, 0.2, 0, 0.78, -0.26));   // hair, tied back
+    bodyParts.push(pBox(HAIR, 0.2, 0.42, 0.16, 0, 0.5, -0.3));    // tail
+    bodyParts.push(pBox(HAIR, 0.5, 0.14, 0.48, 0, 0.97, 0));      // crown
+  } else {
+    bodyParts.push(pBox(HAIR, 0.48, 0.14, 0.5, 0, 0.95, 0.02));   // cap
+    bodyParts.push(pBox(HAIR, 0.48, 0.06, 0.2, 0, 0.9, 0.3));     // brim
+  }
+  const body = mergeParts(bodyParts, VC_MAT);
+  body.position.y = 1.55;
+  body.castShadow = true;
+  g.add(body);
+
+  /* firing arm + hunting rifle move together on recoil */
+  const gun = mergeParts([
+    pBox(SHIRT, 0.24, 0.75, 0.24, 0, 0, -0.22, -1.1, 0, 0),
+    pBox(STOCK, 0.13, 0.2, 0.85, 0, -0.02, -0.1),                 // wooden stock
+    pBox(BARREL, 0.09, 0.09, 1.6, 0, 0.04, 0.65),                 // long barrel
+    pBox(BARREL, 0.05, 0.16, 0.05, 0, 0.14, 1.3),                 // front sight
+  ], VC_MAT);
+  gun.position.set(0.5, 1.5, 0.5);
+  g.add(gun);
+
+  const legs = [];
+  for (const sx of [-1, 1]) {
+    const l = mergeParts([pBox(PANTS, 0.26, 1.05, 0.26, sx * 0.2, 0, 0)], VC_MAT);
+    l.position.y = 0.52;
+    g.add(l); legs.push(l);
+  }
+
+  g.userData.anim = { kind: 'biped', legs, torso: body, head: null, gun, muzzle: new THREE.Vector3(0.5, 1.55, 1.6) };
+  return g;
+}
+
 /* ============================= MACHINE ================================== */
 
 export const buildGuard = () => {
@@ -697,6 +751,9 @@ export const BUILDERS = {
   bear:   () => cached('bear', buildBear),
   raven:  () => cached('raven', buildRaven),
   guard:  () => cached('guard', buildGuard),
+  local:  () => Math.random() < 0.5
+    ? cached('local_w', () => buildLocalVariant('w'))
+    : cached('local_m', () => buildLocalVariant('m')),
   drone:  () => cached('drone', buildDrone),
   turret: () => cached('turret', buildTurret),
   // one-offs, or (grove) needing genuinely per-instance materials

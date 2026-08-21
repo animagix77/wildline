@@ -50,6 +50,14 @@ export const DEFS = {
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
 
+  local: {
+    name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
+    hp: 130, dmg: 14, rate: 0.65, range: 16, speed: 7.2, radius: 0.95,
+    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true,
+    projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
+    blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
+  },
+
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
@@ -123,4 +131,4 @@ export const RULES = {
   spellDuration:  5,
 };
 
-export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven'];
+export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'local'];

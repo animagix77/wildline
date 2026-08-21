@@ -5,6 +5,7 @@ import { rand, terrainHeight } from './utils.js';
 import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
+import { explode, chainExplosion, spiritWisp } from './vfx.js';
 
 /* ============================ PARTICLES ================================= */
 
@@ -170,12 +171,24 @@ export function kill(e) {
   const p = e.pos.clone(); p.y += e.def.building ? 3 : 1;
   if (e.def.building) {
     SFX.boom();
-    if (G.rts) G.rts.shake = Math.min(1.2, (G.rts.shake || 0) + 0.9);
-    burst(p, e.team === TEAM.MACHINE ? 0xff8a3d : 0x9bff6a, 34, 18, 1.3, 2.2);
-    ring(e.pos, e.team === TEAM.MACHINE ? 0xff8a3d : 0x9bff6a, e.def.radius * 2.2, 0.9);
+    const nature = e.team === TEAM.WILD;
+    /* structure death scales the pyrotechnics to what just fell */
+    const POWER = { wall: 0.9, turret: 1.2, depot: 2, coolant: 2.2, core: 3, grove: 1, hearttree: 2.6 };
+    const pw = POWER[e.type] || 1;
+    explode(p, pw, { nature });
+    if (e.type === 'core') chainExplosion(e.pos, e.def.radius, 6, 1.4, {});
+    if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
     SFX.death();
-    burst(p, e.team === TEAM.MACHINE ? 0x59e5ff : 0x8a4a3a, 10, 8, 0.6, 0.8);
+    if (e.team === TEAM.MACHINE) {
+      // machines pop: sparks, shrapnel, a puff of burning fuel
+      explode(p, 0.35, {});
+      burst(p, 0x59e5ff, 6, 8, 0.5, 0.6);
+    } else {
+      // animals don't detonate — a soft burst and a spirit mote drifting up
+      burst(p, 0x8a4a3a, 8, 7, 0.55, 0.7);
+      spiritWisp(p);
+    }
   }
   // signal only — importing input.js here would make combat -> input -> world -> combat
   if (G.hoverEntity === e) G.hoverEntity = null;
