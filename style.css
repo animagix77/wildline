@@ -1,0 +1,180 @@
+:root{
+  --leaf:#7fd44a; --leaf-dim:#4d8a2e; --moss:#101a12; --moss2:#16241a;
+  --bark:#2a2018; --bone:#e8f0e2; --dim:#8ea394;
+  --machine:#39d7ea; --machine-dim:#1b6e79; --alarm:#ff6a3d;
+  --panel:rgba(9,15,11,.82); --edge:rgba(127,212,74,.22);
+  --font:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#050806;font-family:var(--font);color:var(--bone);
+  -webkit-font-smoothing:antialiased;user-select:none;cursor:default}
+#app{position:fixed;inset:0}
+canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+
+/* ---------- selection marquee ---------- */
+#selbox{position:absolute;border:1px solid var(--leaf);background:rgba(127,212,74,.10);
+  pointer-events:none;display:none;box-shadow:0 0 12px rgba(127,212,74,.35) inset}
+
+/* ---------- top bar ---------- */
+#topbar{position:absolute;top:0;left:0;right:0;height:58px;display:flex;align-items:center;gap:26px;
+  padding:0 18px;background:linear-gradient(180deg,rgba(5,10,7,.92),rgba(5,10,7,0));z-index:10}
+.res{display:flex;align-items:baseline;gap:7px;font-variant-numeric:tabular-nums}
+.res .glyph{font-size:17px;filter:saturate(1.2)}
+.res>span:nth-child(2){font-size:20px;font-weight:600;letter-spacing:.5px}
+.res .sub{font-size:11px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.res .slash{opacity:.4;margin:0 1px}
+.res.right{margin-left:auto}
+#biorate{color:var(--leaf)}
+#objective{margin-left:24px;padding-left:24px;border-left:1px solid rgba(255,255,255,.09);min-width:250px}
+.obj-title{font-size:10px;letter-spacing:2.4px;color:var(--dim)}
+.obj-text{font-size:13px;margin-top:2px;color:var(--bone)}
+.obj-pips{display:flex;gap:5px;margin-top:5px}
+.pip{width:26px;height:4px;border-radius:2px;background:rgba(255,255,255,.16)}
+.pip.alive{background:var(--machine);box-shadow:0 0 8px var(--machine)}
+.pip.dead{background:var(--leaf);box-shadow:0 0 8px rgba(127,212,74,.6)}
+#helpbtn,#mutebtn{width:26px;height:26px;border-radius:50%;border:1px solid var(--edge);background:var(--panel);
+  color:var(--dim);font-size:13px;cursor:pointer;margin-left:10px;font-family:var(--font);line-height:1}
+#helpbtn{margin-left:6px}
+#helpbtn:hover,#mutebtn:hover{color:var(--leaf);border-color:var(--leaf)}
+#mutebtn.off{color:#5a4a44;border-color:rgba(255,106,61,.35)}
+#mutebtn.off::after{content:'';position:absolute;width:20px;height:1px;background:var(--alarm);
+  transform:rotate(-45deg);pointer-events:none;margin-left:-13px}
+
+/* ---------- toasts ---------- */
+#toasts{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:12;
+  display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.toast{padding:7px 16px;border-radius:3px;background:rgba(9,15,11,.9);border-left:2px solid var(--leaf);
+  font-size:13px;letter-spacing:.3px;animation:tin .3s ease-out;white-space:nowrap}
+.toast.warn{border-left-color:var(--alarm);color:#ffcbb8}
+.toast.machine{border-left-color:var(--machine);color:#c4f2f7}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* ---------- bottom bar ---------- */
+#bottombar{position:absolute;bottom:0;left:0;right:0;height:206px;display:flex;gap:10px;padding:10px;
+  background:linear-gradient(0deg,rgba(5,10,7,.95),rgba(5,10,7,.55) 70%,transparent);z-index:10}
+#selpanel,#cardpanel,#mappanel{background:var(--panel);border:1px solid var(--edge);border-radius:4px;
+  padding:8px 10px;backdrop-filter:blur(8px)}
+#selpanel{width:300px;min-width:230px;flex-shrink:0;overflow:hidden}
+#cardpanel{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+/* 206 bar − 20 bar padding − 16 panel padding − 24 title = 146 for the canvas.
+   The backing store stays 200x200 so MM() and drawFogOverlay(c,200) are untouched. */
+#mappanel{width:162px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+#mappanel .panel-title{flex:0 0 auto}
+/* below this the three panels genuinely cannot coexist; shed the selection list
+   first, then the minimap, rather than pushing the command cards off-screen */
+@media (max-width:1100px){ #selpanel{width:210px;min-width:180px} }
+@media (max-width:920px){ #selpanel{display:none} }
+@media (max-width:720px){ #mappanel{display:none} }
+#cards{min-width:0;overflow-x:auto;overflow-y:hidden;padding-bottom:2px}
+.card{flex:0 0 auto}
+.panel-title{font-size:10px;letter-spacing:2.2px;color:var(--dim);margin-bottom:7px}
+
+/* selection list */
+#selbody.empty{color:#4c5b50;font-size:12px;font-style:italic;padding-top:26px;text-align:center}
+.selgrid{display:flex;flex-wrap:wrap;gap:3px;max-height:152px;overflow:auto;align-content:flex-start}
+.selmore{width:32px;height:32px;border-radius:3px;border:1px dashed rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim)}
+.selchip{width:32px;height:32px;border-radius:3px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);display:flex;align-items:flex-end;justify-content:center;
+  font-size:19px;position:relative;cursor:pointer}
+.selchip{font-size:16px!important}
+.selchip .bar{position:absolute;left:2px;right:2px;bottom:2px;height:3px;background:rgba(0,0,0,.6);border-radius:2px;overflow:hidden}
+.selchip .bar i{display:block;height:100%;background:var(--leaf)}
+.selchip:hover{border-color:var(--leaf)}
+.solo{display:flex;gap:12px;align-items:center}
+.solo .big{font-size:44px;line-height:1}
+.solo .meta h4{font-size:15px;font-weight:600;letter-spacing:.4px}
+.solo .meta .st{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.6}
+.solo .meta .st b{color:var(--bone);font-weight:600}
+.hpbar{width:150px;height:6px;border-radius:3px;background:rgba(0,0,0,.5);margin-top:6px;overflow:hidden}
+.hpbar i{display:block;height:100%;background:var(--leaf);transition:width .12s linear}
+.hpbar.foe i{background:var(--machine)}
+
+/* command cards */
+#cards{display:flex;gap:8px}
+.card{width:92px;height:92px;border-radius:4px;border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(160deg,rgba(127,212,74,.09),rgba(255,255,255,.02));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  cursor:pointer;position:relative;transition:.12s}
+.card:hover{border-color:var(--leaf);background:linear-gradient(160deg,rgba(127,212,74,.2),rgba(255,255,255,.03));transform:translateY(-2px)}
+.card.locked{opacity:.4;cursor:not-allowed;transform:none}
+.card .ico{font-size:28px}
+.card .nm{font-size:11px;letter-spacing:.6px}
+.card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
+.card .key{position:absolute;top:4px;left:5px;font-size:9px;color:var(--dim);border:1px solid rgba(255,255,255,.16);
+  border-radius:2px;padding:0 3px}
+.card.spell{background:linear-gradient(160deg,rgba(57,215,234,.10),rgba(255,255,255,.02))}
+.card.spell:hover{border-color:var(--machine)}
+.card .cd{position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-variant-numeric:tabular-nums}
+#queue{display:flex;gap:5px;margin-top:9px;align-items:center;height:26px}
+.qitem{width:26px;height:26px;border-radius:3px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;
+  font-size:14px;position:relative;overflow:hidden;cursor:pointer}
+.qitem i{position:absolute;left:0;bottom:0;width:100%;background:rgba(127,212,74,.3)}
+.qhint{font-size:11px;color:#4c5b50;font-style:italic}
+
+/* minimap */
+/* Sized by construction rather than a hand-computed pixel budget: it takes
+   whatever vertical space the panel has left after the title and stays square,
+   so it cannot overflow the bar at any font metric or resolution. The 200x200
+   backing store is untouched, so MM() and drawFogOverlay(c,200) still line up,
+   and the click handler works off getBoundingClientRect ratios. */
+#minimap{flex:0 1 auto;min-height:0;height:100%;width:auto;aspect-ratio:1/1;
+  border-radius:3px;background:#07110a;cursor:crosshair;
+  border:1px solid rgba(255,255,255,.07)}
+
+/* ---------- help ---------- */
+#help{position:absolute;inset:0;margin:auto;width:min(760px,92vw);height:max-content;max-height:80vh;overflow:auto;
+  background:rgba(6,11,8,.96);border:1px solid var(--edge);border-radius:6px;padding:26px 30px;z-index:30;
+  box-shadow:0 30px 80px rgba(0,0,0,.7)}
+#help h2{font-size:26px;letter-spacing:5px;color:var(--leaf)}
+#help .tagline{color:var(--dim);font-size:13px;margin:4px 0 18px;font-style:italic}
+#help .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+#help h3{font-size:11px;letter-spacing:2px;color:var(--machine);margin:12px 0 7px}
+#help h3:first-child{margin-top:0}
+#help ul{list-style:none;font-size:13px;line-height:1.85;color:#c3d3c4}
+#help b{color:var(--bone);font-weight:600}
+#help button,#endscreen button,#restart{margin-top:20px;padding:9px 20px;border-radius:3px;cursor:pointer;
+  border:1px solid var(--leaf);background:transparent;color:var(--leaf);font-family:var(--font);
+  font-size:12px;letter-spacing:1.6px;text-transform:uppercase}
+#help button:hover,#endscreen button:hover{background:var(--leaf);color:#06110a}
+
+/* ---------- end screen ---------- */
+#endscreen{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(3,7,5,.86);backdrop-filter:blur(6px)}
+#endscreen h1{font-size:64px;letter-spacing:14px;color:var(--leaf);text-shadow:0 0 50px rgba(127,212,74,.5)}
+#endscreen.lose h1{color:var(--alarm);text-shadow:0 0 50px rgba(255,106,61,.5)}
+#endscreen p{margin-top:12px;color:var(--dim);font-size:15px;max-width:520px;text-align:center;line-height:1.7}
+
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#050806;color:var(--leaf);font-size:14px;letter-spacing:4px;z-index:50;text-transform:uppercase}
+
+/* ---------- hover readout ---------- */
+#hovertip{position:absolute;z-index:11;pointer-events:none;display:flex;align-items:center;gap:9px;
+  padding:5px 10px;border-radius:3px;background:rgba(6,11,8,.92);font-size:12px;letter-spacing:.3px;
+  border-left:2px solid var(--dim);white-space:nowrap;backdrop-filter:blur(6px)}
+#hovertip b{font-weight:600}
+#hovertip span{font-variant-numeric:tabular-nums;color:var(--dim);font-size:11px}
+#hovertip.foe{border-left-color:var(--alarm);color:#ffd6c6}
+#hovertip.own{border-left-color:var(--leaf);color:#dcf5cc}
+#hovertip.neutral{border-left-color:#ffe27a;color:#f6ecc4}
+body.hover-foe canvas#scene{cursor:crosshair}
+body.hover-own canvas#scene{cursor:pointer}
+body.mode-attack canvas#scene,body.mode-spell canvas#scene{cursor:cell}
+
+/* cursors */
+body.mode-attack canvas#scene{cursor:crosshair}
+body.mode-spell canvas#scene{cursor:cell}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:rgba(127,212,74,.25);border-radius:3px}
+
+
+/* The title and end screens are translucent so the live 3D orbit shows through.
+   The HUD must not: no shipped RTS renders its resource bar behind its main menu. */
+body.menu #topbar,
+body.menu #bottombar,
+body.menu #toasts,
+body.menu #scorehud,
+body.menu #hovertip{ display:none !important; }

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WILDLINE — Nature vs. Data Centres</title>
+<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./ui-extra.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+  <div id="selbox"></div>
+  <div id="hovertip" style="display:none"></div>
+
+  <!-- ================= TOP BAR ================= -->
+  <div id="topbar">
+    <div class="res">
+      <span class="glyph">🍃</span>
+      <span id="biomass">0</span>
+      <span class="sub" id="biorate">+0.0/s</span>
+    </div>
+    <div class="res">
+      <span class="glyph">🐾</span>
+      <span id="pop">0<span class="slash">/</span>0</span>
+      <span class="sub">wildlife</span>
+    </div>
+    <div class="res">
+      <span class="glyph">🌱</span>
+      <span id="groves">0<span class="slash">/</span>0</span>
+      <span class="sub">groves</span>
+    </div>
+    <div id="objective">
+      <div class="obj-title">OBJECTIVE</div>
+      <div class="obj-text" id="objtext">Destroy the Coolant Towers</div>
+      <div class="obj-pips" id="objpips"></div>
+    </div>
+    <div class="res right">
+      <span class="sub">TIME</span>
+      <span id="clock">0:00</span>
+    </div>
+    <button id="mutebtn" title="Mute audio (M)">♪</button>
+    <button id="helpbtn" title="Toggle help (F1)">?</button>
+  </div>
+
+  <!-- ================= TOASTS ================= -->
+  <div id="toasts"></div>
+
+  <!-- ================= BOTTOM BAR ================= -->
+  <div id="bottombar">
+    <div id="selpanel">
+      <div class="panel-title">SELECTION</div>
+      <div id="selbody" class="empty">Nothing selected</div>
+    </div>
+
+    <div id="cardpanel">
+      <div class="panel-title" id="cardtitle">HEART TREE — GROW</div>
+      <div id="cards"></div>
+      <div id="queue"></div>
+    </div>
+
+    <div id="mappanel">
+      <div class="panel-title">TERRITORY</div>
+      <canvas id="minimap" width="200" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- ================= HELP ================= -->
+  <div id="help" class="hidden">
+    <h2>WILDLINE</h2>
+    <p class="tagline">You are the forest. They are the data centre. Take it back.</p>
+    <div class="cols">
+      <div>
+        <h3>Commands</h3>
+        <ul>
+          <li><b>Left click</b> — select · <b>drag</b> — box select</li>
+          <li><b>Double click</b> — select all of that species on screen</li>
+          <li><b>Right click</b> — move / attack target</li>
+          <li><b>A</b> + click — attack-move (engage on the way)</li>
+          <li><b>S</b> — stop · <b>H</b> — hold position</li>
+          <li><b>Z X C V</b> — grow wolf / boar / bear / raven</li>
+          <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
+          <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
+          <li><b>F1</b> help · <b>F3</b> performance · <b>M</b> mute</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Camera</h3>
+        <ul>
+          <li><b>Arrow keys</b> / screen edge — pan (<b>Shift</b> = faster)</li>
+          <li><b>Q E</b> — rotate · <b>Wheel</b> — zoom</li>
+          <li><b>Middle drag</b> — free pan</li>
+          <li><b>Space</b> — snap to Heart Tree</li>
+          <li>Click or drag the <b>minimap</b> to jump</li>
+        </ul>
+        <h3>How to win</h3>
+        <ul>
+          <li>Walk any beast onto a <b>Grove</b> to bloom it (biomass).</li>
+          <li>Spend biomass at the <b>Heart Tree</b> to grow wildlife.</li>
+          <li>Break the <b>3 Coolant Towers</b>, then kill the <b>Server Core</b>.</li>
+          <li>Ravens fly over walls. Bears eat turrets. Wolves are cheap.</li>
+        </ul>
+      </div>
+    </div>
+    <button id="helpclose">Close</button>
+  </div>
+
+  <div id="loading">growing the forest…</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

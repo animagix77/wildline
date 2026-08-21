@@ -1,0 +1,13 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# editor / agent tooling
+.claude/
+.vscode/
+.idea/
+
+# scratch
+scratchpad/
+*.log
+*.tmp
