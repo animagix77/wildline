@@ -142,6 +142,19 @@ function sxBackdrop(alarm) {
 
 const sxKey = k => `<kbd>${k}</kbd>`;
 
+/* Support link. Opens in a new tab, never steals focus from the game, and
+   rel=noopener so the opened page gets no handle back to this window. */
+const COFFEE_URL = 'https://buymeacoffee.com/wfhpapa';
+function sxCoffee(label = 'Buy me a coffee') {
+  const a = document.createElement('a');
+  a.className = 'sx-coffee';
+  a.href = COFFEE_URL;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.innerHTML = `<span class="cf-cup">☕</span><span>${label}</span>`;
+  return a;
+}
+
 /* ====================================================== start screen ==== */
 
 let startEl = null;
@@ -259,6 +272,7 @@ export function showStartScreen(onStart) {
   btnRow.appendChild(begin);
   foot.appendChild(btnRow);
   camp.addEventListener('click', () => showCampaignMap());
+  foot.appendChild(sxCoffee('Enjoying it? Buy me a coffee'));
   foot.appendChild(sxEl('p', 'ss-hint',
     `${sxKey('←')}${sxKey('→')} choose season · ${sxKey('Enter')} begin · audio starts on your first click`));
   panel.appendChild(foot);
@@ -493,6 +507,7 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
+  foot.appendChild(sxCoffee('Buy me a coffee'));
   panel.appendChild(foot);
 
   root.appendChild(panel);

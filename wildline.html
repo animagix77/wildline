@@ -808,6 +808,25 @@ body.menu #comms{display:none!important}
   color:var(--dim); padding-top:2px; }
 .brief-facts span{ color:#c3d3c4; }
 
+
+/* ---------- support link ---------- */
+.sx-coffee{
+  display:inline-flex; align-items:center; gap:8px;
+  margin-top:14px; padding:7px 14px;
+  border:1px solid rgba(255,226,122,.35); border-radius:999px;
+  background:rgba(255,226,122,.06);
+  color:#f0dfa6; text-decoration:none;
+  font-family:var(--font); font-size:11px; letter-spacing:1.6px; text-transform:uppercase;
+  transition:background .15s, border-color .15s, transform .15s;
+}
+.sx-coffee:hover{
+  background:rgba(255,226,122,.16); border-color:rgba(255,226,122,.7);
+  transform:translateY(-1px);
+}
+.sx-coffee:focus-visible{ outline:2px solid #ffe27a; outline-offset:2px; }
+.sx-coffee .cf-cup{ font-size:14px; filter:saturate(1.1); }
+.es-foot{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+
 </style>
 </head>
 <body>
@@ -8277,6 +8296,19 @@ function sxBackdrop(alarm) {
 
 const sxKey = k => `<kbd>${k}</kbd>`;
 
+/* Support link. Opens in a new tab, never steals focus from the game, and
+   rel=noopener so the opened page gets no handle back to this window. */
+const COFFEE_URL = 'https://buymeacoffee.com/wfhpapa';
+function sxCoffee(label = 'Buy me a coffee') {
+  const a = document.createElement('a');
+  a.className = 'sx-coffee';
+  a.href = COFFEE_URL;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.innerHTML = `<span class="cf-cup">☕</span><span>${label}</span>`;
+  return a;
+}
+
 /* ====================================================== start screen ==== */
 
 let startEl = null;
@@ -8394,6 +8426,7 @@ function showStartScreen(onStart) {
   btnRow.appendChild(begin);
   foot.appendChild(btnRow);
   camp.addEventListener('click', () => showCampaignMap());
+  foot.appendChild(sxCoffee('Enjoying it? Buy me a coffee'));
   foot.appendChild(sxEl('p', 'ss-hint',
     `${sxKey('←')}${sxKey('→')} choose season · ${sxKey('Enter')} begin · audio starts on your first click`));
   panel.appendChild(foot);
@@ -8628,6 +8661,7 @@ function showEndScreen(win, stats, onRestart, opts = {}) {
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
+  foot.appendChild(sxCoffee('Buy me a coffee'));
   panel.appendChild(foot);
 
   root.appendChild(panel);

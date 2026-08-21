@@ -8,6 +8,8 @@ r169 is vendored and inlined, and every mesh, texture, material, particle and so
 generated in code. Verified in the browser network panel: the document is the only
 request — no scripts, stylesheets, fonts, images or audio are fetched at runtime.
 
+
+If you enjoy it: [buy me a coffee](https://buymeacoffee.com/wfhpapa) ☕
 ```bash
 node build.mjs          # regenerate wildline.html from src/
 node serve.mjs          # dev server on http://localhost:8181
