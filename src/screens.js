@@ -145,6 +145,32 @@ const sxKey = k => `<kbd>${k}</kbd>`;
 /* Support link. Opens in a new tab, never steals focus from the game, and
    rel=noopener so the opened page gets no handle back to this window. */
 const COFFEE_URL = 'https://buymeacoffee.com/wfhpapa';
+/* The end-of-match call to action. This is the moment a player has just felt
+   something — the valley saved or the Heart Tree burned — so the ask lives here
+   rather than being a footnote, and it speaks in the game's own voice instead
+   of a stock donate badge. */
+function sxCoffeeCTA(win) {
+  const box = document.createElement('div');
+  box.className = 'es-cta' + (win ? ' won' : '');
+  const line = win
+    ? 'The racks are dark and the valley is loud again. Nicely done.'
+    : 'The Heart Tree fell. The valley will grow another — take it again.';
+  const ask = win
+    ? 'WILDLINE is free, has no ads and no tracking, and was built by one person. TerraByte has a marketing budget. I have a coffee cup.'
+    : 'WILDLINE is free, has no ads and no tracking. If it has been worth your evening, you know where the cup is.';
+  box.innerHTML = `
+    <div class="cta-line">${line}</div>
+    <div class="cta-ask">${ask}</div>`;
+  const a = document.createElement('a');
+  a.className = 'cta-btn';
+  a.href = COFFEE_URL;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.innerHTML = '<span class="cf-cup">☕</span><span>Buy me a coffee</span>';
+  box.appendChild(a);
+  return box;
+}
+
 function sxCoffee(label = 'Buy me a coffee') {
   const a = document.createElement('a');
   a.className = 'sx-coffee';
@@ -284,7 +310,7 @@ export function showStartScreen(onStart) {
      and stop saying it once they have scrolled. */
   const scroller = panel;
   const syncMore = () => {
-    const more = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop > 4;
+    const more = scroller.scrollTop < 40 && scroller.scrollHeight - scroller.clientHeight > 4;
     scroller.classList.toggle('has-more', more);
   };
   scroller.addEventListener('scroll', syncMore, { passive: true });
@@ -501,13 +527,13 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
   `));
 
   panel.appendChild(grid);
+  panel.appendChild(sxCoffeeCTA(win));
 
   const foot = sxEl('div', 'es-foot');
   const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
-  foot.appendChild(sxCoffee('Buy me a coffee'));
   panel.appendChild(foot);
 
   root.appendChild(panel);
@@ -517,7 +543,7 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
   /* Same affordance as the title screen: at 820x560 the panel overflows and the
      Run-It-Again button is sliced with nothing saying the panel scrolls. */
   const esSyncMore = () => {
-    const more = panel.scrollHeight - panel.clientHeight - panel.scrollTop > 4;
+    const more = panel.scrollTop < 40 && panel.scrollHeight - panel.clientHeight > 4;
     panel.classList.toggle('has-more', more);
   };
   panel.addEventListener('scroll', esSyncMore, { passive: true });

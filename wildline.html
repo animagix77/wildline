@@ -744,16 +744,19 @@ body.menu #comms{display:none!important}
    under the fold. The panel scrolls, but nothing on screen said so: the player saw a
    clipped "CHOOSE YOUR SEASON" and no cards. */
 .ss-panel,.es-panel{ position:relative; }
-.ss-panel.has-more,.es-panel.has-more{ padding-bottom:46px; }   /* clear the sticky bar */
+.ss-panel.has-more,.es-panel.has-more{ padding-bottom:30px; }
+/* A corner badge, not a full-width bar. Anything spanning the panel and pinned to
+   the bottom will sit on top of whatever happens to be at the fold — which was
+   landing squarely on the coffee button. The gutter is empty; use it. */
 .ss-panel.has-more::after,
 .es-panel.has-more::after{
-  content:'▾  more below';
-  position:sticky; bottom:0; left:0; right:0;
-  display:block; text-align:center;
-  padding:7px 0 9px;
-  font-size:10px; letter-spacing:2.4px; text-transform:uppercase;
-  color:var(--leaf);
-  background:linear-gradient(180deg,rgba(4,8,6,0),rgba(4,8,6,.92) 45%);
+  content:'▾';
+  position:sticky; bottom:4px;
+  display:block; width:26px; height:26px;
+  margin:0 -8px -26px auto;
+  border-radius:50%; border:1px solid rgba(127,212,74,.4);
+  background:rgba(6,12,8,.94);
+  color:var(--leaf); font-size:12px; line-height:24px; text-align:center;
   pointer-events:none;
   animation:ss-nudge 1.9s ease-in-out infinite;
 }
@@ -826,6 +829,36 @@ body.menu #comms{display:none!important}
 .sx-coffee:focus-visible{ outline:2px solid #ffe27a; outline-offset:2px; }
 .sx-coffee .cf-cup{ font-size:14px; filter:saturate(1.1); }
 .es-foot{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+
+
+/* ---------- end-of-match call to action ---------- */
+.es-cta{
+  margin:18px 0 4px; padding:16px 20px 18px;
+  border-radius:5px; text-align:center;
+  border:1px solid rgba(255,226,122,.28);
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(255,226,122,.09), transparent 70%),
+    rgba(20,17,10,.55);
+  animation:cta-in .5s .35s both ease-out;
+}
+.es-cta.won{ border-color:rgba(255,226,122,.45); }
+@keyframes cta-in{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+.cta-line{ font-size:14px; color:var(--bone); letter-spacing:.3px; margin-bottom:6px; }
+.cta-ask{ font-size:12px; line-height:1.65; color:#a9b3a4; max-width:58ch; margin:0 auto 14px; }
+.cta-btn{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:11px 24px; border-radius:999px; text-decoration:none;
+  background:#ffe27a; color:#241d06;
+  font-family:var(--font); font-size:12px; font-weight:600;
+  letter-spacing:1.8px; text-transform:uppercase;
+  box-shadow:0 6px 20px rgba(255,226,122,.22);
+  transition:transform .15s, box-shadow .15s, background .15s;
+}
+.cta-btn:hover{ background:#fff0ad; transform:translateY(-2px); box-shadow:0 10px 26px rgba(255,226,122,.34); }
+.cta-btn:active{ transform:translateY(0); }
+.cta-btn:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
+.cta-btn .cf-cup{ font-size:15px; }
+@media (max-height:700px){ .es-cta{ margin:12px 0 2px; padding:12px 16px 14px; } .cta-ask{ margin-bottom:10px; } }
 
 </style>
 </head>
@@ -8299,6 +8332,32 @@ const sxKey = k => `<kbd>${k}</kbd>`;
 /* Support link. Opens in a new tab, never steals focus from the game, and
    rel=noopener so the opened page gets no handle back to this window. */
 const COFFEE_URL = 'https://buymeacoffee.com/wfhpapa';
+/* The end-of-match call to action. This is the moment a player has just felt
+   something — the valley saved or the Heart Tree burned — so the ask lives here
+   rather than being a footnote, and it speaks in the game's own voice instead
+   of a stock donate badge. */
+function sxCoffeeCTA(win) {
+  const box = document.createElement('div');
+  box.className = 'es-cta' + (win ? ' won' : '');
+  const line = win
+    ? 'The racks are dark and the valley is loud again. Nicely done.'
+    : 'The Heart Tree fell. The valley will grow another — take it again.';
+  const ask = win
+    ? 'WILDLINE is free, has no ads and no tracking, and was built by one person. TerraByte has a marketing budget. I have a coffee cup.'
+    : 'WILDLINE is free, has no ads and no tracking. If it has been worth your evening, you know where the cup is.';
+  box.innerHTML = `
+    <div class="cta-line">${line}</div>
+    <div class="cta-ask">${ask}</div>`;
+  const a = document.createElement('a');
+  a.className = 'cta-btn';
+  a.href = COFFEE_URL;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.innerHTML = '<span class="cf-cup">☕</span><span>Buy me a coffee</span>';
+  box.appendChild(a);
+  return box;
+}
+
 function sxCoffee(label = 'Buy me a coffee') {
   const a = document.createElement('a');
   a.className = 'sx-coffee';
@@ -8438,7 +8497,7 @@ function showStartScreen(onStart) {
      and stop saying it once they have scrolled. */
   const scroller = panel;
   const syncMore = () => {
-    const more = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop > 4;
+    const more = scroller.scrollTop < 40 && scroller.scrollHeight - scroller.clientHeight > 4;
     scroller.classList.toggle('has-more', more);
   };
   scroller.addEventListener('scroll', syncMore, { passive: true });
@@ -8655,13 +8714,13 @@ function showEndScreen(win, stats, onRestart, opts = {}) {
   `));
 
   panel.appendChild(grid);
+  panel.appendChild(sxCoffeeCTA(win));
 
   const foot = sxEl('div', 'es-foot');
   const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
-  foot.appendChild(sxCoffee('Buy me a coffee'));
   panel.appendChild(foot);
 
   root.appendChild(panel);
@@ -8671,7 +8730,7 @@ function showEndScreen(win, stats, onRestart, opts = {}) {
   /* Same affordance as the title screen: at 820x560 the panel overflows and the
      Run-It-Again button is sliced with nothing saying the panel scrolls. */
   const esSyncMore = () => {
-    const more = panel.scrollHeight - panel.clientHeight - panel.scrollTop > 4;
+    const more = panel.scrollTop < 40 && panel.scrollHeight - panel.clientHeight > 4;
     panel.classList.toggle('has-more', more);
   };
   panel.addEventListener('scroll', esSyncMore, { passive: true });
