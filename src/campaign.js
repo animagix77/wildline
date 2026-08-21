@@ -103,7 +103,7 @@ function freshState() { return { started: false, liberated: [], ranks: {}, attem
 /* The pack that walks out of a won mission walks into the next one. Capped by
    population so a snowball can't carry the campaign — this is Dark Crusade's
    Honor Guard, not an ever-growing doomstack. */
-export const PACK_POP_CAP = 10;
+export const PACK_POP_CAP = 16;
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
 
 export function campReset() { try { localStorage.removeItem(KEY); localStorage.removeItem(PENDING); } catch {} }
@@ -131,12 +131,17 @@ const RANK_ADAPT = { S: 1.2, A: 1.12, B: 1.0, C: 0.92, D: 0.85 };
 export function scalingFor(st, siteId) {
   const site = SITES[siteId];
   const tier = 0.85 + site.tier * 0.14;                       // authored difficulty
-  const progress = 1 + 0.12 * st.liberated.length;            // the corp hardens as it loses
+  const progress = 1 + 0.07 * st.liberated.length;            // the corp hardens as it loses
   const recent = (Array.isArray(st.history) && st.history.length ? st.history : Object.values(st.ranks || {})).slice(-2);
   let adapt = recent.length
     ? recent.reduce((a, r) => a + (RANK_ADAPT[r] || 1), 0) / recent.length
     : 1;
   adapt = Math.max(0.85, Math.min(1.2, adapt));               // the Homeworld clamp
+  /* Ease the band in over the first three liberations. At full strength on the
+     very first transition it meant an S on site 1 made site 2 twenty percent
+     harder than a B and forty percent harder than a D — punishing the player for
+     playing well, at exactly the point they have the least to absorb it with. */
+  adapt = 1 + (adapt - 1) * Math.min(1, st.liberated.length / 3);
   const c = Math.max(0.7, Math.min(2.6, tier * progress * adapt));
   return { challenge: c, tier: site.tier, adapt };
 }

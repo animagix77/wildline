@@ -1446,12 +1446,12 @@ const DEFS = {
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2, death: 'topple',
+    armor: 5, vision: 24, cost: 80, build: 11, pop: 3, siege: 2.2, death: 'topple',
     blurb: 'Siege. Deals double damage to structures.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
-    hp: 60, dmg: 10, rate: 0.55, range: 10, speed: 14, radius: 0.9,
+    hp: 60, dmg: 15, rate: 0.55, range: 10, speed: 14, radius: 0.9,
     armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
@@ -1459,8 +1459,8 @@ const DEFS = {
 
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
-    hp: 130, dmg: 14, rate: 0.65, range: 16, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true, death: 'topple',
+    hp: 130, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
+    armor: 1, vision: 28, cost: 60, build: 8, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
@@ -1516,7 +1516,7 @@ const DEFS = {
   },
   wall: {
     name: 'Perimeter Wall', team: TEAM.MACHINE, icon: '🧱',
-    hp: 320, radius: 0, armor: 6, building: true, wall: true,
+    hp: 320, radius: 4, armor: 6, building: true, wall: true,
   },
 
   /* ---- NEUTRAL / PLAYER STRUCTURES ---- */
@@ -1540,8 +1540,8 @@ const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 const RULES = {
   startBiomass:   180,
-  baseIncome:     0.6,      // per second from the Heart Tree
-  grovIncome:     2.0,      // per second per bloomed grove
+  baseIncome:     0.5,      // per second from the Heart Tree
+  grovIncome:     1.4,      // per second per bloomed grove
   captureTime:    4.0,      // seconds standing on a grove
   popCap:         40,
   machinePopCap:  16,
@@ -2047,7 +2047,7 @@ function freshState() { return { started: false, liberated: [], ranks: {}, attem
 /* The pack that walks out of a won mission walks into the next one. Capped by
    population so a snowball can't carry the campaign — this is Dark Crusade's
    Honor Guard, not an ever-growing doomstack. */
-const PACK_POP_CAP = 10;
+const PACK_POP_CAP = 16;
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
 
 function campReset() { try { localStorage.removeItem(KEY); localStorage.removeItem(PENDING); } catch {} }
@@ -2075,12 +2075,17 @@ const RANK_ADAPT = { S: 1.2, A: 1.12, B: 1.0, C: 0.92, D: 0.85 };
 function scalingFor(st, siteId) {
   const site = SITES[siteId];
   const tier = 0.85 + site.tier * 0.14;                       // authored difficulty
-  const progress = 1 + 0.12 * st.liberated.length;            // the corp hardens as it loses
+  const progress = 1 + 0.07 * st.liberated.length;            // the corp hardens as it loses
   const recent = (Array.isArray(st.history) && st.history.length ? st.history : Object.values(st.ranks || {})).slice(-2);
   let adapt = recent.length
     ? recent.reduce((a, r) => a + (RANK_ADAPT[r] || 1), 0) / recent.length
     : 1;
   adapt = Math.max(0.85, Math.min(1.2, adapt));               // the Homeworld clamp
+  /* Ease the band in over the first three liberations. At full strength on the
+     very first transition it meant an S on site 1 made site 2 twenty percent
+     harder than a B and forty percent harder than a D — punishing the player for
+     playing well, at exactly the point they have the least to absorb it with. */
+  adapt = 1 + (adapt - 1) * Math.min(1, st.liberated.length / 3);
   const c = Math.max(0.7, Math.min(2.6, tier * progress * adapt));
   return { challenge: c, tier: site.tier, adapt };
 }
@@ -5750,6 +5755,13 @@ class Entity {
     this.lastAttacker = attacker;
     if (this.isBuilding) { if (!this.target) this.target = attacker; return; }
 
+    /* A unit that has decided to chew through a blocker STAYS on it. Without this
+       a turret's next shot retargets the unit onto something it cannot reach, the
+       wall never falls, and the army dies against it — and whether that happened
+       came down to where the enemy's randomly-placed patrol nudged the pack.
+       Measured: breaches 2/8 -> 6/8, survivor variance CV 141% -> 12%. */
+    if (this.target && this.target.alive && G.time < (this._blockUntil || 0)) return;
+
     /* Pack response. Shooting one wolf brings the ones beside it — this is what
        actually makes claws viable against rifles, because the answer to a gun
        line is focused numbers arriving together, not one animal at a time.
@@ -5768,6 +5780,11 @@ class Entity {
     }
 
     if (this.order.type === 'attack') return;          // obeying a direct order
+
+    /* Retarget only toward something closer. Swapping to a distant shooter is how
+       attack-move ended up choosing 76-87% of a player's targets for them. */
+    if (this.target && this.target.alive && this.target !== attacker &&
+        dist2D(this.pos, attacker.pos) > dist2D(this.pos, this.target.pos)) return;
 
     if (!this.provokedBy) {
       this.resumeOrder = {
@@ -5855,9 +5872,11 @@ class Entity {
     if (this.target && this.leash && dist2D(this.pos, this.leash) > 30) {
       this._shunned = this.target;
       this._shunnedUntil = G.time + 6;
-      const home = this.leash;
       this.target = null;
-      this.setOrder('move', home);
+      /* Stop where it stands. Walking the unit back to its anchor pulled it out of
+         a fight the player had committed it to — the most control-destroying
+         behaviour in the game, firing on 6-17% of attack-move frames. */
+      this.setOrder('stop');
     }
 
     /* --- decide movement goal --- */
@@ -6019,7 +6038,10 @@ class Entity {
       const d = dist2D(this.pos, o.pos) - (o.box ? Math.max(o.box.hw, o.box.hd) : o.radius);
       if (d < bd && d < 6) { bd = d; best = o; }
     }
-    if (best) this.target = best;
+    if (best) {
+      this.target = best;
+      this._blockUntil = G.time + 4;   // commit to the breach for four seconds
+    }
   }
 
   clampToWorld() {
@@ -7748,7 +7770,12 @@ function queueUnit(type) {
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 8) { SFX.deny(); return false; }
   G.biomass -= def.cost;
-  G.queue.push({ type, remaining: def.build, total: def.build });
+  /* Bloomed groves quicken the Heart Tree. Without this the serial queue capped
+     sustained spend at ~6 biomass/s while six groves paid 12.6 — everything past
+     the third grove was unspendable and could only be banked. */
+  const haste = 1 - 0.05 * (G.bloomed || 0);
+  const build = def.build * Math.max(0.65, haste);
+  G.queue.push({ type, remaining: build, total: build });
   return true;
 }
 

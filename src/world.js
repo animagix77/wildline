@@ -557,7 +557,12 @@ export function queueUnit(type) {
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 8) { SFX.deny(); return false; }
   G.biomass -= def.cost;
-  G.queue.push({ type, remaining: def.build, total: def.build });
+  /* Bloomed groves quicken the Heart Tree. Without this the serial queue capped
+     sustained spend at ~6 biomass/s while six groves paid 12.6 — everything past
+     the third grove was unspendable and could only be banked. */
+  const haste = 1 - 0.05 * (G.bloomed || 0);
+  const build = def.build * Math.max(0.65, haste);
+  G.queue.push({ type, remaining: build, total: build });
   return true;
 }
 

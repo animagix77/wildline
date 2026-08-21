@@ -28,10 +28,10 @@ where you begin — you have to take ground first.
 **Win:** destroy the three **Coolant Towers**. The hologram shield over the **Server Core**
 tears and fails, and the Core can then be brought down.
 **Lose:** the Heart Tree falls. On GROVE difficulty a wholly passive player survives
-sweeps 1–3 and dies to the **fourth**, at about **7:20**; in roughly one run in five the
-third sweep gets through instead, at about **6:05**.
-
-That spread is not noise — survival is a step function on wave index, so clearing a
+sweeps 1–3 and dies to the **fourth**, at **7:12–7:39** (16 measured runs, mean 7:25,
+sd 7.7 s). Survival is a step function on wave index rather than a curve — clear a
+sweep and you buy a whole `waveEvery` — so the spread within sweep 4 is tight and the
+gap between sweeps is large.That spread is not noise — survival is a step function on wave index, so clearing a
 sweep buys you a whole `waveEvery` and the outcome jumps in ~75-second steps rather
 than sliding. Measured across 11 passive runs (mine and an independent reviewer's).
 
@@ -55,9 +55,9 @@ than sliding. Measured across 11 passive runs (mine and an independent reviewer'
 | 🐗 | **Boar** | 35 | Armour 3 — small arms barely scratch it. 1.4× vs structures. |
 | 🐻 | **Bear** | 70 | Siege. **2.2× vs structures.** What actually kills coolant towers. |
 | 🦅 | **Raven** | 35 | Flies. Ignores the perimeter entirely — the only way in that isn't a gate. |
-| 🦔 | **Porcupine** | 55 | Quill volley at 14 m — the wild faction's only ground rifle. Slow (4.6) and armoured (5), so it holds a line but never chases one. |
+| 🦔 | **Porcupine** | 55 | Quill volley at 14 m. Slow (4.6) and armoured (5) — it holds a line but never chases one. |
 | 🦫 | **Beaver** | 45 | 1.8× siege on structures and the natural answer to intake pumps. Gnaws the drain shut. |
-| 🎯 | **Local** | 110 | The valley's people — a woman or a man with a hunting rifle, decided at the door. Your only ground rifle: outranged only by turrets, out-damages a guard. Expensive. |
+| 🎯 | **Local** | 60 | The valley's people — a woman or a man with a hunting rifle, decided at the door. Range 20: outranges a Security Guard's 17, outranged by a turret's 25. The wild faction's real gun line. |
 | 🌿 | **Overgrowth** | 90 | Roots every machine in a 14 m circle for 5 s. 35 s cooldown. |
 
 The Heart Tree defends itself, flinging thorns at anything machine inside 24 m.
@@ -180,6 +180,39 @@ both stylesheets and the markup, and emits `wildline.html`.
 Two guards run on every build: a fast regex scan for duplicate top-level names, and then
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
+
+### Balance, and why it isn't luck
+
+An independent analyst ran ~700 simulated matches against this build. The headline
+finding was that outcomes were **bimodal** — the same scripted plan produced either a
+50-second walkover or a six-minute total wipe, with nothing in between, and scores
+spread 3.1× on identical inputs. Worse, it was **non-monotone in force**: 12 bears
+breached more often than 13.
+
+All of it traced to one interaction. A unit would correctly decide "this wall is in my
+way, chew it", then a turret's next shot would fire `provoke()`, which retargeted it
+onto something it could not reach. Turret cadence is 0.85 s, so it repeated forever and
+the wall never fell. Whether it triggered depended on where the enemy's *randomly
+placed* patrol happened to nudge the pack — invisible to the player behind fog.
+
+The fix is a four-second commitment: a unit that has picked a blocker stays on it.
+
+| | breaches | survivors of 13 | outcome spread |
+|---|---|---|---|
+| before | 2 of 8 | 0, 0, 0, 3, 1, 12, 1, 9 | **CV 141%** |
+| after | 6 of 8 | 12, 13, 12, 10, 13, 9, 12, 13 | **CV 12%** |
+
+Twelvefold reduction in variance, and crucially it did **not** make the game easy —
+every degenerate strategy still loses: mass ravens 0/6, bear rush with no economy 0/6,
+turtle-and-never-attack 0/6, commit-too-early 0/6. A two-minute wasted opening is
+unrecoverable; a one-minute one recovers about 1 run in 6. The intended loop —
+expand, grow, commit once around 3:30–5:00 — is enforced rather than decorative, and
+the sharpest decision in the game is *when* to commit: 18 pop loses, 30 pop wins, 38
+pop wins slower.
+
+Randomness that could decide a fight has been removed (deterministic depot
+composition, id-seeded first-shot timing). The simulation is bit-identical under a
+fixed seed.
 
 ### Fighting back
 

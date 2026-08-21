@@ -39,12 +39,12 @@ export const DEFS = {
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 70, build: 11, pop: 3, siege: 2.2, death: 'topple',
+    armor: 5, vision: 24, cost: 80, build: 11, pop: 3, siege: 2.2, death: 'topple',
     blurb: 'Siege. Deals double damage to structures.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
-    hp: 60, dmg: 10, rate: 0.55, range: 10, speed: 14, radius: 0.9,
+    hp: 60, dmg: 15, rate: 0.55, range: 10, speed: 14, radius: 0.9,
     armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
@@ -52,8 +52,8 @@ export const DEFS = {
 
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
-    hp: 130, dmg: 14, rate: 0.65, range: 16, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 110, build: 10, pop: 2, ranged: true, death: 'topple',
+    hp: 130, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
+    armor: 1, vision: 28, cost: 60, build: 8, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
@@ -109,7 +109,7 @@ export const DEFS = {
   },
   wall: {
     name: 'Perimeter Wall', team: TEAM.MACHINE, icon: '🧱',
-    hp: 320, radius: 0, armor: 6, building: true, wall: true,
+    hp: 320, radius: 4, armor: 6, building: true, wall: true,
   },
 
   /* ---- NEUTRAL / PLAYER STRUCTURES ---- */
@@ -133,8 +133,8 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   180,
-  baseIncome:     0.6,      // per second from the Heart Tree
-  grovIncome:     2.0,      // per second per bloomed grove
+  baseIncome:     0.5,      // per second from the Heart Tree
+  grovIncome:     1.4,      // per second per bloomed grove
   captureTime:    4.0,      // seconds standing on a grove
   popCap:         40,
   machinePopCap:  16,
