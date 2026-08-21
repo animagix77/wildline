@@ -7,6 +7,7 @@
 
 import { RULES, DEFS } from './config.js';
 import { G } from './state.js';
+import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete } from './campaign.js';
 import { rankFor } from './score.js';
 
 /* ======================================================== difficulties == */
@@ -247,10 +248,17 @@ export function showStartScreen(onStart) {
 
   /* ---- go ---- */
   const foot = sxEl('div', 'ss-foot');
-  const begin = sxEl('button', 'ss-begin', '<span>Begin</span>');
+  const begin = sxEl('button', 'ss-begin', '<span>Quick Battle</span>');
   begin.id = 'ss-begin';          // stable handle for automated smoke tests
   begin.type = 'button';
-  foot.appendChild(begin);
+  const camp = sxEl('button', 'ss-begin ss-camp', '<span>Campaign</span>');
+  camp.id = 'ss-campaign';
+  camp.type = 'button';
+  const btnRow = sxEl('div', 'ss-btnrow');
+  btnRow.appendChild(camp);
+  btnRow.appendChild(begin);
+  foot.appendChild(btnRow);
+  camp.addEventListener('click', () => showCampaignMap());
   foot.appendChild(sxEl('p', 'ss-hint',
     `${sxKey('←')}${sxKey('→')} choose season · ${sxKey('Enter')} begin · audio starts on your first click`));
   panel.appendChild(foot);
@@ -405,7 +413,7 @@ function sxTally(rows, emptyText, showPoints) {
  * Run summary. `stats` is the object from score.js getStats().
  * onRestart() fires from the RUN IT AGAIN button.
  */
-export function showEndScreen(win, stats, onRestart) {
+export function showEndScreen(win, stats, onRestart, opts = {}) {
   hideEndScreen();      // must come FIRST: it clears `menu` as part of its teardown
 
   /* Same rule as the title screen: the HUD must not sit behind the end card, and a
@@ -481,7 +489,7 @@ export function showEndScreen(win, stats, onRestart) {
   panel.appendChild(grid);
 
   const foot = sxEl('div', 'es-foot');
-  const again = sxEl('button', 'ss-begin es-again', '<span>Run it again</span>');
+  const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
@@ -558,4 +566,148 @@ export function hideEndScreen() {
   if (endEl) { endEl.remove(); endEl = null; }
   const stale = document.getElementById('endcard');
   if (stale) stale.remove();
+}
+
+/* =========================================================================
+   The Reclamation — territory map. A stylised valley: nodes are TerraByte
+   sites, edges are routes. Strike order is free; a chosen site writes a
+   pending mission and reloads into it (every mission is a fresh page).
+   ========================================================================= */
+
+let campEl = null;
+
+export function showCampaignMap() {
+  if (campEl) campEl.remove();
+  const st = campState();
+  const root = sxEl('div', 'sx-screen camp-screen');
+  root.id = 'campmap';
+  root.appendChild(sxBackdrop());
+
+  const panel = sxEl('div', 'ss-panel camp-panel');
+  panel.appendChild(sxEl('div', 'ss-title camp-title', 'THE RECLAMATION'));
+  panel.appendChild(sxEl('p', 'ss-tagline',
+    campaignComplete(st)
+      ? 'Every rack is dark. The valley is loud again.'
+      : `${st.liberated.length} of ${Object.keys(SITES).length - 1} sites liberated · ${CORP} regrets nothing, publicly.`));
+
+  /* ---- the map itself ---- */
+  const board = sxEl('div', 'camp-board');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.classList.add('camp-edges');
+  for (const id in SITES) {
+    const site = SITES[id];
+    for (const l of (site.links || [])) {
+      const a = SITES[l];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a.mx); line.setAttribute('y1', a.my);
+      line.setAttribute('x2', site.mx); line.setAttribute('y2', site.my);
+      const lit = (st.liberated.includes(id) || st.liberated.includes(l) ||
+                   l === 'heartwood');
+      line.setAttribute('class', lit ? 'lit' : '');
+      svg.appendChild(line);
+    }
+  }
+  board.appendChild(svg);
+
+  let selected = null;
+  const info = sxEl('div', 'camp-info');
+  const strike = sxEl('button', 'ss-begin camp-strike', '<span>Strike</span>');
+  strike.id = 'camp-strike';
+  strike.style.display = 'none';
+
+  const describe = (site, status) => {
+    const sc = scalingFor(st, site.id);
+    const tierPips = '▮'.repeat(Math.max(1, site.tier)) + '▯'.repeat(Math.max(0, 5 - site.tier));
+    let extra = '';
+    if (status === 'liberated') extra = `<div class="ci-perk on">✓ ${site.perk.name} — ${site.perk.desc}</div>`;
+    else if (site.perk && !site.home) extra = `<div class="ci-perk">On liberation: <b>${site.perk.name}</b> — ${site.perk.desc}</div>`;
+    if (status === 'locked' && site.needLiberated) extra += `<div class="ci-lock">Requires ${site.needLiberated} liberated sites.</div>`;
+    info.innerHTML = `<h4>${site.name}</h4>
+      <div class="ci-tier">${site.home ? 'HOME' : `THREAT ${tierPips}`}${status === 'open' && !site.home ? ` · scaling ×${sc.challenge.toFixed(2)}` : ''}</div>
+      <p>${site.blurb}</p>${extra}`;
+    strike.style.display = status === 'open' ? '' : 'none';
+  };
+
+  for (const id in SITES) {
+    const site = SITES[id];
+    const status = siteStatus(st, id);
+    const node = sxEl('button', `camp-node ${status}`);
+    node.type = 'button';
+    node.dataset.site = id;
+    node.style.left = site.mx + '%';
+    node.style.top = site.my + '%';
+    node.innerHTML = `<i></i><span>${site.name}</span>`;
+    node.addEventListener('click', () => {
+      selected = id;
+      board.querySelectorAll('.camp-node').forEach(n => n.classList.toggle('sel', n === node));
+      describe(site, status);
+    });
+    board.appendChild(node);
+  }
+  panel.appendChild(board);
+
+  const foot = sxEl('div', 'camp-foot');
+  foot.appendChild(info);
+  const btns = sxEl('div', 'camp-btns');
+  strike.addEventListener('click', () => {
+    if (!selected) return;
+    setPending({ mode: 'campaign', site: selected });
+    location.reload();
+  });
+  const back = sxEl('button', 'ss-begin camp-back', '<span>Back</span>');
+  back.type = 'button';
+  back.addEventListener('click', () => { campEl.remove(); campEl = null; });
+  const reset = sxEl('button', 'ss-begin camp-reset', '<span>Abandon Run</span>');
+  reset.type = 'button';
+  reset.addEventListener('click', () => {
+    if (!st.started) return;
+    campReset(); campEl.remove(); campEl = null; showCampaignMap();
+  });
+  btns.appendChild(strike); btns.appendChild(back);
+  if (st.started) btns.appendChild(reset);
+  foot.appendChild(btns);
+  panel.appendChild(foot);
+
+  info.innerHTML = '<p class="ci-idle">Choose where the forest strikes next. TerraByte\u2019s lawyers are standing by.</p>';
+
+  root.appendChild(panel);
+  sxHost().appendChild(root);
+  campEl = root;
+  return root;
+}
+
+/* ---- mission briefing: shown over the loaded map's own cinematic orbit ---- */
+export function showBriefing(site, mods, onBegin) {
+  const root = sxEl('div', 'sx-screen brief-screen');
+  root.id = 'briefing';
+  root.appendChild(sxBackdrop());
+  const panel = sxEl('div', 'ss-panel brief-panel');
+  panel.appendChild(sxEl('div', 'ss-title', site.name.toUpperCase()));
+  panel.appendChild(sxEl('p', 'ss-tagline', site.blurb));
+  const facts = sxEl('div', 'brief-facts');
+  facts.innerHTML = `
+    <div><b>Objective</b><span>Break the Coolant Towers, then the Server Core.</span></div>
+    <div><b>Threat</b><span>tier ${site.tier} · scaling ×${mods.challenge.toFixed(2)}</span></div>
+    ${mods.perks.length ? `<div><b>Your ground</b><span>${mods.perks.length} perk${mods.perks.length > 1 ? 's' : ''} active</span></div>` : ''}`;
+  panel.appendChild(facts);
+  const go = sxEl('button', 'ss-begin', '<span>Begin the strike</span>');
+  go.id = 'br-begin';
+  go.type = 'button';
+  go.addEventListener('click', () => { root.remove(); onBegin(); });
+  /* the pending strike survives a refresh (deliberate — you can resume), so the
+     briefing needs a way OUT or a closed tab becomes a one-way door */
+  const withdraw = sxEl('button', 'ss-begin camp-back', '<span>Withdraw</span>');
+  withdraw.id = 'br-withdraw';
+  withdraw.type = 'button';
+  withdraw.addEventListener('click', () => { setPending({ mode: 'return' }); location.reload(); });
+  const row = sxEl('div', 'ss-btnrow');
+  row.appendChild(withdraw); row.appendChild(go);
+  panel.appendChild(row);
+  root.appendChild(panel);
+  sxHost().appendChild(root);
+  const onKey = e => { if (e.code === 'Enter') { window.removeEventListener('keydown', onKey); go.click(); } };
+  window.addEventListener('keydown', onKey);
+  return root;
 }

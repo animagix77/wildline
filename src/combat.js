@@ -6,6 +6,7 @@ import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
 import { explode, chainExplosion, spiritWisp } from './vfx.js';
+import { commsEvent } from './comms.js';
 
 /* ============================ PARTICLES ================================= */
 
@@ -175,6 +176,8 @@ export function kill(e) {
     /* structure death scales the pyrotechnics to what just fell */
     const POWER = { wall: 0.9, turret: 1.2, depot: 2, coolant: 2.2, core: 3, grove: 1, hearttree: 2.6 };
     const pw = POWER[e.type] || 1;
+    if (e.type === 'turret') commsEvent('turret', 0.7);
+    else if (e.type === 'wall') commsEvent('wall', 0.2);
     explode(p, pw, { nature });
     if (e.type === 'core') chainExplosion(e.pos, e.def.radius, 6, 1.4, {});
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });

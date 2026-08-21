@@ -7,12 +7,15 @@ import { initHUD, updateHUD } from './hud.js';
 import { updateAI } from './ai.js';
 import { updateCombatFX } from './combat.js';
 import { updateVFX } from './vfx.js';
+import { commsEvent, updateComms } from './comms.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND } from './config.js';
 import { toast } from './ui.js';
 import { vw, vh } from './utils.js';
 import { initFog, updateFog, fogRevealAll } from './fog.js';
-import { showStartScreen, applyDifficulty } from './screens.js';
+import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
+import { loadMap, DEFAULT_MAP } from './maps.js';
+import { SITES, pendingMission, setPending, applyCampaignMods, campState } from './campaign.js';
 import { initScore, updateScore, setProjector } from './score.js';
 import { initPerf, perfFrame } from './perf.js';
 
@@ -42,8 +45,15 @@ G.fxRoot = new THREE.Group();
 scene.add(G.entityRoot);
 scene.add(G.fxRoot);
 
-/* The world is built immediately so the title screen has a live 3D backdrop to
-   orbit, but no entities exist until a difficulty is chosen. */
+/* Which map? A pending campaign strike decides; otherwise the home valley.
+   loadMap() must run before buildScene(): terrain, shader uniforms and the
+   compound footprint are all read at construction time. */
+const pending = pendingMission();
+const pendingSite = pending && pending.mode === 'campaign' ? SITES[pending.site] : null;
+loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+
+/* The world is built immediately so the title/briefing screen has a live 3D
+   backdrop to orbit, but no entities exist until the player commits. */
 buildScene(scene);
 
 const rtsCamera = new RTSCamera(camera);
@@ -74,11 +84,11 @@ document.getElementById('loading').remove();
 
 /* -------------------------------------------------------------- boot --- */
 G.phase = 'menu';
-document.body.classList.add('menu');       // hides the HUD behind the title screen
-showStartScreen(diff => {
+document.body.classList.add('menu');       // hides the HUD behind the title/briefing
+
+function launchMission() {
   document.body.classList.remove('menu');
-  applyDifficulty(diff);        // must precede populate(): the starting garrison size
-  populate();                   // is read from RULES at spawn time
+  populate();
   initFog();
   initScore();
   rtsCamera.cinematic = null;
@@ -86,7 +96,23 @@ showStartScreen(diff => {
   rtsCamera.update(0.016);
   G.phase = 'playing';
   toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
-});
+}
+
+if (pendingSite) {
+  /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
+     perks earned from liberated ground. Order matters: applyDifficulty first. */
+  applyDifficulty(DIFFICULTIES[1]);
+  const mods = applyCampaignMods(campState(), pendingSite.id);
+  G.campaignSite = pendingSite.id;
+  showBriefing(pendingSite, mods, launchMission);
+} else {
+  showStartScreen(diff => {
+    applyDifficulty(diff);        // must precede populate(): the starting garrison size
+    launchMission();              // is read from RULES at spawn time
+  });
+  // returning from a finished mission drops you straight back onto the map
+  if (pending && pending.mode === 'return') { setPending(null); showCampaignMap(); }
+}
 
 /* ------------------------------------------------------------- loop ---- */
 let last = performance.now();
@@ -149,6 +175,7 @@ function frame(now, manual) {
   tickShaders(G.time, dt);
   updateCombatFX(dt);
   updateVFX(dt);
+  updateComms(dt);
   rtsCamera.update(dt);
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over

@@ -41,8 +41,10 @@ export function updateHUD() {
   /* cards */
   for (const c of cards) {
     const d = DEFS[c.dataset.type];
-    const afford = G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
+    const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
+    c.classList.toggle('gated', !!gated);
   }
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;

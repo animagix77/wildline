@@ -9,6 +9,8 @@ import { Entity, spawn } from './entity.js';
 import { toast } from './ui.js';
 import { showEndScreen } from './screens.js';
 import { addScore, getStats } from './score.js';
+import { commsEvent } from './comms.js';
+import { recordResult, setPending } from './campaign.js';
 import { SFX } from './audio.js';
 import { ring, burst } from './combat.js';
 
@@ -17,8 +19,10 @@ import { ring, burst } from './combat.js';
    ========================================================================= */
 
 export function buildScene(scene) {
-  scene.background = new THREE.Color(0x1b2f24);
-  scene.fog = new THREE.Fog(0x24402f, 170, 420);
+  const pal = (G.map && G.map.palette) || {};
+  scene.background = new THREE.Color(pal.bg !== undefined ? pal.bg : 0x1b2f24);
+  scene.fog = new THREE.Fog(pal.fog !== undefined ? pal.fog : 0x24402f,
+    pal.fogNear || 170, pal.fogFar || 420);
 
   const hemi = new THREE.HemisphereLight(0xbde4ff, 0x3d4f2e, 1.0);
   scene.add(hemi);
@@ -126,7 +130,7 @@ function freeSpot(minDistCompound = 6) {
     if (insideCompound(x, z, minDistCompound)) continue;
     if (Math.hypot(x - BASE.x, z - BASE.z) < 28) continue;
     let ok = true;
-    for (const g of GROVE_POINTS) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
+    for (const g of G.map.groves) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
     if (!ok) continue;
     return { x, y: terrainHeight(x, z), z };
   }
@@ -139,22 +143,24 @@ function buildProps(scene) {
      that happens to share a colour key into the fog shader too. */
   const scenic = (mat) => applyFogMask(mat.clone());
 
+  const density = (G.map && G.map.props) || {};
+
   // forest
-  const [trunks, leaves] = makeForest(820, () => freeSpot(10));
+  const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
   scene.add(trunks); scene.add(leaves);
 
   // rocks
   scene.add(makeScatter(
-    new THREE.DodecahedronGeometry(1, 0), scenic(M(0x6a6b64, { rough: 1 })), 240,
+    new THREE.DodecahedronGeometry(1, 0), scenic(M(0x6a6b64, { rough: 1 })), density.rocks || 240,
     () => { const p = freeSpot(4); if (p) p.y -= 0.3; return p; }, [0.6, 2.4]
   ));
 
   // ferns / low brush
   const fern = new THREE.ConeGeometry(0.8, 1.6, 5);
   fern.translate(0, 0.8, 0);
-  scene.add(makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), 520,
+  scene.add(makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), density.ferns || 520,
     () => freeSpot(6), [0.6, 1.5]));
 
   // dead sticks in the blighted zone
@@ -195,19 +201,15 @@ function buildProps(scene) {
    Map population
    ========================================================================= */
 
-const GROVE_POINTS = [
-  { x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 },
-  { x: 16, z: -4 }, { x: -14, z: -62 }, { x: 70, z: 34 },
-];
-
-const TURRETS = [
-  [22, -22], [22, -78], [90, -26], [90, -74],
-  [46, -34], [46, -66],
-];
-const COOLANTS = [[26, -68], [26, -30], [86, -50]];
-const DEPOTS = [[56, -76], [56, -27]];
+/* Layout arrays live on the MapDef now — see src/maps.js. These getters exist
+   so the rest of this file reads naturally. */
+const layout = () => G.map;
 
 export function populate() {
+  const GROVE_POINTS = layout().groves;
+  const TURRETS = layout().turrets;
+  const COOLANTS = layout().coolants;
+  const DEPOTS = layout().depots;
   G.grovePoints = GROVE_POINTS;
   G.obstacles = [];
   G.grid = new Grid(10);
@@ -216,7 +218,7 @@ export function populate() {
   const heart = spawn('hearttree', BASE.x, BASE.z);
   heart.onDeath = () => {
     G.over = true;
-    showEndScreen(false, getStats(false), () => location.reload());
+    endMission(false);
   };
   G.heart = heart;
   G.obstacles.push(heart);
@@ -239,7 +241,7 @@ export function populate() {
   const core = spawn('core', 58, -50);
   core.onDeath = () => {
     G.over = true;
-    showEndScreen(true, getStats(true), () => location.reload());
+    endMission(true);
   };
   G.core = core;
   G.obstacles.push(core);
@@ -259,8 +261,10 @@ export function populate() {
       const left = G.coolants.filter(k => k.alive).length;
       ring(c.pos, 0x39d7ea, 26, 1.4);
       if (left > 0) {
+        commsEvent('coolant');
         toast(`Coolant tower down — ${left} remaining`, 'machine');
       } else {
+        commsEvent('coreExposed');
         G.coreExposed = true;
         SFX.alarm();
         toast('THERMAL RUNAWAY — the Server Core is exposed', 'warn');
@@ -271,9 +275,9 @@ export function populate() {
   });
 
   G.depots = DEPOTS.map(([x, z]) => {
-    const d = spawn('depot', x, z, { rotY: z > -50 ? Math.PI : 0 });
+    const d = spawn('depot', x, z, { rotY: z > COMPOUND.z ? Math.PI : 0 });
     d.spawnTimer = rand(4, 10);
-    d.onDeath = () => toast('Security Depot destroyed — fewer reinforcements', 'machine');
+    d.onDeath = () => { commsEvent('depot'); toast('Security Depot destroyed — fewer reinforcements', 'machine'); };
     G.obstacles.push(d);
     return d;
   });
@@ -291,6 +295,19 @@ export function populate() {
   for (let i = 0; i < RULES.garrisonDrones; i++) {
     const d = spawn('drone', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
     assignPatrol(d);
+  }
+}
+
+/* Mission resolution: in a campaign, bank the result and route the end-screen
+   button back to the territory map; in a quick battle, just offer a rerun. */
+function endMission(win) {
+  const stats = getStats(win);
+  if (G.campaignSite) {
+    recordResult(G.campaignSite, win, stats.rank);
+    showEndScreen(win, stats, () => { setPending({ mode: 'return' }); location.reload(); },
+      { buttonLabel: win ? 'Return to the valley' : 'Back to the valley map' });
+  } else {
+    showEndScreen(win, stats, () => location.reload());
   }
 }
 
@@ -368,6 +385,7 @@ export function updateWorld(dt) {
         ring(g.pos, 0x9bff6a, 9, 1.1);
         burst(g.pos.clone().setY(g.pos.y + 1), 0x9bff6a, 22, 11, 1.1, 0.9);
         addScore('grove', 'bloom', g.pos);
+        commsEvent('grove', 0.6);
         toast('Grove bloomed — biomass rising');
       } else if (g.owned && g.prog <= 0) {
         g.owned = false;
@@ -449,6 +467,11 @@ function rallySlot() {
 export function queueUnit(type) {
   const def = DEFS[type];
   if (!G.heart.alive) return false;
+  if (G.lockedUnits && G.lockedUnits.includes(type)) {
+    toast('The Locals have not joined yet — liberate Milltown', 'warn');
+    SFX.deny(); return false;
+  }
+  if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 8) { SFX.deny(); return false; }

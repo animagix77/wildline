@@ -41,11 +41,19 @@ function pad(x, z, cx, cz, r0, r1) {
   return smoothstep(r0, r1, Math.hypot(x - cx, z - cz));
 }
 
+/* Mutable terrain parameters — loadMap() rewrites these per scenario, so the
+   same height function produces a marsh, a valley or an alpine ridge. */
+export const TERRA = {
+  freq: 0.012, ampl: 9, lift: -4,
+  rippleFx: 0.05, rippleFz: 0.043, rippleA: 1.4,
+  blightReach: 34,
+};
+
 export function terrainHeight(x, z) {
-  let h = fbm(x * 0.012, z * 0.012, 4) * 9 - 4;
-  h += Math.sin(x * 0.05) * Math.cos(z * 0.043) * 1.4;
+  let h = fbm(x * TERRA.freq, z * TERRA.freq, 4) * TERRA.ampl + TERRA.lift;
+  h += Math.sin(x * TERRA.rippleFx) * Math.cos(z * TERRA.rippleFz) * TERRA.rippleA;
   const f = Math.min(
-    pad(x, z, COMPOUND.x, COMPOUND.z, 46, 74),
+    pad(x, z, COMPOUND.x, COMPOUND.z, Math.max(COMPOUND.hw, COMPOUND.hd) + 8, Math.max(COMPOUND.hw, COMPOUND.hd) + 36),
     pad(x, z, BASE.x, BASE.z, 18, 40)
   );
   return h * f;
@@ -55,7 +63,7 @@ export function terrainHeight(x, z) {
 export function blight(x, z) {
   const dx = Math.max(0, Math.abs(x - COMPOUND.x) - COMPOUND.hw);
   const dz = Math.max(0, Math.abs(z - COMPOUND.z) - COMPOUND.hd);
-  return 1 - smoothstep(0, 34, Math.hypot(dx, dz));
+  return 1 - smoothstep(0, TERRA.blightReach, Math.hypot(dx, dz));
 }
 
 export function insideCompound(x, z, margin = 0) {

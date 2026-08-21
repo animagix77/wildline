@@ -58,6 +58,29 @@ than sliding. Measured across 11 passive runs (mine and an independent reviewer'
 
 The Heart Tree defends itself, flinging thorns at anything machine inside 24 m.
 
+## The Reclamation — campaign
+
+Dark Crusade school: a territory map of seven TerraByte sites with free strike order.
+Every liberated site grants a permanent perk (Milltown's is the **Locals unlock** —
+until the town joins, the card sits greyed out reading LIBERATE MILLTOWN), and the
+corporation scales as it loses ground:
+
+```
+challenge = tier(site) × progress × adapt
+```
+
+`tier` is authored per site, `progress` grows +12% per liberation, and `adapt` is a
+clamped band `[0.85 … 1.2]` read from your last two mission ranks — Homeworld's
+fleet-scaling idea without Homeworld's death spiral. Scenarios span four terrain
+archetypes (valley, wetland, alpine, industrial) driven entirely by parameters on the
+same height function; the finale is The Campus, a tier-5 stronghold. Campaign state
+lives in localStorage; every mission is a fresh page load, so scaling needs no
+teardown machinery. Quick Battle remains the original standalone mission.
+
+Humor rides on the **TerraByte Solutions media ticker**: every setback you inflict
+triggers a corporate statement, and the statements get more desperate while the voice
+never breaks. ("Have you tried turning the forest off and on again?")
+
 ## Controls
 
 Classic RTS layout: **letters are commands, arrows and the screen edge move the camera.**
@@ -168,5 +191,7 @@ the one step that can silently change semantics, so it is verified rather than a
 
 ### Not built yet
 
-Building placement (bramble walls, thorn towers) · veterancy · a second map · saved games ·
-air support for the campus · terrain visibly regrowing as you level the site.
+Veteran carry-over between campaign missions (the pack persisting, Dark Crusade's
+Honor Guard) · counterattack raids on held territory · building placement · a
+machine-side campaign (every MapDef already carries a `faction` field for it) ·
+terrain visibly regrowing as you level the site.

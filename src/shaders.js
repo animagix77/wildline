@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { COMPOUND, BASE } from './config.js';
 
 /* =========================================================================
    WILDLINE — procedural GLSL suite.
@@ -224,9 +225,10 @@ export function makeTerrainMaterial() {
     wl_detailFade:   { value: new THREE.Vector2( 70, 260 ) }, // near/far LOD band
     wl_bumpStrength: { value: 0.38 },     // micro-normal amplitude
     wl_fallbackMix:  { value: 1.0 },      // 1 = use analytic blight fallback
-    wl_compound:     { value: new THREE.Vector4( 56, -50, 40, 33 ) }, // cx,cz,hw,hd
+    // read at creation time: loadMap() mutates COMPOUND/BASE before buildScene()
+    wl_compound:     { value: new THREE.Vector4( COMPOUND.x, COMPOUND.z, COMPOUND.hw, COMPOUND.hd ) },
     wl_compoundFade: { value: 34.0 },
-    wl_heart:        { value: new THREE.Vector2( -72, 68 ) },
+    wl_heart:        { value: new THREE.Vector2( BASE.x, BASE.z ) },
     wl_heartRadius:  { value: 42.0 },
   };
 

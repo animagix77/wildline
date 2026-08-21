@@ -661,7 +661,8 @@ export function makeForest(count, placeFn) {
     dummy.updateMatrix();
     trunks.setMatrixAt(n, dummy.matrix);
     leaves.setMatrixAt(n, dummy.matrix);
-    col.setHSL(0.26 + rand(-0.05, 0.05), rand(0.3, 0.5), rand(0.16, 0.30));
+    const hue = (typeof window !== 'undefined' && window.G && window.G.map && window.G.map.palette && window.G.map.palette.treeHue) || 0.26;
+    col.setHSL(hue + rand(-0.05, 0.05), rand(0.3, 0.5), rand(0.16, 0.30));
     leaves.setColorAt(n, col);
     n++;
   }

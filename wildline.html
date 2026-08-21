@@ -108,6 +108,8 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
   cursor:pointer;position:relative;transition:.12s}
 .card:hover{border-color:var(--leaf);background:linear-gradient(160deg,rgba(127,212,74,.2),rgba(255,255,255,.03));transform:translateY(-2px)}
 .card.locked{opacity:.4;cursor:not-allowed;transform:none}
+.card.gated{opacity:.25;filter:grayscale(1)}
+.card.gated::after{content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
 .card .ico{font-size:28px}
 .card .nm{font-size:11px;letter-spacing:.6px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
@@ -187,6 +189,18 @@ body.menu #bottombar,
 body.menu #toasts,
 body.menu #scorehud,
 body.menu #hovertip{ display:none !important; }
+
+
+/* ---------- TerraByte corporate comms ticker ---------- */
+#comms{position:absolute;top:66px;right:16px;z-index:9;width:300px;
+  background:#e8e9ea;color:#1c2026;border-radius:3px;padding:9px 12px 10px;
+  box-shadow:0 8px 26px rgba(0,0,0,.45);border-left:3px solid #39d7ea;
+  transform:translateX(330px);opacity:0;transition:transform .4s cubic-bezier(.2,.9,.25,1),opacity .35s;
+  pointer-events:none}
+#comms.on{transform:none;opacity:1}
+.comms-tag{font-size:8.5px;letter-spacing:1.8px;color:#5c6672;font-weight:600;margin-bottom:4px}
+.comms-line{font-size:12px;line-height:1.5;font-style:italic}
+body.menu #comms{display:none!important}
 
 
 /* ---- ui-extra.css ---- */
@@ -744,6 +758,55 @@ body.menu #hovertip{ display:none !important; }
   animation:ss-nudge 1.9s ease-in-out infinite;
 }
 @keyframes ss-nudge{ 0%,100%{ transform:translateY(0); opacity:.75 } 50%{ transform:translateY(3px); opacity:1 } }
+
+
+/* ================= THE RECLAMATION — campaign screens ================= */
+.camp-panel{ width:min(980px,94vw); }
+.camp-title{ letter-spacing:8px; }
+.camp-board{ position:relative; width:100%; aspect-ratio:2/1; min-height:280px;
+  background:
+    radial-gradient(60% 90% at 20% 70%, rgba(127,212,74,.10), transparent 60%),
+    radial-gradient(50% 80% at 82% 40%, rgba(57,215,234,.09), transparent 60%),
+    linear-gradient(160deg, #0c1610, #0a1210);
+  border:1px solid var(--edge); border-radius:4px; overflow:hidden; }
+.camp-edges{ position:absolute; inset:0; width:100%; height:100%; }
+.camp-edges line{ stroke:rgba(255,255,255,.10); stroke-width:.5; stroke-dasharray:2 2; }
+.camp-edges line.lit{ stroke:rgba(127,212,74,.4); }
+.camp-node{ position:absolute; transform:translate(-50%,-50%); background:none; border:none;
+  color:var(--bone); cursor:pointer; font-family:var(--font); text-align:center; padding:6px; }
+.camp-node i{ display:block; width:16px; height:16px; margin:0 auto 5px; border-radius:50%;
+  border:2px solid var(--dim); background:#0a120c; transition:.15s; }
+.camp-node span{ font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--dim);
+  text-shadow:0 2px 6px #000; white-space:nowrap; }
+.camp-node.home i{ border-color:var(--leaf); background:var(--leaf); box-shadow:0 0 14px rgba(127,212,74,.7); }
+.camp-node.liberated i{ border-color:var(--leaf); background:rgba(127,212,74,.35); }
+.camp-node.liberated span{ color:var(--leaf); }
+.camp-node.open i{ border-color:var(--machine); background:#0d2126; box-shadow:0 0 12px rgba(57,215,234,.55);
+  animation:camp-pulse 1.8s ease-in-out infinite; }
+.camp-node.open span{ color:#b9edf3; }
+.camp-node.locked{ cursor:default; opacity:.4; }
+.camp-node.sel i{ outline:2px solid var(--bone); outline-offset:2px; }
+@keyframes camp-pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
+.camp-foot{ display:flex; gap:18px; align-items:flex-start; }
+.camp-info{ flex:1; min-height:86px; font-size:12.5px; line-height:1.55; color:#c3d3c4; }
+.camp-info h4{ font-size:14px; letter-spacing:1px; color:var(--bone); margin-bottom:2px; }
+.ci-tier{ font-size:10px; letter-spacing:2px; color:var(--machine); margin-bottom:6px; }
+.ci-perk{ margin-top:7px; font-size:11.5px; color:#e8d9a0; }
+.ci-perk.on{ color:var(--leaf); }
+.ci-lock{ margin-top:6px; font-size:11px; color:var(--alarm); }
+.ci-idle{ color:#5c6b5e; font-style:italic; }
+.camp-btns{ display:flex; flex-direction:column; gap:8px; }
+.camp-back,.camp-reset{ opacity:.75; }
+.camp-reset{ border-color:rgba(255,106,61,.5); color:#ffb49a; }
+.ss-btnrow{ display:flex; gap:12px; justify-content:center; }
+.ss-camp{ border-color:var(--machine); color:#b9edf3; }
+.ss-camp:hover{ background:rgba(57,215,234,.12); }
+.brief-panel{ width:min(620px,92vw); text-align:left; }
+.brief-facts{ display:flex; flex-direction:column; gap:9px; margin:16px 0 20px; }
+.brief-facts div{ display:flex; gap:14px; font-size:12.5px; }
+.brief-facts b{ width:96px; flex-shrink:0; letter-spacing:1.4px; font-size:10px; text-transform:uppercase;
+  color:var(--dim); padding-top:2px; }
+.brief-facts span{ color:#c3d3c4; }
 
 </style>
 </head>
@@ -1509,11 +1572,19 @@ function pad(x, z, cx, cz, r0, r1) {
   return smoothstep(r0, r1, Math.hypot(x - cx, z - cz));
 }
 
+/* Mutable terrain parameters — loadMap() rewrites these per scenario, so the
+   same height function produces a marsh, a valley or an alpine ridge. */
+const TERRA = {
+  freq: 0.012, ampl: 9, lift: -4,
+  rippleFx: 0.05, rippleFz: 0.043, rippleA: 1.4,
+  blightReach: 34,
+};
+
 function terrainHeight(x, z) {
-  let h = fbm(x * 0.012, z * 0.012, 4) * 9 - 4;
-  h += Math.sin(x * 0.05) * Math.cos(z * 0.043) * 1.4;
+  let h = fbm(x * TERRA.freq, z * TERRA.freq, 4) * TERRA.ampl + TERRA.lift;
+  h += Math.sin(x * TERRA.rippleFx) * Math.cos(z * TERRA.rippleFz) * TERRA.rippleA;
   const f = Math.min(
-    pad(x, z, COMPOUND.x, COMPOUND.z, 46, 74),
+    pad(x, z, COMPOUND.x, COMPOUND.z, Math.max(COMPOUND.hw, COMPOUND.hd) + 8, Math.max(COMPOUND.hw, COMPOUND.hd) + 36),
     pad(x, z, BASE.x, BASE.z, 18, 40)
   );
   return h * f;
@@ -1523,7 +1594,7 @@ function terrainHeight(x, z) {
 function blight(x, z) {
   const dx = Math.max(0, Math.abs(x - COMPOUND.x) - COMPOUND.hw);
   const dz = Math.max(0, Math.abs(z - COMPOUND.z) - COMPOUND.hd);
-  return 1 - smoothstep(0, 34, Math.hypot(dx, dz));
+  return 1 - smoothstep(0, TERRA.blightReach, Math.hypot(dx, dz));
 }
 
 function insideCompound(x, z, margin = 0) {
@@ -1552,6 +1623,402 @@ class Grid {
     }
     return out;
   }
+}
+
+
+/* =================== src/maps.js =================== */
+/* =========================================================================
+   Scenario definitions. A map is pure data: terrain parameters, palette,
+   prop densities and the layout arrays world.js populates from. loadMap()
+   mutates the shared COMPOUND/BASE/TERRA objects BEFORE the scene is built,
+   so every module keeps reading the same references it always did.
+
+   `faction: 'wild'` is reserved on every map — a future machine-side campaign
+   ("play as middle management") flips it, and nothing here needs to change.
+   ========================================================================= */
+
+const VALLEY_PALETTE = { bg: 0x1b2f24, fog: 0x24402f, fogNear: 170, fogFar: 420, treeHue: 0.26 };
+
+const MAPS = {
+  /* ------------------------------------------------ the original valley -- */
+  'verdant-hollow': {
+    id: 'verdant-hollow', name: 'Verdant Hollow', archetype: 'valley', faction: 'wild',
+    terra: {}, palette: VALLEY_PALETTE,
+    props: { trees: 820, rocks: 240, ferns: 520 },
+    base: { x: -72, z: 68 },
+    compound: { x: 56, z: -50, hw: 40, hd: 33 },
+    groves: [{ x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 }, { x: 16, z: -4 }, { x: -14, z: -62 }, { x: 70, z: 34 }],
+    turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
+    coolants: [[26, -68], [26, -30], [86, -50]],
+    depots: [[56, -76], [56, -27]],
+  },
+
+  /* ------------------------------------------------------- tier 1 sites -- */
+  'relay-shed': {
+    id: 'relay-shed', name: 'Relay Shed 9', archetype: 'valley', faction: 'wild',
+    terra: {}, palette: VALLEY_PALETTE,
+    props: { trees: 880, rocks: 220, ferns: 560 },
+    base: { x: -74, z: 66 },
+    compound: { x: 62, z: -46, hw: 27, hd: 22 },
+    groves: [{ x: -30, z: 20 }, { x: 10, z: 62 }, { x: -60, z: -20 }, { x: 4, z: -16 }, { x: 66, z: 30 }],
+    turrets: [[44, -30], [80, -30], [62, -60]],
+    coolants: [[48, -56], [76, -56], [62, -32]],
+    depots: [[62, -50]],
+  },
+  'milltown': {
+    id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
+    terra: { ampl: 7 }, palette: { ...VALLEY_PALETTE, bg: 0x22301f, fog: 0x2c3c28 },
+    props: { trees: 700, rocks: 200, ferns: 640 },
+    base: { x: -70, z: 64 },
+    compound: { x: 52, z: -54, hw: 32, hd: 26 },
+    groves: [{ x: -36, z: 24 }, { x: 2, z: 60 }, { x: -62, z: -18 }, { x: 20, z: 0 }, { x: -18, z: -58 }, { x: 74, z: 28 }],
+    turrets: [[26, -34], [78, -34], [26, -74], [78, -74]],
+    coolants: [[36, -68], [36, -40], [72, -54]],
+    depots: [[52, -74], [52, -34]],
+  },
+
+  /* ------------------------------------------------------- tier 2 sites -- */
+  'mirefen': {
+    id: 'mirefen', name: 'The Mirefen Exchange', archetype: 'wetland', faction: 'wild',
+    terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5 },
+    palette: { bg: 0x182b2a, fog: 0x1f3a37, fogNear: 130, fogFar: 360, treeHue: 0.34 },
+    props: { trees: 480, rocks: 140, ferns: 900 },
+    base: { x: -70, z: 70 },
+    compound: { x: 55, z: -48, hw: 36, hd: 30 },
+    groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 14, z: -8 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
+    turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
+    coolants: [[28, -62], [28, -32], [82, -48]],
+    depots: [[55, -72], [55, -26]],
+  },
+  'substation-gary': {
+    id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
+    terra: { ampl: 16, freq: 0.010, rippleA: 2.4 },
+    palette: { bg: 0x1c2733, fog: 0x27333d, fogNear: 150, fogFar: 400, treeHue: 0.30 },
+    props: { trees: 520, rocks: 520, ferns: 260 },
+    base: { x: -72, z: 66 },
+    compound: { x: 58, z: -50, hw: 34, hd: 28 },
+    groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 18, z: -6 }, { x: 72, z: 32 }],
+    turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
+    coolants: [[30, -66], [30, -34], [86, -50]],
+    depots: [[58, -74], [58, -28]],
+  },
+
+  /* ------------------------------------------------------- tier 3 site --- */
+  'coldrake': {
+    id: 'coldrake', name: 'Coldrake Logistics Hub', archetype: 'industrial', faction: 'wild',
+    terra: { ampl: 6, blightReach: 52 },
+    palette: { bg: 0x242422, fog: 0x30302c, fogNear: 140, fogFar: 380, treeHue: 0.20 },
+    props: { trees: 420, rocks: 300, ferns: 240 },
+    base: { x: -74, z: 68 },
+    compound: { x: 52, z: -48, hw: 44, hd: 34 },
+    groves: [{ x: -36, z: 26 }, { x: 4, z: 64 }, { x: -64, z: -14 }, { x: -18, z: -64 }, { x: -84, z: 8 }],
+    turrets: [[12, -18], [12, -78], [92, -18], [92, -78], [36, -30], [36, -66], [70, -30], [70, -66]],
+    coolants: [[20, -64], [20, -32], [86, -48]],
+    depots: [[42, -74], [62, -74], [52, -24]],
+  },
+
+  /* ---------------------------------------------------- the stronghold --- */
+  'the-campus': {
+    id: 'the-campus', name: 'The Campus', archetype: 'valley', faction: 'wild',
+    terra: { ampl: 8 },
+    palette: { bg: 0x171f2b, fog: 0x202b38, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    props: { trees: 560, rocks: 260, ferns: 380 },
+    base: { x: -78, z: 74 },
+    compound: { x: 50, z: -44, hw: 52, hd: 40 },
+    groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -24, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
+    turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
+    coolants: [[10, -62], [10, -26], [92, -44]],
+    depots: [[34, -76], [66, -76], [50, -14]],
+  },
+};
+
+const DEFAULT_MAP = 'verdant-hollow';
+
+function loadMap(id) {
+  const m = MAPS[id] || MAPS[DEFAULT_MAP];
+  G.map = m;
+
+  // Every module imports these objects by reference — mutate, never reassign.
+  BASE.set(m.base.x, 0, m.base.z);
+  COMPOUND.x = m.compound.x; COMPOUND.z = m.compound.z;
+  COMPOUND.hw = m.compound.hw; COMPOUND.hd = m.compound.hd;
+
+  TERRA.freq = 0.012; TERRA.ampl = 9; TERRA.lift = -4;
+  TERRA.rippleFx = 0.05; TERRA.rippleFz = 0.043; TERRA.rippleA = 1.4;
+  TERRA.blightReach = 34;
+  Object.assign(TERRA, m.terra);
+
+  return m;
+}
+
+
+/* =================== src/campaign.js =================== */
+/* =========================================================================
+   The Reclamation — WILDLINE's campaign layer, Dark Crusade school:
+   a territory graph with free strike order, a perk per liberated site, and
+   an enemy that scales as it loses ground.
+
+   Scaling composes three terms onto the GROVE-difficulty baseline:
+     challenge = tier(site) × progress × adapt
+   `tier` is authored, `progress` grows with sites liberated, and `adapt` is
+   a clamped band read from your recent mission ranks — Homeworld's idea
+   without Homeworld's death spiral.
+
+   Persistence is localStorage; every mission is a fresh page load, so
+   applying multipliers once at boot needs no idempotency machinery.
+   ========================================================================= */
+
+const CORP = 'TerraByte Solutions';
+
+const SITES = {
+  heartwood: {
+    id: 'heartwood', name: 'Heartwood', tier: 0, map: null, home: true,
+    mx: 14, my: 62,
+    blurb: 'The old forest. Your Heart Tree. The only place on this map without a parking mandate.',
+  },
+  'relay-shed': {
+    id: 'relay-shed', name: 'Relay Shed 9', tier: 1, map: 'relay-shed',
+    mx: 34, my: 44, links: ['heartwood'],
+    blurb: 'Technically an edge node. The edge of what, nobody at TerraByte has ever specified.',
+    perk: { id: 'fertile', name: 'Fertile Ground', desc: '+25% starting biomass in every mission. The shed was full of fertiliser. Was.' },
+  },
+  milltown: {
+    id: 'milltown', name: 'Milltown', tier: 1, map: 'milltown',
+    mx: 30, my: 78, links: ['heartwood'],
+    blurb: 'TerraByte bought the mill, the diner, and the naming rights to the word "howdy".',
+    perk: { id: 'locals', name: 'The Locals Join', desc: 'Locals (hotkey B) become buildable in every mission. They are done asking.' },
+  },
+  mirefen: {
+    id: 'mirefen', name: 'The Mirefen Exchange', tier: 2, map: 'mirefen',
+    mx: 55, my: 66, links: ['relay-shed', 'milltown'],
+    blurb: 'Built on a drained marsh. The marsh has filed a counterclaim.',
+    perk: { id: 'deeproots', name: 'Deep Roots', desc: 'Overgrowth cooldown −25%. The ground remembers what it was.' },
+  },
+  'substation-gary': {
+    id: 'substation-gary', name: 'Substation Gary', tier: 2, map: 'substation-gary',
+    mx: 56, my: 30, links: ['relay-shed'],
+    blurb: 'Named after the CFO’s kayak. The kayak is also named Gary.',
+    perk: { id: 'highground', name: 'High Ground', desc: 'Wildlife cap +6. Thin air builds character.' },
+  },
+  coldrake: {
+    id: 'coldrake', name: 'Coldrake Logistics Hub', tier: 3, map: 'coldrake',
+    mx: 74, my: 82, links: ['milltown', 'mirefen'],
+    blurb: 'Ships forty thousand units a day. Of what, the brochure does not say.',
+    perk: { id: 'supplycut', name: 'Severed Supply', desc: 'Enemy depots reinforce 30% slower in every remaining mission.' },
+  },
+  'the-campus': {
+    id: 'the-campus', name: 'The Campus', tier: 5, map: 'the-campus', stronghold: true,
+    mx: 84, my: 42, links: ['mirefen', 'substation-gary', 'coldrake'], needLiberated: 4,
+    blurb: 'TerraByte HQ. Seventeen espresso bars, zero windows, one very large Server Core.',
+    perk: { id: 'done', name: 'The Valley, Reclaimed', desc: 'Campaign complete.' },
+  },
+};
+
+const KEY = 'wildline.campaign.v1';
+const PENDING = 'wildline.pending.v1';
+
+/* ------------------------------------------------------------- state io -- */
+function campState() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || freshState(); }
+  catch { return freshState(); }
+}
+function freshState() { return { started: false, liberated: [], ranks: {}, attempts: {} }; }
+function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} }
+
+function campReset() { try { localStorage.removeItem(KEY); localStorage.removeItem(PENDING); } catch {} }
+
+function pendingMission() {
+  try { return JSON.parse(localStorage.getItem(PENDING)); } catch { return null; }
+}
+function setPending(p) {
+  try { p ? localStorage.setItem(PENDING, JSON.stringify(p)) : localStorage.removeItem(PENDING); } catch {}
+}
+
+/* --------------------------------------------------------------- graph --- */
+function siteStatus(st, id) {
+  const s = SITES[id];
+  if (s.home) return 'home';
+  if (st.liberated.includes(id)) return 'liberated';
+  if (s.needLiberated && st.liberated.length < s.needLiberated) return 'locked';
+  const reachable = (s.links || []).some(l => l === 'heartwood' || st.liberated.includes(l));
+  return reachable ? 'open' : 'locked';
+}
+
+/* ------------------------------------------------------------- scaling --- */
+const RANK_ADAPT = { S: 1.2, A: 1.12, B: 1.0, C: 0.92, D: 0.85 };
+
+function scalingFor(st, siteId) {
+  const site = SITES[siteId];
+  const tier = 0.85 + site.tier * 0.14;                       // authored difficulty
+  const progress = 1 + 0.12 * st.liberated.length;            // the corp hardens as it loses
+  const recent = Object.values(st.ranks).slice(-2);
+  let adapt = recent.length
+    ? recent.reduce((a, r) => a + (RANK_ADAPT[r] || 1), 0) / recent.length
+    : 1;
+  adapt = Math.max(0.85, Math.min(1.2, adapt));               // the Homeworld clamp
+  const c = Math.max(0.7, Math.min(2.6, tier * progress * adapt));
+  return { challenge: c, tier: site.tier, adapt };
+}
+
+/* Applied once at mission boot, after applyDifficulty(GROVE). Fresh page per
+   mission, so straight mutation is safe. */
+function applyCampaignMods(st, siteId) {
+  const { challenge } = scalingFor(st, siteId);
+  RULES.machinePopCap = Math.max(6, Math.round(RULES.machinePopCap * challenge));
+  RULES.garrisonGuards = Math.max(3, Math.round(RULES.garrisonGuards * challenge));
+  RULES.garrisonDrones = Math.max(1, Math.round(RULES.garrisonDrones * challenge));
+  RULES.waveEvery = RULES.waveEvery / Math.sqrt(challenge);
+  RULES.firstWaveAt = RULES.firstWaveAt / Math.sqrt(challenge);
+  for (const k of ['guard', 'drone', 'turret'])
+    DEFS[k].dmg = Math.max(1, Math.round(DEFS[k].dmg * (0.85 + challenge * 0.18)));
+
+  /* perks from liberated ground */
+  const perks = perkIds(st);
+  if (perks.includes('fertile')) { RULES.startBiomass = Math.round(RULES.startBiomass * 1.25); G.biomass = RULES.startBiomass; }
+  if (perks.includes('deeproots')) RULES.spellCooldown = Math.round(RULES.spellCooldown * 0.75);
+  if (perks.includes('highground')) { RULES.popCap += 6; G.popCap = RULES.popCap; }
+  if (perks.includes('supplycut')) DEFS.depot.spawnEvery *= 1.3;
+  if (!perks.includes('locals')) G.lockedUnits = ['local'];   // the town has not joined yet
+
+  return { challenge, perks };
+}
+
+function perkIds(st) {
+  return st.liberated.map(id => SITES[id].perk && SITES[id].perk.id).filter(Boolean);
+}
+
+/* ----------------------------------------------------------- resolution -- */
+function recordResult(siteId, win, rank) {
+  const st = campState();
+  st.started = true;
+  st.attempts[siteId] = (st.attempts[siteId] || 0) + 1;
+  if (win && !st.liberated.includes(siteId)) {
+    st.liberated.push(siteId);
+    st.ranks[siteId] = rank || 'C';
+  }
+  save(st);
+  return st;
+}
+
+function campaignComplete(st) { return st.liberated.includes('the-campus'); }
+
+
+/* =================== src/comms.js =================== */
+/* =========================================================================
+   TerraByte Solutions — Corporate Communications.
+
+   The humor layer. As the campus is dismantled, the corporation never stops
+   doing PR: every setback in the game triggers a media statement, and the
+   statements get more desperate the worse things go. The joke is that the
+   voice never breaks — the buildings do.
+
+   commsEvent(name) is fired from world/ai/combat. Statements are queued,
+   throttled, and never repeated until a category is exhausted.
+   ========================================================================= */
+
+const LINES = {
+  start: [
+    'TerraByte Solutions is proud to be carbon-neutral by 2087.',
+    'Reminder: this facility is a Certified Wildlife-Adjacent Workplace.',
+    'TerraByte: Putting the "centre" in "data centre" since Series B.',
+    'Our uptime is 99.999%. Our biodiversity impact statement is pending.',
+  ],
+  grove: [
+    'Unauthorized photosynthesis detected in the growth corridor.',
+    'We are monitoring reports of "flowers" near our perimeter.',
+    'TerraByte respects nature, from a distance, behind a wall.',
+    'A community garden has appeared. Legal has been notified.',
+  ],
+  sweep: [
+    'A routine landscaping deployment is underway. Please remain calm.',
+    'Our wellness associates are proactively engaging local stakeholders.',
+    'Scheduled fauna outreach commencing. Bring your lanyard.',
+  ],
+  overgrowth: [
+    'Legal is reviewing whether roots constitute trespassing.',
+    'Facilities reports the floor is now "load-bearing salad".',
+    'We have escalated the vine situation to a cross-functional task force.',
+  ],
+  wall: [
+    'A section of our perimeter has embraced open-plan.',
+    'That wall was scheduled for demolition anyway. By us. Later.',
+  ],
+  turret: [
+    'We are aware of reports of a tower-shaped outage.',
+    'A sentry unit has transitioned to horizontal deployment.',
+    'Security coverage remains robust in all directions we still cover.',
+  ],
+  depot: [
+    'Today we said goodbye to a Security Depot. Our thoughts are with its subscribers.',
+    'Reinforcement cadence has entered a quiet period.',
+    'The depot is fine. The depot is f— [STATEMENT ENDS]',
+  ],
+  coolant: [
+    'Server temperatures remain within accept— within— parameters.',
+    'We have initiated our Thermal Resilience Journey.',
+    'Have you tried turning the forest off and on again?',
+  ],
+  coreExposed: [
+    'ATTN INVESTORS: everything is fine.',
+    'The Server Core enjoys fresh air. This was planned.',
+    'We are pivoting to an open-air compute strategy, effective immediately.',
+  ],
+  local: [
+    'We categorically deny that the community dislikes us.',
+    'TerraByte loves Milltown. Milltown, please call us back.',
+  ],
+  heartLow: [
+    'TerraByte extends its condolences in advance.',
+    'Our expansion roadmap has never looked greener. Or closer.',
+  ],
+};
+
+let queue = [];
+const used = {};
+let cooldownUntil = 0;
+let commsEl = null, timer = 0;
+
+function commsPick(cat) {
+  const list = LINES[cat];
+  if (!list) return null;
+  used[cat] = used[cat] || [];
+  if (used[cat].length >= list.length) used[cat] = [];
+  const avail = list.filter((_, i) => !used[cat].includes(i));
+  const idx = list.indexOf(avail[Math.floor(Math.random() * avail.length)]);
+  used[cat].push(idx);
+  return list[idx];
+}
+
+function commsEvent(cat, chance = 1) {
+  if (Math.random() > chance) return;
+  const line = commsPick(cat);
+  if (!line) return;
+  if (queue.length >= 2) queue.shift();      // stale statements are dropped, like ours
+  queue.push(line);
+}
+
+function ensureEl() {
+  if (commsEl) return commsEl;
+  commsEl = document.createElement('div');
+  commsEl.id = 'comms';
+  commsEl.innerHTML = '<div class="comms-tag">▦ TERRABYTE SOLUTIONS · MEDIA STATEMENT</div><div class="comms-line"></div>';
+  document.getElementById('app').appendChild(commsEl);
+  return commsEl;
+}
+
+function updateComms(dt) {
+  if (G.phase !== 'playing' || G.over) { if (commsEl) commsEl.classList.remove('on'); return; }
+  timer -= dt;
+  if (timer > 0 || !queue.length) {
+    if (commsEl && timer < 1.2) commsEl.classList.remove('on');   // slide out ahead of the next one
+    if (timer > -8) return;                             // minimum gap between statements
+  }
+  if (!queue.length) return;
+  const line = queue.shift();
+  const box = ensureEl();
+  box.querySelector('.comms-line').textContent = '“' + line + '”';
+  box.classList.add('on');
+  timer = 7;
 }
 
 
@@ -2326,9 +2793,10 @@ function makeTerrainMaterial() {
     wl_detailFade:   { value: new THREE.Vector2( 70, 260 ) }, // near/far LOD band
     wl_bumpStrength: { value: 0.38 },     // micro-normal amplitude
     wl_fallbackMix:  { value: 1.0 },      // 1 = use analytic blight fallback
-    wl_compound:     { value: new THREE.Vector4( 56, -50, 40, 33 ) }, // cx,cz,hw,hd
+    // read at creation time: loadMap() mutates COMPOUND/BASE before buildScene()
+    wl_compound:     { value: new THREE.Vector4( COMPOUND.x, COMPOUND.z, COMPOUND.hw, COMPOUND.hd ) },
     wl_compoundFade: { value: 34.0 },
-    wl_heart:        { value: new THREE.Vector2( -72, 68 ) },
+    wl_heart:        { value: new THREE.Vector2( BASE.x, BASE.z ) },
     wl_heartRadius:  { value: 42.0 },
   };
 
@@ -3666,7 +4134,8 @@ function makeForest(count, placeFn) {
     dummy.updateMatrix();
     trunks.setMatrixAt(n, dummy.matrix);
     leaves.setMatrixAt(n, dummy.matrix);
-    col.setHSL(0.26 + rand(-0.05, 0.05), rand(0.3, 0.5), rand(0.16, 0.30));
+    const hue = (typeof window !== 'undefined' && window.G && window.G.map && window.G.map.palette && window.G.map.palette.treeHue) || 0.26;
+    col.setHSL(hue + rand(-0.05, 0.05), rand(0.3, 0.5), rand(0.16, 0.30));
     leaves.setColorAt(n, col);
     n++;
   }
@@ -4259,6 +4728,8 @@ function kill(e) {
     /* structure death scales the pyrotechnics to what just fell */
     const POWER = { wall: 0.9, turret: 1.2, depot: 2, coolant: 2.2, core: 3, grove: 1, hearttree: 2.6 };
     const pw = POWER[e.type] || 1;
+    if (e.type === 'turret') commsEvent('turret', 0.7);
+    else if (e.type === 'wall') commsEvent('wall', 0.2);
     explode(p, pw, { nature });
     if (e.type === 'core') chainExplosion(e.pos, e.def.radius, 6, 1.4, {});
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
@@ -5661,8 +6132,10 @@ function bindMaskToProps() {
    ========================================================================= */
 
 function buildScene(scene) {
-  scene.background = new THREE.Color(0x1b2f24);
-  scene.fog = new THREE.Fog(0x24402f, 170, 420);
+  const pal = (G.map && G.map.palette) || {};
+  scene.background = new THREE.Color(pal.bg !== undefined ? pal.bg : 0x1b2f24);
+  scene.fog = new THREE.Fog(pal.fog !== undefined ? pal.fog : 0x24402f,
+    pal.fogNear || 170, pal.fogFar || 420);
 
   const hemi = new THREE.HemisphereLight(0xbde4ff, 0x3d4f2e, 1.0);
   scene.add(hemi);
@@ -5770,7 +6243,7 @@ function freeSpot(minDistCompound = 6) {
     if (insideCompound(x, z, minDistCompound)) continue;
     if (Math.hypot(x - BASE.x, z - BASE.z) < 28) continue;
     let ok = true;
-    for (const g of GROVE_POINTS) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
+    for (const g of G.map.groves) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
     if (!ok) continue;
     return { x, y: terrainHeight(x, z), z };
   }
@@ -5783,22 +6256,24 @@ function buildProps(scene) {
      that happens to share a colour key into the fog shader too. */
   const scenic = (mat) => applyFogMask(mat.clone());
 
+  const density = (G.map && G.map.props) || {};
+
   // forest
-  const [trunks, leaves] = makeForest(820, () => freeSpot(10));
+  const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
   scene.add(trunks); scene.add(leaves);
 
   // rocks
   scene.add(makeScatter(
-    new THREE.DodecahedronGeometry(1, 0), scenic(M(0x6a6b64, { rough: 1 })), 240,
+    new THREE.DodecahedronGeometry(1, 0), scenic(M(0x6a6b64, { rough: 1 })), density.rocks || 240,
     () => { const p = freeSpot(4); if (p) p.y -= 0.3; return p; }, [0.6, 2.4]
   ));
 
   // ferns / low brush
   const fern = new THREE.ConeGeometry(0.8, 1.6, 5);
   fern.translate(0, 0.8, 0);
-  scene.add(makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), 520,
+  scene.add(makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), density.ferns || 520,
     () => freeSpot(6), [0.6, 1.5]));
 
   // dead sticks in the blighted zone
@@ -5839,19 +6314,15 @@ function buildProps(scene) {
    Map population
    ========================================================================= */
 
-const GROVE_POINTS = [
-  { x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 },
-  { x: 16, z: -4 }, { x: -14, z: -62 }, { x: 70, z: 34 },
-];
-
-const TURRETS = [
-  [22, -22], [22, -78], [90, -26], [90, -74],
-  [46, -34], [46, -66],
-];
-const COOLANTS = [[26, -68], [26, -30], [86, -50]];
-const DEPOTS = [[56, -76], [56, -27]];
+/* Layout arrays live on the MapDef now — see src/maps.js. These getters exist
+   so the rest of this file reads naturally. */
+const layout = () => G.map;
 
 function populate() {
+  const GROVE_POINTS = layout().groves;
+  const TURRETS = layout().turrets;
+  const COOLANTS = layout().coolants;
+  const DEPOTS = layout().depots;
   G.grovePoints = GROVE_POINTS;
   G.obstacles = [];
   G.grid = new Grid(10);
@@ -5860,7 +6331,7 @@ function populate() {
   const heart = spawn('hearttree', BASE.x, BASE.z);
   heart.onDeath = () => {
     G.over = true;
-    showEndScreen(false, getStats(false), () => location.reload());
+    endMission(false);
   };
   G.heart = heart;
   G.obstacles.push(heart);
@@ -5883,7 +6354,7 @@ function populate() {
   const core = spawn('core', 58, -50);
   core.onDeath = () => {
     G.over = true;
-    showEndScreen(true, getStats(true), () => location.reload());
+    endMission(true);
   };
   G.core = core;
   G.obstacles.push(core);
@@ -5903,8 +6374,10 @@ function populate() {
       const left = G.coolants.filter(k => k.alive).length;
       ring(c.pos, 0x39d7ea, 26, 1.4);
       if (left > 0) {
+        commsEvent('coolant');
         toast(`Coolant tower down — ${left} remaining`, 'machine');
       } else {
+        commsEvent('coreExposed');
         G.coreExposed = true;
         SFX.alarm();
         toast('THERMAL RUNAWAY — the Server Core is exposed', 'warn');
@@ -5915,9 +6388,9 @@ function populate() {
   });
 
   G.depots = DEPOTS.map(([x, z]) => {
-    const d = spawn('depot', x, z, { rotY: z > -50 ? Math.PI : 0 });
+    const d = spawn('depot', x, z, { rotY: z > COMPOUND.z ? Math.PI : 0 });
     d.spawnTimer = rand(4, 10);
-    d.onDeath = () => toast('Security Depot destroyed — fewer reinforcements', 'machine');
+    d.onDeath = () => { commsEvent('depot'); toast('Security Depot destroyed — fewer reinforcements', 'machine'); };
     G.obstacles.push(d);
     return d;
   });
@@ -5935,6 +6408,19 @@ function populate() {
   for (let i = 0; i < RULES.garrisonDrones; i++) {
     const d = spawn('drone', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
     assignPatrol(d);
+  }
+}
+
+/* Mission resolution: in a campaign, bank the result and route the end-screen
+   button back to the territory map; in a quick battle, just offer a rerun. */
+function endMission(win) {
+  const stats = getStats(win);
+  if (G.campaignSite) {
+    recordResult(G.campaignSite, win, stats.rank);
+    showEndScreen(win, stats, () => { setPending({ mode: 'return' }); location.reload(); },
+      { buttonLabel: win ? 'Return to the valley' : 'Back to the valley map' });
+  } else {
+    showEndScreen(win, stats, () => location.reload());
   }
 }
 
@@ -6012,6 +6498,7 @@ function updateWorld(dt) {
         ring(g.pos, 0x9bff6a, 9, 1.1);
         burst(g.pos.clone().setY(g.pos.y + 1), 0x9bff6a, 22, 11, 1.1, 0.9);
         addScore('grove', 'bloom', g.pos);
+        commsEvent('grove', 0.6);
         toast('Grove bloomed — biomass rising');
       } else if (g.owned && g.prog <= 0) {
         g.owned = false;
@@ -6093,6 +6580,11 @@ function rallySlot() {
 function queueUnit(type) {
   const def = DEFS[type];
   if (!G.heart.alive) return false;
+  if (G.lockedUnits && G.lockedUnits.includes(type)) {
+    toast('The Locals have not joined yet — liberate Milltown', 'warn');
+    SFX.deny(); return false;
+  }
+  if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 8) { SFX.deny(); return false; }
@@ -6240,6 +6732,7 @@ function launchWave() {
     if (t) e.setOrder('attackmove', t);
   }
   SFX.alarm();
+  commsEvent('sweep', 0.5);
   toast(`SECURITY SWEEP ${n} — ${guards} guards, ${drones} drones inbound`, 'warn');
 }
 
@@ -6269,6 +6762,7 @@ function pruneOvergrowths() {
 
 /* Overgrowth: root every machine unit in a radius. */
 function castOvergrowth(point) {
+  commsEvent('overgrowth', 0.7);
   spawnOvergrowthField(point);
   let hit = 0;
   for (const e of G.entities) {
@@ -6712,6 +7206,7 @@ function perfDrawSpark() {
 
 
 
+
 /* ======================================================== difficulties == */
 /*
    Every field is a MULTIPLIER against the shipped value in config.js:
@@ -6950,10 +7445,17 @@ function showStartScreen(onStart) {
 
   /* ---- go ---- */
   const foot = sxEl('div', 'ss-foot');
-  const begin = sxEl('button', 'ss-begin', '<span>Begin</span>');
+  const begin = sxEl('button', 'ss-begin', '<span>Quick Battle</span>');
   begin.id = 'ss-begin';          // stable handle for automated smoke tests
   begin.type = 'button';
-  foot.appendChild(begin);
+  const camp = sxEl('button', 'ss-begin ss-camp', '<span>Campaign</span>');
+  camp.id = 'ss-campaign';
+  camp.type = 'button';
+  const btnRow = sxEl('div', 'ss-btnrow');
+  btnRow.appendChild(camp);
+  btnRow.appendChild(begin);
+  foot.appendChild(btnRow);
+  camp.addEventListener('click', () => showCampaignMap());
   foot.appendChild(sxEl('p', 'ss-hint',
     `${sxKey('←')}${sxKey('→')} choose season · ${sxKey('Enter')} begin · audio starts on your first click`));
   panel.appendChild(foot);
@@ -7108,7 +7610,7 @@ function sxTally(rows, emptyText, showPoints) {
  * Run summary. `stats` is the object from score.js getStats().
  * onRestart() fires from the RUN IT AGAIN button.
  */
-function showEndScreen(win, stats, onRestart) {
+function showEndScreen(win, stats, onRestart, opts = {}) {
   hideEndScreen();      // must come FIRST: it clears `menu` as part of its teardown
 
   /* Same rule as the title screen: the HUD must not sit behind the end card, and a
@@ -7184,7 +7686,7 @@ function showEndScreen(win, stats, onRestart) {
   panel.appendChild(grid);
 
   const foot = sxEl('div', 'es-foot');
-  const again = sxEl('button', 'ss-begin es-again', '<span>Run it again</span>');
+  const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
@@ -7261,6 +7763,150 @@ function hideEndScreen() {
   if (endEl) { endEl.remove(); endEl = null; }
   const stale = document.getElementById('endcard');
   if (stale) stale.remove();
+}
+
+/* =========================================================================
+   The Reclamation — territory map. A stylised valley: nodes are TerraByte
+   sites, edges are routes. Strike order is free; a chosen site writes a
+   pending mission and reloads into it (every mission is a fresh page).
+   ========================================================================= */
+
+let campEl = null;
+
+function showCampaignMap() {
+  if (campEl) campEl.remove();
+  const st = campState();
+  const root = sxEl('div', 'sx-screen camp-screen');
+  root.id = 'campmap';
+  root.appendChild(sxBackdrop());
+
+  const panel = sxEl('div', 'ss-panel camp-panel');
+  panel.appendChild(sxEl('div', 'ss-title camp-title', 'THE RECLAMATION'));
+  panel.appendChild(sxEl('p', 'ss-tagline',
+    campaignComplete(st)
+      ? 'Every rack is dark. The valley is loud again.'
+      : `${st.liberated.length} of ${Object.keys(SITES).length - 1} sites liberated · ${CORP} regrets nothing, publicly.`));
+
+  /* ---- the map itself ---- */
+  const board = sxEl('div', 'camp-board');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.classList.add('camp-edges');
+  for (const id in SITES) {
+    const site = SITES[id];
+    for (const l of (site.links || [])) {
+      const a = SITES[l];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a.mx); line.setAttribute('y1', a.my);
+      line.setAttribute('x2', site.mx); line.setAttribute('y2', site.my);
+      const lit = (st.liberated.includes(id) || st.liberated.includes(l) ||
+                   l === 'heartwood');
+      line.setAttribute('class', lit ? 'lit' : '');
+      svg.appendChild(line);
+    }
+  }
+  board.appendChild(svg);
+
+  let selected = null;
+  const info = sxEl('div', 'camp-info');
+  const strike = sxEl('button', 'ss-begin camp-strike', '<span>Strike</span>');
+  strike.id = 'camp-strike';
+  strike.style.display = 'none';
+
+  const describe = (site, status) => {
+    const sc = scalingFor(st, site.id);
+    const tierPips = '▮'.repeat(Math.max(1, site.tier)) + '▯'.repeat(Math.max(0, 5 - site.tier));
+    let extra = '';
+    if (status === 'liberated') extra = `<div class="ci-perk on">✓ ${site.perk.name} — ${site.perk.desc}</div>`;
+    else if (site.perk && !site.home) extra = `<div class="ci-perk">On liberation: <b>${site.perk.name}</b> — ${site.perk.desc}</div>`;
+    if (status === 'locked' && site.needLiberated) extra += `<div class="ci-lock">Requires ${site.needLiberated} liberated sites.</div>`;
+    info.innerHTML = `<h4>${site.name}</h4>
+      <div class="ci-tier">${site.home ? 'HOME' : `THREAT ${tierPips}`}${status === 'open' && !site.home ? ` · scaling ×${sc.challenge.toFixed(2)}` : ''}</div>
+      <p>${site.blurb}</p>${extra}`;
+    strike.style.display = status === 'open' ? '' : 'none';
+  };
+
+  for (const id in SITES) {
+    const site = SITES[id];
+    const status = siteStatus(st, id);
+    const node = sxEl('button', `camp-node ${status}`);
+    node.type = 'button';
+    node.dataset.site = id;
+    node.style.left = site.mx + '%';
+    node.style.top = site.my + '%';
+    node.innerHTML = `<i></i><span>${site.name}</span>`;
+    node.addEventListener('click', () => {
+      selected = id;
+      board.querySelectorAll('.camp-node').forEach(n => n.classList.toggle('sel', n === node));
+      describe(site, status);
+    });
+    board.appendChild(node);
+  }
+  panel.appendChild(board);
+
+  const foot = sxEl('div', 'camp-foot');
+  foot.appendChild(info);
+  const btns = sxEl('div', 'camp-btns');
+  strike.addEventListener('click', () => {
+    if (!selected) return;
+    setPending({ mode: 'campaign', site: selected });
+    location.reload();
+  });
+  const back = sxEl('button', 'ss-begin camp-back', '<span>Back</span>');
+  back.type = 'button';
+  back.addEventListener('click', () => { campEl.remove(); campEl = null; });
+  const reset = sxEl('button', 'ss-begin camp-reset', '<span>Abandon Run</span>');
+  reset.type = 'button';
+  reset.addEventListener('click', () => {
+    if (!st.started) return;
+    campReset(); campEl.remove(); campEl = null; showCampaignMap();
+  });
+  btns.appendChild(strike); btns.appendChild(back);
+  if (st.started) btns.appendChild(reset);
+  foot.appendChild(btns);
+  panel.appendChild(foot);
+
+  info.innerHTML = '<p class="ci-idle">Choose where the forest strikes next. TerraByte\u2019s lawyers are standing by.</p>';
+
+  root.appendChild(panel);
+  sxHost().appendChild(root);
+  campEl = root;
+  return root;
+}
+
+/* ---- mission briefing: shown over the loaded map's own cinematic orbit ---- */
+function showBriefing(site, mods, onBegin) {
+  const root = sxEl('div', 'sx-screen brief-screen');
+  root.id = 'briefing';
+  root.appendChild(sxBackdrop());
+  const panel = sxEl('div', 'ss-panel brief-panel');
+  panel.appendChild(sxEl('div', 'ss-title', site.name.toUpperCase()));
+  panel.appendChild(sxEl('p', 'ss-tagline', site.blurb));
+  const facts = sxEl('div', 'brief-facts');
+  facts.innerHTML = `
+    <div><b>Objective</b><span>Break the Coolant Towers, then the Server Core.</span></div>
+    <div><b>Threat</b><span>tier ${site.tier} · scaling ×${mods.challenge.toFixed(2)}</span></div>
+    ${mods.perks.length ? `<div><b>Your ground</b><span>${mods.perks.length} perk${mods.perks.length > 1 ? 's' : ''} active</span></div>` : ''}`;
+  panel.appendChild(facts);
+  const go = sxEl('button', 'ss-begin', '<span>Begin the strike</span>');
+  go.id = 'br-begin';
+  go.type = 'button';
+  go.addEventListener('click', () => { root.remove(); onBegin(); });
+  /* the pending strike survives a refresh (deliberate — you can resume), so the
+     briefing needs a way OUT or a closed tab becomes a one-way door */
+  const withdraw = sxEl('button', 'ss-begin camp-back', '<span>Withdraw</span>');
+  withdraw.id = 'br-withdraw';
+  withdraw.type = 'button';
+  withdraw.addEventListener('click', () => { setPending({ mode: 'return' }); location.reload(); });
+  const row = sxEl('div', 'ss-btnrow');
+  row.appendChild(withdraw); row.appendChild(go);
+  panel.appendChild(row);
+  root.appendChild(panel);
+  sxHost().appendChild(root);
+  const onKey = e => { if (e.code === 'Enter') { window.removeEventListener('keydown', onKey); go.click(); } };
+  window.addEventListener('keydown', onKey);
+  return root;
 }
 
 
@@ -7766,8 +8412,10 @@ function updateHUD() {
   /* cards */
   for (const c of cards) {
     const d = DEFS[c.dataset.type];
-    const afford = G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
+    const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
+    c.classList.toggle('gated', !!gated);
   }
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
@@ -8041,8 +8689,15 @@ G.fxRoot = new THREE.Group();
 scene.add(G.entityRoot);
 scene.add(G.fxRoot);
 
-/* The world is built immediately so the title screen has a live 3D backdrop to
-   orbit, but no entities exist until a difficulty is chosen. */
+/* Which map? A pending campaign strike decides; otherwise the home valley.
+   loadMap() must run before buildScene(): terrain, shader uniforms and the
+   compound footprint are all read at construction time. */
+const pending = pendingMission();
+const pendingSite = pending && pending.mode === 'campaign' ? SITES[pending.site] : null;
+loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+
+/* The world is built immediately so the title/briefing screen has a live 3D
+   backdrop to orbit, but no entities exist until the player commits. */
 buildScene(scene);
 
 const rtsCamera = new RTSCamera(camera);
@@ -8073,11 +8728,11 @@ document.getElementById('loading').remove();
 
 /* -------------------------------------------------------------- boot --- */
 G.phase = 'menu';
-document.body.classList.add('menu');       // hides the HUD behind the title screen
-showStartScreen(diff => {
+document.body.classList.add('menu');       // hides the HUD behind the title/briefing
+
+function launchMission() {
   document.body.classList.remove('menu');
-  applyDifficulty(diff);        // must precede populate(): the starting garrison size
-  populate();                   // is read from RULES at spawn time
+  populate();
   initFog();
   initScore();
   rtsCamera.cinematic = null;
@@ -8085,7 +8740,23 @@ showStartScreen(diff => {
   rtsCamera.update(0.016);
   G.phase = 'playing';
   toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
-});
+}
+
+if (pendingSite) {
+  /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
+     perks earned from liberated ground. Order matters: applyDifficulty first. */
+  applyDifficulty(DIFFICULTIES[1]);
+  const mods = applyCampaignMods(campState(), pendingSite.id);
+  G.campaignSite = pendingSite.id;
+  showBriefing(pendingSite, mods, launchMission);
+} else {
+  showStartScreen(diff => {
+    applyDifficulty(diff);        // must precede populate(): the starting garrison size
+    launchMission();              // is read from RULES at spawn time
+  });
+  // returning from a finished mission drops you straight back onto the map
+  if (pending && pending.mode === 'return') { setPending(null); showCampaignMap(); }
+}
 
 /* ------------------------------------------------------------- loop ---- */
 let last = performance.now();
@@ -8148,6 +8819,7 @@ function frame(now, manual) {
   tickShaders(G.time, dt);
   updateCombatFX(dt);
   updateVFX(dt);
+  updateComms(dt);
   rtsCamera.update(dt);
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
