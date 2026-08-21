@@ -8,6 +8,8 @@ import { updateAI } from './ai.js';
 import { updateCombatFX } from './combat.js';
 import { updateVFX } from './vfx.js';
 import { commsEvent, updateComms } from './comms.js';
+import { updateWeather } from './weather.js';
+import { updateWater, renderWaterReflection } from './water.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND } from './config.js';
 import { toast } from './ui.js';
@@ -159,6 +161,7 @@ function frame(now, manual) {
 
     updateAI(dt);
     updateWorld(dt);
+    updateWater(dt);
     updateFog(dt);
     reapDead(dt);
     updateScore(dt);
@@ -176,6 +179,7 @@ function frame(now, manual) {
   updateCombatFX(dt);
   updateVFX(dt);
   updateComms(dt);
+  updateWeather(dt);
   rtsCamera.update(dt);
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
@@ -184,6 +188,7 @@ function frame(now, manual) {
   }
   perfFrame(dt);
 
+  renderWaterReflection(renderer, scene, camera);
   renderer.render(scene, camera);
 }
 schedule();

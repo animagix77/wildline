@@ -63,6 +63,20 @@ const LINES = {
     'We categorically deny that the community dislikes us.',
     'TerraByte loves Milltown. Milltown, please call us back.',
   ],
+  water: [
+    'The aquifer is performing exactly as modelled. The model is being revised.',
+    'Reports of a "missing lake" are being handled by our Narrative team.',
+    'TerraByte uses only the water it needs. It needs all of it.',
+    'The wetland has been reclassified as a car park in our filings.',
+  ],
+  build: [
+    'Phase two remains on schedule and under budget, unlike the fence.',
+    'Hard hats are mandatory beyond this point. So are non-disclosure agreements.',
+  ],
+  built: [
+    'The new site is live. Please direct all wildlife enquiries to the portal.',
+    'We are pleased to announce expanded capacity and expanded fencing.',
+  ],
   heartLow: [
     'TerraByte extends its condolences in advance.',
     'Our expansion roadmap has never looked greener. Or closer.',

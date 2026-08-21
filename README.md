@@ -53,6 +53,8 @@ than sliding. Measured across 11 passive runs (mine and an independent reviewer'
 | 🐗 | **Boar** | 35 | Armour 3 — small arms barely scratch it. 1.4× vs structures. |
 | 🐻 | **Bear** | 70 | Siege. **2.2× vs structures.** What actually kills coolant towers. |
 | 🦅 | **Raven** | 35 | Flies. Ignores the perimeter entirely — the only way in that isn't a gate. |
+| 🦔 | **Porcupine** | 55 | Quill volley at 14 m — the wild faction's only ground rifle. Slow (4.6) and armoured (5), so it holds a line but never chases one. |
+| 🦫 | **Beaver** | 45 | 1.8× siege on structures and the natural answer to intake pumps. Gnaws the drain shut. |
 | 🎯 | **Local** | 110 | The valley's people — a woman or a man with a hunting rifle, decided at the door. Your only ground rifle: outranged only by turrets, out-damages a guard. Expensive. |
 | 🌿 | **Overgrowth** | 90 | Roots every machine in a 14 m circle for 5 s. 35 s cooldown. |
 
@@ -81,6 +83,35 @@ Humor rides on the **TerraByte Solutions media ticker**: every setback you infli
 triggers a corporate statement, and the statements get more desperate while the voice
 never breaks. ("Have you tried turning the forest off and on again?")
 
+## Water, and the draining of it
+
+Maps carry lakes, and the data centre's **intake pumps** drain them on a visible
+clock. Groves inside a lake's catchment pay full income only while the water holds;
+as the level drops they wither and pay less, bottoming at 35%. So every mission asks
+the same question early: rush the Core, or peel units off to kill pumps first?
+
+Killing a pump permanently removes its share of the draw. Kill the last one and the
+water table starts recovering. None of it is random — the drain is arithmetic, the
+level is on screen, and losing your economy is always a decision you made.
+
+The surface is a genuine planar reflection (the scene re-rendered mirrored through
+the water plane into a 512² target, with the submerged half clipped), which is what
+actually sells water at an RTS camera angle.
+
+## Weather
+
+Rain, storm, snow and mist, and they are **map properties, not random events** — a
+player planning a strike should know what they are walking into. Coldrake always
+sleets; Substation Gary is always snowbound. Precipitation is one `Points` object
+with a custom shader: particles live in a box that follows the camera and wrap in
+the vertex shader, so 6000 drops cost one draw call and zero CPU per frame.
+
+## Construction sites
+
+Two campaigns catch TerraByte mid-build: fewer defences, but a completion timer. Let
+it run out and the turrets come online and the garrison doubles. It is a pure
+plan-ahead mission — strike fast and dirty, or dig in and lose the window.
+
 ## Controls
 
 Classic RTS layout: **letters are commands, arrows and the screen edge move the camera.**
@@ -92,7 +123,7 @@ Classic RTS layout: **letters are commands, arrows and the screen edge move the 
 right click move or attack · **A**+click attack-move · **S** stop · **H** hold ·
 **Ctrl+1..5** set group, **1..5** recall
 
-**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **B** local · **F**+click Overgrowth
+**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **G** porcupine · **H** beaver · **B** local · **F**+click Overgrowth
 
 **F1** reference · **F3** performance overlay · **M** mute
 

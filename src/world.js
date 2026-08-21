@@ -5,6 +5,8 @@ import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fb
 import { M, GLOW, makeForest, makeScatter, buildWall, box, cyl } from './meshes.js';
 import { applyFogMask } from './fog.js';
 import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial } from './shaders.js';
+import { initWeather } from './weather.js';
+import { initWater, groveWaterFactor } from './water.js';
 import { Entity, spawn } from './entity.js';
 import { toast } from './ui.js';
 import { showEndScreen } from './screens.js';
@@ -50,7 +52,9 @@ export function buildScene(scene) {
   G.sky = sky;
 
   buildTerrain(scene);
+  initWater(scene, G.map && G.map.water);
   buildProps(scene);
+  initWeather(scene, (G.map && G.map.weather) || 'clear');
 }
 
 function buildTerrain(scene) {
@@ -131,6 +135,7 @@ function freeSpot(minDistCompound = 6) {
     if (Math.hypot(x - BASE.x, z - BASE.z) < 28) continue;
     let ok = true;
     for (const g of G.map.groves) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
+    if (ok && G.map.water) for (const w of G.map.water) if (Math.hypot(x - w.x, z - w.z) < w.r + 3) { ok = false; break; }
     if (!ok) continue;
     return { x, y: terrainHeight(x, z), z };
   }
@@ -298,6 +303,28 @@ export function populate() {
     G.obstacles.push(t);
   }
 
+  /* Intake pumps: the reason the water is leaving. Killing one permanently
+     removes its share of the draw, so there is a real decision every mission
+     between rushing the Core and peeling off to save the valley's water. */
+  G.pumps = (layout().pumps || []).map(([x, z]) => {
+    const p = spawn('pump', x, z);
+    p.onDeath = () => {
+      const left = G.pumps.filter(q => q.alive).length;
+      commsEvent('water', 0.8);
+      toast(left ? `Intake pump destroyed — ${left} still drawing` : 'The last pump is dead. The water is coming back.');
+    };
+    G.obstacles.push(p);
+    return p;
+  });
+
+  /* A site caught mid-build finishes on a clock if you let it. */
+  const con = layout().construction;
+  if (con) {
+    G.construction = { time: con.time, left: con.time, def: con, done: false, warned: {} };
+  } else {
+    G.construction = null;
+  }
+
   // starting garrison — sized by difficulty, not hard-coded
   for (let i = 0; i < RULES.garrisonGuards; i++) {
     const g = spawn('guard', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
@@ -423,8 +450,37 @@ export function updateWorld(dt) {
   }
 
   /* --- income --- */
-  G.income = (G.heart.alive ? RULES.baseIncome : 0) + bloomed * RULES.grovIncome;
+  /* Each bloomed grove pays according to the water table beneath it, so letting
+     the lakes drain is a slow, visible, entirely non-random economic defeat. */
+  let groveYield = 0;
+  for (const g of G.groves) if (g.owned) groveYield += RULES.grovIncome * groveWaterFactor(g.pos.x, g.pos.z);
+  G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
+
+  /* --- construction clock --- */
+  if (G.construction && !G.construction.done) {
+    const c = G.construction;
+    c.left -= dt;
+    for (const mark of [0.5, 0.25]) {
+      if (c.left / c.time <= mark && !c.warned[mark]) {
+        c.warned[mark] = true;
+        toast(`Construction ${Math.round(mark * 100)}% of the way to completion`, 'warn');
+        commsEvent('build', 1);
+      }
+    }
+    if (c.left <= 0) {
+      c.done = true;
+      for (const [x, z] of (c.def.addTurrets || [])) G.obstacles.push(spawn('turret', x, z));
+      for (let i = 0; i < (c.def.addGarrison || 0); i++) {
+        const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                                 COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
+        assignPatrol(g);
+      }
+      SFX.alarm();
+      commsEvent('built', 1);
+      toast('THE SITE IS OPERATIONAL — defences online', 'warn');
+    }
+  }
 
   /* --- population --- */
   let pop = 0, mpop = 0;

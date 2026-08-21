@@ -26,6 +26,9 @@ export const MAPS = {
     turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
     coolants: [[26, -68], [26, -30], [86, -50]],
     depots: [[56, -76], [56, -27]],
+    weather: 'clear',
+    water: [{ x: -12, z: 34, r: 22, drain: 0.0055 }],
+    pumps: [[30, -20]],
   },
 
   /* ------------------------------------------------------- tier 1 sites -- */
@@ -39,6 +42,9 @@ export const MAPS = {
     turrets: [[44, -30], [80, -30], [62, -60]],
     coolants: [[48, -56], [76, -56], [62, -32]],
     depots: [[62, -50]],
+    weather: 'mist',
+    water: [{ x: -20, z: 30, r: 18, drain: 0.004 }],
+    pumps: [[40, -34]],
   },
   'milltown': {
     id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
@@ -50,6 +56,9 @@ export const MAPS = {
     turrets: [[26, -34], [78, -34], [26, -74], [78, -74]],
     coolants: [[36, -68], [36, -40], [72, -54]],
     depots: [[52, -74], [52, -34]],
+    weather: 'rain',
+    water: [{ x: -26, z: 38, r: 20, drain: 0.006 }, { x: 24, z: 40, r: 14, drain: 0.006 }],
+    pumps: [[28, -30], [76, -30]],
   },
 
   /* ------------------------------------------------------- tier 2 sites -- */
@@ -64,6 +73,12 @@ export const MAPS = {
     turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
     coolants: [[28, -62], [28, -32], [82, -48]],
     depots: [[55, -72], [55, -26]],
+    weather: 'mist',
+    /* the fen IS the map: three shallow meres, drained fast, and four pumps.
+       Ignore the water here and the economy is gone before the fourth sweep. */
+    water: [{ x: -30, z: 28, r: 24, drain: 0.010 }, { x: 10, z: 52, r: 18, drain: 0.010 },
+            { x: -58, z: -30, r: 20, drain: 0.010 }],
+    pumps: [[26, -26], [84, -26], [26, -70], [84, -70]],
   },
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
@@ -76,6 +91,9 @@ export const MAPS = {
     turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
     coolants: [[30, -66], [30, -34], [86, -50]],
     depots: [[58, -74], [58, -28]],
+    weather: 'snow',
+    water: [{ x: -34, z: 40, r: 16, drain: 0.0035 }],
+    pumps: [[46, -22]],
   },
 
   /* ------------------------------------------------------- tier 3 site --- */
@@ -90,6 +108,9 @@ export const MAPS = {
     turrets: [[12, -18], [12, -78], [92, -18], [92, -78], [36, -30], [36, -66], [70, -30], [70, -66]],
     coolants: [[20, -64], [20, -32], [86, -48]],
     depots: [[42, -74], [62, -74], [52, -24]],
+    weather: 'storm',
+    water: [{ x: -30, z: 34, r: 22, drain: 0.008 }],
+    pumps: [[18, -24], [86, -24], [52, -76]],
   },
 
   /* ---------------------------------------------------- the stronghold --- */
@@ -104,7 +125,48 @@ export const MAPS = {
     turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
     coolants: [[10, -62], [10, -26], [92, -44]],
     depots: [[34, -76], [66, -76], [50, -14]],
+    weather: 'storm',
+    water: [{ x: -36, z: 36, r: 20, drain: 0.007 }, { x: -70, z: -40, r: 16, drain: 0.007 }],
+    pumps: [[8, -16], [94, -16], [50, -78]],
   },
+};
+
+/* ---------------------------------------------------- construction sites --
+   Caught mid-build. Fewer defences, but a completion timer: let it finish and
+   the turrets come online, the garrison doubles and the coolant towers gain
+   armour. The whole mission is a question the player must answer early —
+   strike fast and dirty, or dig in and lose the window. Nothing random. */
+MAPS['groundbreak'] = {
+  id: 'groundbreak', name: 'The Groundbreaking', archetype: 'valley', faction: 'wild',
+  terra: { ampl: 6, blightReach: 40 }, palette: { ...VALLEY_PALETTE, bg: 0x2a2b22, fog: 0x36382c },
+  props: { trees: 620, rocks: 380, ferns: 300 },
+  base: { x: -70, z: 66 },
+  compound: { x: 54, z: -48, hw: 34, hd: 28 },
+  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 14, z: -4 }, { x: 70, z: 30 }],
+  turrets: [[30, -28], [78, -28]],
+  coolants: [[32, -62], [76, -62], [54, -26]],
+  depots: [[54, -70]],
+  weather: 'rain',
+  water: [{ x: -22, z: 34, r: 20, drain: 0.005 }],
+  pumps: [[36, -22]],
+  construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
+};
+
+MAPS['pourhouse'] = {
+  id: 'pourhouse', name: 'Pourhouse Flats', archetype: 'wetland', faction: 'wild',
+  terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5, blightReach: 44 },
+  palette: { bg: 0x1a2b28, fog: 0x233a35, fogNear: 140, fogFar: 380, treeHue: 0.32 },
+  props: { trees: 440, rocks: 260, ferns: 780 },
+  base: { x: -72, z: 70 },
+  compound: { x: 56, z: -46, hw: 38, hd: 30 },
+  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 16, z: -6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
+  turrets: [[26, -26], [86, -26], [56, -70]],
+  coolants: [[30, -60], [82, -60], [56, -24]],
+  depots: [[56, -68], [30, -30]],
+  weather: 'storm',
+  water: [{ x: -28, z: 36, r: 26, drain: 0.009 }, { x: 20, z: -70, r: 16, drain: 0.009 }],
+  pumps: [[28, -22], [84, -22]],
+  construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
 export const DEFAULT_MAP = 'verdant-hollow';

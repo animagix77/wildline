@@ -316,6 +316,40 @@ function buildLocalVariant(v) {
   return g;
 }
 
+export const buildPorcupine = () => {
+  const g = quadruped({
+    fur: 0x4a3b2e, belly: 0x6a5946, bodyL: 2.2, bodyW: 1.25, bodyH: 1.15,
+    legH: 0.62, headS: 0.72, snout: 0.5, tail: 0.5, ears: true,
+    extras: {
+      // the quill mantle, angled back over the body
+      body: (() => {
+        const q = [];
+        for (let r = 0; r < 4; r++) {
+          for (let i = 0; i < 5; i++) {
+            const sx = (i - 2) * 0.24;
+            q.push(pCone(r % 2 ? 0xe8dfc8 : 0x2b2118, 0.055, 0.95,
+              sx, 0.62 + r * 0.05, -0.55 + r * 0.36, -0.55 - r * 0.07, 0, sx * 0.25));
+          }
+        }
+        return q;
+      })(),
+    },
+  });
+  return g;
+};
+
+export const buildBeaver = () => quadruped({
+  fur: 0x533b28, belly: 0x6d5137, bodyL: 2.0, bodyW: 1.1, bodyH: 1.05,
+  legH: 0.5, headS: 0.68, snout: 0.42, tail: 0, ears: true,
+  extras: {
+    head: [pBox(0xe8e0c4, 0.24, 0.2, 0.12, 0, -0.16, 0.62)],       // incisors
+    body: [
+      pBox(0x3a2a1c, 1.15, 0.14, 1.5, 0, -0.34, -1.5),             // the paddle tail
+      pBox(0x2e2116, 1.0, 0.1, 0.28, 0, -0.3, -2.1),
+    ],
+  },
+});
+
 /* ============================= MACHINE ================================== */
 
 export const buildGuard = () => {
@@ -403,6 +437,31 @@ export const buildDepot = () => {
   g.add(cyl(trim, 0.16, 5, 4.2, 9, -3.4));
   const beacon = sph(GLOW(0xff6a3d), 0.28, 4.2, 11.5, -3.4); g.add(beacon);
   g.userData.anim = { kind: 'depot', beacon };
+  return g;
+};
+
+export const buildPump = () => {
+  const g = new THREE.Group();
+  const shell = 0x46505c, dark = 0x232a33, PIPE = 0x5b6470;
+  const body = mergeParts([
+    pCyl(dark, 3.4, 1.0, 0, 0.5, 0),
+    pBox(shell, 4.6, 2.6, 3.4, 0, 2.2, 0),
+    pCyl(PIPE, 0.62, 7, -3.2, 1.6, 0, 0, 0, Math.PI / 2),          // intake running out
+    pCyl(PIPE, 0.45, 3.6, 0, 4.4, 0),
+    pBox(dark, 5.0, 0.5, 3.8, 0, 3.6, 0),
+  ], VC_MAT_METAL);
+  body.castShadow = true;
+  g.add(body);
+  g.add(box(GLOW(0x39d7ea), 3.6, 0.12, 0.1, 0, 2.9, 1.75));
+  const wheel = new THREE.Group();
+  wheel.position.set(0, 4.4, 0);
+  for (let i = 0; i < 4; i++) {
+    const b = box(M(0x8a949e, { metal: 0.6 }), 2.1, 0.14, 0.42, 0, 0, 0);
+    b.rotation.y = i * Math.PI / 4;
+    wheel.add(b);
+  }
+  g.add(wheel);
+  g.userData.anim = { kind: 'pump', wheel };
   return g;
 };
 
@@ -758,6 +817,8 @@ export const BUILDERS = {
   drone:  () => cached('drone', buildDrone),
   turret: () => cached('turret', buildTurret),
   // one-offs, or (grove) needing genuinely per-instance materials
-  depot: buildDepot, coolant: buildCoolant, core: buildCore,
+  depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
+  porcupine: () => cached('porcupine', buildPorcupine),
+  beaver: () => cached('beaver', buildBeaver),
   wall: buildWall, hearttree: buildHeartTree, grove: buildGrove,
 };

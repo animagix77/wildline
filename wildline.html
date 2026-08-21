@@ -101,8 +101,8 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .hpbar.foe i{background:var(--machine)}
 
 /* command cards */
-#cards{display:flex;gap:8px}
-.card{width:92px;height:92px;border-radius:4px;border:1px solid rgba(255,255,255,.12);
+#cards{display:flex;gap:6px}
+.card{width:84px;height:92px;border-radius:4px;border:1px solid rgba(255,255,255,.12);
   background:linear-gradient(160deg,rgba(127,212,74,.09),rgba(255,255,255,.02));
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   cursor:pointer;position:relative;transition:.12s}
@@ -111,7 +111,7 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card.gated{opacity:.25;filter:grayscale(1)}
 .card.gated::after{content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
 .card .ico{font-size:28px}
-.card .nm{font-size:11px;letter-spacing:.6px}
+.card .nm{font-size:10px;letter-spacing:.3px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
 .card .key{position:absolute;top:4px;left:5px;font-size:9px;color:var(--dim);border:1px solid rgba(255,255,255,.16);
   border-radius:2px;padding:0 3px}
@@ -881,7 +881,7 @@ body.menu #comms{display:none!important}
           <li><b>Right click</b> — move / attack target</li>
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
-          <li><b>Z X C V B</b> — wolf / boar / bear / raven / local</li>
+          <li><b>Z X C V G H B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
           <li><b>F1</b> help · <b>F3</b> performance · <b>M</b> mute</li>
@@ -1402,6 +1402,20 @@ const DEFS = {
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
 
+  porcupine: {
+    name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
+    hp: 165, dmg: 17, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    armor: 5, vision: 26, cost: 55, build: 8, pop: 2, ranged: true, death: 'topple',
+    projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
+    blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
+  },
+  beaver: {
+    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
+    hp: 140, dmg: 14, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
+    armor: 2, vision: 22, cost: 45, build: 7, pop: 2, siege: 1.8, death: 'topple',
+    blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
+  },
+
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
@@ -1424,6 +1438,10 @@ const DEFS = {
   depot: {
     name: 'Security Depot', team: TEAM.MACHINE, icon: '🏭',
     hp: 800, radius: 5.5, armor: 4, building: true, spawnEvery: 18,
+  },
+  pump: {
+    name: 'Intake Pump', team: TEAM.MACHINE, icon: '🚱',
+    hp: 520, radius: 3.4, armor: 3, building: true, pump: true,
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
@@ -1475,7 +1493,7 @@ const RULES = {
   spellDuration:  5,
 };
 
-const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'local'];
+const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
 
 
 /* =================== src/state.js =================== */
@@ -1651,6 +1669,9 @@ const MAPS = {
     turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
     coolants: [[26, -68], [26, -30], [86, -50]],
     depots: [[56, -76], [56, -27]],
+    weather: 'clear',
+    water: [{ x: -12, z: 34, r: 22, drain: 0.0055 }],
+    pumps: [[30, -20]],
   },
 
   /* ------------------------------------------------------- tier 1 sites -- */
@@ -1664,6 +1685,9 @@ const MAPS = {
     turrets: [[44, -30], [80, -30], [62, -60]],
     coolants: [[48, -56], [76, -56], [62, -32]],
     depots: [[62, -50]],
+    weather: 'mist',
+    water: [{ x: -20, z: 30, r: 18, drain: 0.004 }],
+    pumps: [[40, -34]],
   },
   'milltown': {
     id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
@@ -1675,6 +1699,9 @@ const MAPS = {
     turrets: [[26, -34], [78, -34], [26, -74], [78, -74]],
     coolants: [[36, -68], [36, -40], [72, -54]],
     depots: [[52, -74], [52, -34]],
+    weather: 'rain',
+    water: [{ x: -26, z: 38, r: 20, drain: 0.006 }, { x: 24, z: 40, r: 14, drain: 0.006 }],
+    pumps: [[28, -30], [76, -30]],
   },
 
   /* ------------------------------------------------------- tier 2 sites -- */
@@ -1689,6 +1716,12 @@ const MAPS = {
     turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
     coolants: [[28, -62], [28, -32], [82, -48]],
     depots: [[55, -72], [55, -26]],
+    weather: 'mist',
+    /* the fen IS the map: three shallow meres, drained fast, and four pumps.
+       Ignore the water here and the economy is gone before the fourth sweep. */
+    water: [{ x: -30, z: 28, r: 24, drain: 0.010 }, { x: 10, z: 52, r: 18, drain: 0.010 },
+            { x: -58, z: -30, r: 20, drain: 0.010 }],
+    pumps: [[26, -26], [84, -26], [26, -70], [84, -70]],
   },
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
@@ -1701,6 +1734,9 @@ const MAPS = {
     turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
     coolants: [[30, -66], [30, -34], [86, -50]],
     depots: [[58, -74], [58, -28]],
+    weather: 'snow',
+    water: [{ x: -34, z: 40, r: 16, drain: 0.0035 }],
+    pumps: [[46, -22]],
   },
 
   /* ------------------------------------------------------- tier 3 site --- */
@@ -1715,6 +1751,9 @@ const MAPS = {
     turrets: [[12, -18], [12, -78], [92, -18], [92, -78], [36, -30], [36, -66], [70, -30], [70, -66]],
     coolants: [[20, -64], [20, -32], [86, -48]],
     depots: [[42, -74], [62, -74], [52, -24]],
+    weather: 'storm',
+    water: [{ x: -30, z: 34, r: 22, drain: 0.008 }],
+    pumps: [[18, -24], [86, -24], [52, -76]],
   },
 
   /* ---------------------------------------------------- the stronghold --- */
@@ -1729,7 +1768,48 @@ const MAPS = {
     turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
     coolants: [[10, -62], [10, -26], [92, -44]],
     depots: [[34, -76], [66, -76], [50, -14]],
+    weather: 'storm',
+    water: [{ x: -36, z: 36, r: 20, drain: 0.007 }, { x: -70, z: -40, r: 16, drain: 0.007 }],
+    pumps: [[8, -16], [94, -16], [50, -78]],
   },
+};
+
+/* ---------------------------------------------------- construction sites --
+   Caught mid-build. Fewer defences, but a completion timer: let it finish and
+   the turrets come online, the garrison doubles and the coolant towers gain
+   armour. The whole mission is a question the player must answer early —
+   strike fast and dirty, or dig in and lose the window. Nothing random. */
+MAPS['groundbreak'] = {
+  id: 'groundbreak', name: 'The Groundbreaking', archetype: 'valley', faction: 'wild',
+  terra: { ampl: 6, blightReach: 40 }, palette: { ...VALLEY_PALETTE, bg: 0x2a2b22, fog: 0x36382c },
+  props: { trees: 620, rocks: 380, ferns: 300 },
+  base: { x: -70, z: 66 },
+  compound: { x: 54, z: -48, hw: 34, hd: 28 },
+  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 14, z: -4 }, { x: 70, z: 30 }],
+  turrets: [[30, -28], [78, -28]],
+  coolants: [[32, -62], [76, -62], [54, -26]],
+  depots: [[54, -70]],
+  weather: 'rain',
+  water: [{ x: -22, z: 34, r: 20, drain: 0.005 }],
+  pumps: [[36, -22]],
+  construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
+};
+
+MAPS['pourhouse'] = {
+  id: 'pourhouse', name: 'Pourhouse Flats', archetype: 'wetland', faction: 'wild',
+  terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5, blightReach: 44 },
+  palette: { bg: 0x1a2b28, fog: 0x233a35, fogNear: 140, fogFar: 380, treeHue: 0.32 },
+  props: { trees: 440, rocks: 260, ferns: 780 },
+  base: { x: -72, z: 70 },
+  compound: { x: 56, z: -46, hw: 38, hd: 30 },
+  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 16, z: -6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
+  turrets: [[26, -26], [86, -26], [56, -70]],
+  coolants: [[30, -60], [82, -60], [56, -24]],
+  depots: [[56, -68], [30, -30]],
+  weather: 'storm',
+  water: [{ x: -28, z: 36, r: 26, drain: 0.009 }, { x: 20, z: -70, r: 16, drain: 0.009 }],
+  pumps: [[28, -22], [84, -22]],
+  construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
 const DEFAULT_MAP = 'verdant-hollow';
@@ -2001,6 +2081,20 @@ const LINES = {
     'We categorically deny that the community dislikes us.',
     'TerraByte loves Milltown. Milltown, please call us back.',
   ],
+  water: [
+    'The aquifer is performing exactly as modelled. The model is being revised.',
+    'Reports of a "missing lake" are being handled by our Narrative team.',
+    'TerraByte uses only the water it needs. It needs all of it.',
+    'The wetland has been reclassified as a car park in our filings.',
+  ],
+  build: [
+    'Phase two remains on schedule and under budget, unlike the fence.',
+    'Hard hats are mandatory beyond this point. So are non-disclosure agreements.',
+  ],
+  built: [
+    'The new site is live. Please direct all wildlife enquiries to the portal.',
+    'We are pleased to announce expanded capacity and expanded fencing.',
+  ],
   heartLow: [
     'TerraByte extends its condolences in advance.',
     'Our expansion roadmap has never looked greener. Or closer.',
@@ -2053,6 +2147,399 @@ function updateComms(dt) {
   box.querySelector('.comms-line').textContent = '“' + line + '”';
   box.classList.add('on');
   timer = 7;
+}
+
+
+/* =================== src/weather.js =================== */
+/* =========================================================================
+   Weather — rain, snow and drifting mist.
+
+   Precipitation is ONE Points object with a custom shader: particles live in a
+   box that follows the camera, and each one wraps vertically in the vertex
+   shader, so 6000 drops cost one draw call and zero CPU per frame. Nothing is
+   allocated after init.
+
+   Weather is a MapDef property, not a random event — a player planning a strike
+   should know what they are walking into, so Coldrake is always sleeting and
+   Substation Gary is always snowbound.
+   ========================================================================= */
+
+const PRECIP_COUNT = 6000;
+const BOX = 190;          // side of the follow-box around the camera
+const TOP = 90;
+
+let precip = null, mist = null, uni = null, listeners = null;
+
+const PRESETS = {
+  clear: { kind: 0, density: 0, mist: 0, wind: [0, 0] },
+  rain:  { kind: 0, density: 1.0, mist: 0.35, wind: [-7, 2], colour: 0x9fc4d8, streak: 3.4, speed: 62 },
+  storm: { kind: 0, density: 1.0, mist: 0.55, wind: [-15, 5], colour: 0x8fb6cc, streak: 5.0, speed: 78 },
+  snow:  { kind: 1, density: 0.85, mist: 0.5, wind: [3, -2], colour: 0xeaf2ff, streak: 1.0, speed: 9 },
+  mist:  { kind: 0, density: 0, mist: 0.85, wind: [1, 1] },
+};
+
+function initWeather(scene, name = 'clear') {
+  disposeWeather();
+  const p = PRESETS[name] || PRESETS.clear;
+  G.weather = { name, ...p };
+
+  if (p.density > 0) {
+    const n = Math.round(PRECIP_COUNT * p.density);
+    const pos = new Float32Array(n * 3);
+    const seed = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = rand(-BOX / 2, BOX / 2);
+      pos[i * 3 + 1] = rand(0, TOP);
+      pos[i * 3 + 2] = rand(-BOX / 2, BOX / 2);
+      seed[i] = Math.random();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), BOX);
+
+    uni = {
+      uTime:   { value: 0 },
+      uOrigin: { value: new THREE.Vector3() },
+      uBox:    { value: BOX },
+      uTop:    { value: TOP },
+      uSpeed:  { value: p.speed },
+      uWind:   { value: new THREE.Vector2(p.wind[0], p.wind[1]) },
+      uColour: { value: new THREE.Color(p.colour) },
+      uStreak: { value: p.streak },
+      uSize:   { value: p.kind === 1 ? 2.6 : 1.5 },
+      uFlake:  { value: p.kind },
+      uFade:   { value: 0 },
+    };
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false,
+      blending: p.kind === 1 ? THREE.NormalBlending : THREE.AdditiveBlending,
+      vertexShader: `
+        attribute float seed;
+        uniform float uTime, uBox, uTop, uSpeed, uSize, uFlake;
+        uniform vec2 uWind;
+        uniform vec3 uOrigin;
+        varying float vSeed;
+        void main() {
+          vSeed = seed;
+          vec3 p = position;
+          /* fall, then wrap inside a box that rides with the camera — no CPU
+             work and no particle ever leaves the visible volume */
+          float t = uTime * (0.7 + seed * 0.6);
+          p.y -= t * uSpeed;
+          p.x += uWind.x * t;
+          p.z += uWind.y * t;
+          if (uFlake > 0.5) {                        // snow drifts sideways
+            p.x += sin(uTime * (0.5 + seed) + seed * 30.0) * 2.4;
+            p.z += cos(uTime * (0.4 + seed) + seed * 21.0) * 2.4;
+          }
+          p.x = mod(p.x - uOrigin.x + uBox * 0.5, uBox) - uBox * 0.5 + uOrigin.x;
+          p.z = mod(p.z - uOrigin.z + uBox * 0.5, uBox) - uBox * 0.5 + uOrigin.z;
+          p.y = mod(p.y, uTop);
+          p.y += uOrigin.y;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = uSize * (300.0 / max(1.0, -mv.z));
+        }`,
+      fragmentShader: `
+        uniform vec3 uColour;
+        uniform float uStreak, uFlake, uFade;
+        varying float vSeed;
+        void main() {
+          vec2 c = gl_PointCoord - 0.5;
+          float a;
+          if (uFlake > 0.5) {
+            a = smoothstep(0.5, 0.05, length(c));           // soft round flake
+          } else {
+            c.y /= uStreak;                                  // elongate into a streak
+            a = smoothstep(0.5, 0.0, length(c)) * 0.75;
+          }
+          if (a < 0.01) discard;
+          gl_FragColor = vec4(uColour, a * (0.35 + vSeed * 0.5) * uFade);
+        }`,
+    });
+
+    precip = new THREE.Points(geo, mat);
+    precip.frustumCulled = false;
+    precip.renderOrder = 7;          // over the fog veil, like real weather
+    scene.add(precip);
+  }
+
+  if (p.mist > 0) buildMist(scene, p.mist);
+  return G.weather;
+}
+
+/* Ground mist: a few big soft billboards drifting low over the terrain. */
+function buildMist(scene, strength) {
+  const geo = new THREE.PlaneGeometry(1, 1);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColour: { value: new THREE.Color(0xbcd0d8) },
+      uStrength: { value: strength },
+      uFade: { value: 0 },
+    },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      uniform vec3 uColour; uniform float uStrength, uFade, uTime;
+      varying vec2 vUv;
+      float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }
+      float n(vec2 p){ vec2 i=floor(p),f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+        return mix(mix(h(i),h(i+vec2(1,0)),u.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
+      void main(){
+        vec2 p = vUv * 3.0 + vec2(uTime * 0.03, uTime * 0.017);
+        float f = n(p) * 0.6 + n(p * 2.3) * 0.3;
+        float edge = smoothstep(0.5, 0.12, length(vUv - 0.5));
+        gl_FragColor = vec4(uColour, f * edge * uStrength * 0.5 * uFade);
+      }`,
+  });
+  mist = new THREE.Group();
+  for (let i = 0; i < 14; i++) {
+    const m = new THREE.Mesh(geo, mat);
+    const x = rand(-WORLD / 2, WORLD / 2), z = rand(-WORLD / 2, WORLD / 2);
+    m.position.set(x, terrainHeight(x, z) + rand(2, 7), z);
+    m.rotation.x = -Math.PI / 2.2;
+    m.scale.setScalar(rand(45, 90));
+    m.renderOrder = 6;
+    m.raycast = () => {};
+    mist.add(m);
+  }
+  scene.add(mist);
+}
+
+function updateWeather(dt) {
+  const cam = G.camera;
+  if (precip && uni) {
+    uni.uTime.value += dt;
+    uni.uFade.value = Math.min(1, uni.uFade.value + dt * 0.6);
+    if (cam) uni.uOrigin.value.set(cam.position.x, 0, cam.position.z);
+  }
+  if (mist) {
+    const mu = mist.children[0].material.uniforms;
+    mu.uTime.value += dt;
+    mu.uFade.value = Math.min(1, mu.uFade.value + dt * 0.4);
+    if (cam) for (const m of mist.children) m.lookAt(cam.position.x, m.position.y, cam.position.z);
+  }
+}
+
+function disposeWeather() {
+  for (const o of [precip, mist]) {
+    if (!o) continue;
+    o.parent && o.parent.remove(o);
+    o.traverse ? o.traverse(c => { c.geometry && c.geometry.dispose(); c.material && c.material.dispose(); })
+               : (o.geometry.dispose(), o.material.dispose());
+  }
+  precip = null; mist = null; uni = null;
+}
+
+
+/* =================== src/water.js =================== */
+/* =========================================================================
+   Water, and the draining of it.
+
+   A map can carry lakes. The data centre's intakes pull from them, and the
+   level falls on a visible clock. This is the strategic spine of a mission:
+
+     · Groves inside a lake's catchment pay full income only while the lake
+       holds. As it drops they wither and pay less, so a player who ignores
+       the water watches their economy die on a timer they were shown from
+       the first frame.
+     · Intake pumps sit inside the compound. Killing one stops its share of
+       the draw permanently. So there is a real decision every mission: rush
+       the Core, or spend units peeling off to kill pumps first.
+     · Nothing here is random. The drain rate is arithmetic and the HUD shows
+       it, so losing your water is always a decision you made, never a dice roll.
+
+   The surface is a real reflection: a mirrored render into a target, which is
+   what actually sells water at this camera angle.
+   ========================================================================= */
+
+const REFLECT_SIZE = 512;
+
+let lakes = [];
+let reflectTarget = null, reflectCam = null;
+const _reflMat = new THREE.Matrix4();
+const _norm = new THREE.Vector3(0, 1, 0);
+const _plane = new THREE.Plane();
+
+function initWater(scene, defs) {
+  disposeWater();
+  if (!defs || !defs.length) { G.lakes = lakes = []; return; }
+
+  reflectTarget = new THREE.WebGLRenderTarget(REFLECT_SIZE, REFLECT_SIZE, {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  });
+  reflectCam = new THREE.PerspectiveCamera();
+
+  lakes = defs.map(d => {
+    const uni = {
+      uTime:    { value: 0 },
+      uRefl:    { value: reflectTarget.texture },
+      uLevel:   { value: 1 },                       // 1 full .. 0 dry
+      uDeep:    { value: new THREE.Color(0x16404a) },
+      uShallow: { value: new THREE.Color(0x3d8e93) },
+      uDry:     { value: new THREE.Color(0x5b5647) },
+      uRadius:  { value: d.r },
+    };
+    const geo = new THREE.CircleGeometry(d.r, 64);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false,
+      vertexShader: `
+        varying vec4 vScreen; varying vec2 vLocal;
+        void main() {
+          vLocal = position.xz;
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * viewMatrix * wp;
+          vScreen = gl_Position;
+        }`,
+      fragmentShader: `
+        uniform sampler2D uRefl; uniform float uTime, uLevel, uRadius;
+        uniform vec3 uDeep, uShallow, uDry;
+        varying vec4 vScreen; varying vec2 vLocal;
+        float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+        float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+          return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
+        void main() {
+          float r = length(vLocal) / uRadius;
+          /* the shoreline retreats as the level falls; beyond it is cracked bed */
+          float edge = uLevel * 0.98;
+          float wet = smoothstep(edge, edge - 0.10, r);
+
+          vec2 uv = (vScreen.xy / vScreen.w) * 0.5 + 0.5;
+          vec2 ripple = vec2(
+            n(vLocal * 0.18 + uTime * 0.35),
+            n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
+          vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+
+          float depth = smoothstep(edge, 0.0, r);
+          vec3 body = mix(uShallow, uDeep, depth);
+          /* fresnel-ish: glancing angles are mirror, straight down is water */
+          float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+          vec3 col = mix(body, refl, f);
+          col += n(vLocal * 2.2 + uTime * 0.6) * 0.05;
+
+          /* exposed bed: dry, cracked, and lighter the longer it has been out */
+          float dry = 1.0 - wet;
+          vec3 bed = mix(uDry, uDry * 0.72, n(vLocal * 0.9));
+          col = mix(col, bed, dry);
+          float a = mix(0.94, 0.85, dry);
+          if (uLevel <= 0.02) a = 0.9;
+          gl_FragColor = vec4(col, a);
+        }`,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + 0.5, d.z);
+    mesh.renderOrder = 1;
+    mesh.raycast = () => {};
+    scene.add(mesh);
+
+    return {
+      x: d.x, z: d.z, r: d.r, y: mesh.position.y,
+      level: 1, mesh, uni,
+      baseDrain: d.drain !== undefined ? d.drain : 0.006,   // level units per second
+      warned: {},
+    };
+  });
+  G.lakes = lakes;
+  return lakes;
+}
+
+/* Intake pumps still standing decide how fast the water goes. */
+function activeDraw() {
+  if (!G.pumps || !G.pumps.length) return 1;
+  const alive = G.pumps.filter(p => p.alive).length;
+  return alive / G.pumps.length;
+}
+
+function updateWater(dt) {
+  if (!lakes.length) return;
+  const draw = activeDraw();
+  let anyDry = false;
+
+  for (const L of lakes) {
+    L.uni.uTime.value += dt;
+    if (draw > 0 && L.level > 0) {
+      L.level = clamp(L.level - L.baseDrain * draw * dt, 0, 1);
+      L.uni.uLevel.value = L.level;
+    } else if (draw === 0 && L.level < 1) {
+      // pumps gone: the water table recovers, slowly
+      L.level = clamp(L.level + L.baseDrain * 0.35 * dt, 0, 1);
+      L.uni.uLevel.value = L.level;
+    }
+    for (const [mark, msg] of [[0.6, 'is dropping'], [0.3, 'is nearly gone'], [0.02, 'has run dry']]) {
+      if (L.level <= mark && !L.warned[mark]) {
+        L.warned[mark] = true;
+        toast(`The water ${msg}`, mark <= 0.3 ? 'warn' : '');
+        if (mark === 0.02) commsEvent('water', 1);
+      }
+    }
+    if (L.level <= 0.02) anyDry = true;
+  }
+  G.waterLevel = lakes.reduce((s, L) => s + L.level, 0) / lakes.length;
+  G.waterDrying = anyDry;
+}
+
+/* A grove's yield depends on the water under it. Nothing random — a straight
+   readable curve from the nearest lake's level. */
+function groveWaterFactor(x, z) {
+  if (!lakes.length) return 1;
+  let best = 0;
+  for (const L of lakes) {
+    const d = Math.hypot(x - L.x, z - L.z);
+    const reach = L.r * 2.6;                     // catchment
+    if (d > reach) continue;
+    const share = 1 - smoothstep(L.r * 0.9, reach, d);
+    best = Math.max(best, share);
+  }
+  if (best <= 0) return 1;                       // outside any catchment: unaffected
+  const lvl = G.waterLevel !== undefined ? G.waterLevel : 1;
+  return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
+}
+
+/* ------------------------------------------------------------ reflection -- */
+/* Mirror the scene through the water plane once a frame at low resolution. */
+function renderWaterReflection(renderer, scene, camera) {
+  if (!lakes.length || !reflectTarget) return;
+  const L = lakes[0];
+  const y = L.y;
+
+  reflectCam.copy(camera);
+  reflectCam.position.set(camera.position.x, 2 * y - camera.position.y, camera.position.z);
+  const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
+  reflectCam.up.set(0, 1, 0);
+  reflectCam.lookAt(look.x, 2 * y - look.y, look.z);
+  reflectCam.updateMatrixWorld();
+  reflectCam.updateProjectionMatrix();
+
+  // clip everything under the surface so submerged geometry can't leak in
+  _plane.setFromNormalAndCoplanarPoint(_norm, new THREE.Vector3(0, y, 0));
+  const prevPlanes = renderer.clippingPlanes;
+  const prevTarget = renderer.getRenderTarget();
+  const visible = [];
+  for (const L2 of lakes) { visible.push([L2.mesh, L2.mesh.visible]); L2.mesh.visible = false; }
+
+  renderer.clippingPlanes = [_plane];
+  renderer.setRenderTarget(reflectTarget);
+  renderer.clear();
+  renderer.render(scene, reflectCam);
+  renderer.setRenderTarget(prevTarget);
+  renderer.clippingPlanes = prevPlanes;
+  for (const [m, v] of visible) m.visible = v;
+}
+
+function disposeWater() {
+  for (const L of lakes) {
+    L.mesh.parent && L.mesh.parent.remove(L.mesh);
+    L.mesh.geometry.dispose(); L.mesh.material.dispose();
+  }
+  lakes = [];
+  if (reflectTarget) { reflectTarget.dispose(); reflectTarget = null; }
+  reflectCam = null;
+  G.lakes = lakes;
 }
 
 
@@ -3823,6 +4310,40 @@ function buildLocalVariant(v) {
   return g;
 }
 
+const buildPorcupine = () => {
+  const g = quadruped({
+    fur: 0x4a3b2e, belly: 0x6a5946, bodyL: 2.2, bodyW: 1.25, bodyH: 1.15,
+    legH: 0.62, headS: 0.72, snout: 0.5, tail: 0.5, ears: true,
+    extras: {
+      // the quill mantle, angled back over the body
+      body: (() => {
+        const q = [];
+        for (let r = 0; r < 4; r++) {
+          for (let i = 0; i < 5; i++) {
+            const sx = (i - 2) * 0.24;
+            q.push(pCone(r % 2 ? 0xe8dfc8 : 0x2b2118, 0.055, 0.95,
+              sx, 0.62 + r * 0.05, -0.55 + r * 0.36, -0.55 - r * 0.07, 0, sx * 0.25));
+          }
+        }
+        return q;
+      })(),
+    },
+  });
+  return g;
+};
+
+const buildBeaver = () => quadruped({
+  fur: 0x533b28, belly: 0x6d5137, bodyL: 2.0, bodyW: 1.1, bodyH: 1.05,
+  legH: 0.5, headS: 0.68, snout: 0.42, tail: 0, ears: true,
+  extras: {
+    head: [pBox(0xe8e0c4, 0.24, 0.2, 0.12, 0, -0.16, 0.62)],       // incisors
+    body: [
+      pBox(0x3a2a1c, 1.15, 0.14, 1.5, 0, -0.34, -1.5),             // the paddle tail
+      pBox(0x2e2116, 1.0, 0.1, 0.28, 0, -0.3, -2.1),
+    ],
+  },
+});
+
 /* ============================= MACHINE ================================== */
 
 const buildGuard = () => {
@@ -3910,6 +4431,31 @@ const buildDepot = () => {
   g.add(cyl(trim, 0.16, 5, 4.2, 9, -3.4));
   const beacon = sph(GLOW(0xff6a3d), 0.28, 4.2, 11.5, -3.4); g.add(beacon);
   g.userData.anim = { kind: 'depot', beacon };
+  return g;
+};
+
+const buildPump = () => {
+  const g = new THREE.Group();
+  const shell = 0x46505c, dark = 0x232a33, PIPE = 0x5b6470;
+  const body = mergeParts([
+    pCyl(dark, 3.4, 1.0, 0, 0.5, 0),
+    pBox(shell, 4.6, 2.6, 3.4, 0, 2.2, 0),
+    pCyl(PIPE, 0.62, 7, -3.2, 1.6, 0, 0, 0, Math.PI / 2),          // intake running out
+    pCyl(PIPE, 0.45, 3.6, 0, 4.4, 0),
+    pBox(dark, 5.0, 0.5, 3.8, 0, 3.6, 0),
+  ], VC_MAT_METAL);
+  body.castShadow = true;
+  g.add(body);
+  g.add(box(GLOW(0x39d7ea), 3.6, 0.12, 0.1, 0, 2.9, 1.75));
+  const wheel = new THREE.Group();
+  wheel.position.set(0, 4.4, 0);
+  for (let i = 0; i < 4; i++) {
+    const b = box(M(0x8a949e, { metal: 0.6 }), 2.1, 0.14, 0.42, 0, 0, 0);
+    b.rotation.y = i * Math.PI / 4;
+    wheel.add(b);
+  }
+  g.add(wheel);
+  g.userData.anim = { kind: 'pump', wheel };
   return g;
 };
 
@@ -4265,7 +4811,9 @@ const BUILDERS = {
   drone:  () => cached('drone', buildDrone),
   turret: () => cached('turret', buildTurret),
   // one-offs, or (grove) needing genuinely per-instance materials
-  depot: buildDepot, coolant: buildCoolant, core: buildCore,
+  depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
+  porcupine: () => cached('porcupine', buildPorcupine),
+  beaver: () => cached('beaver', buildBeaver),
   wall: buildWall, hearttree: buildHeartTree, grove: buildGrove,
 };
 
@@ -4830,12 +5378,14 @@ function updateCombatFX(dt) {
 /* =================== src/entity.js =================== */
 const HB_Y = {
   wolf: 2.7, boar: 3.0, bear: 4.3, raven: 1.6, guard: 3.2, drone: 1.5, local: 3.2,
+  porcupine: 2.6, beaver: 2.5, pump: 6.5,
   turret: 5.8, depot: 9.5, coolant: 15.6, core: 13.5, wall: 5.6,
   hearttree: 34, grove: 5.5,
 };
 const FLY_H = { raven: 7.5, drone: 6.5 };
 /* Units are drawn a little larger than life so they read at RTS zoom levels. */
-const V_SCALE = { wolf: 1.35, boar: 1.3, bear: 1.15, raven: 1.4, guard: 1.3, drone: 1.35, local: 1.3 };
+const V_SCALE = { wolf: 1.35, boar: 1.3, bear: 1.15, raven: 1.4, guard: 1.3, drone: 1.35, local: 1.3,
+  porcupine: 1.3, beaver: 1.3 };
 
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -5478,6 +6028,10 @@ class Entity {
         break;
       }
       case 'turret': break;
+      case 'pump': {
+        if (a.wheel) a.wheel.rotation.y += dt * 2.4;
+        break;
+      }
       case 'depot': {
         if (a.beacon) a.beacon.visible = Math.sin(t * 3) > -0.2;
         break;
@@ -6483,7 +7037,9 @@ function buildScene(scene) {
   G.sky = sky;
 
   buildTerrain(scene);
+  initWater(scene, G.map && G.map.water);
   buildProps(scene);
+  initWeather(scene, (G.map && G.map.weather) || 'clear');
 }
 
 function buildTerrain(scene) {
@@ -6564,6 +7120,7 @@ function freeSpot(minDistCompound = 6) {
     if (Math.hypot(x - BASE.x, z - BASE.z) < 28) continue;
     let ok = true;
     for (const g of G.map.groves) if (Math.hypot(x - g.x, z - g.z) < 9) { ok = false; break; }
+    if (ok && G.map.water) for (const w of G.map.water) if (Math.hypot(x - w.x, z - w.z) < w.r + 3) { ok = false; break; }
     if (!ok) continue;
     return { x, y: terrainHeight(x, z), z };
   }
@@ -6731,6 +7288,28 @@ function populate() {
     G.obstacles.push(t);
   }
 
+  /* Intake pumps: the reason the water is leaving. Killing one permanently
+     removes its share of the draw, so there is a real decision every mission
+     between rushing the Core and peeling off to save the valley's water. */
+  G.pumps = (layout().pumps || []).map(([x, z]) => {
+    const p = spawn('pump', x, z);
+    p.onDeath = () => {
+      const left = G.pumps.filter(q => q.alive).length;
+      commsEvent('water', 0.8);
+      toast(left ? `Intake pump destroyed — ${left} still drawing` : 'The last pump is dead. The water is coming back.');
+    };
+    G.obstacles.push(p);
+    return p;
+  });
+
+  /* A site caught mid-build finishes on a clock if you let it. */
+  const con = layout().construction;
+  if (con) {
+    G.construction = { time: con.time, left: con.time, def: con, done: false, warned: {} };
+  } else {
+    G.construction = null;
+  }
+
   // starting garrison — sized by difficulty, not hard-coded
   for (let i = 0; i < RULES.garrisonGuards; i++) {
     const g = spawn('guard', COMPOUND.x + rand(-30, 30), COMPOUND.z + rand(-24, 24));
@@ -6856,8 +7435,37 @@ function updateWorld(dt) {
   }
 
   /* --- income --- */
-  G.income = (G.heart.alive ? RULES.baseIncome : 0) + bloomed * RULES.grovIncome;
+  /* Each bloomed grove pays according to the water table beneath it, so letting
+     the lakes drain is a slow, visible, entirely non-random economic defeat. */
+  let groveYield = 0;
+  for (const g of G.groves) if (g.owned) groveYield += RULES.grovIncome * groveWaterFactor(g.pos.x, g.pos.z);
+  G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
+
+  /* --- construction clock --- */
+  if (G.construction && !G.construction.done) {
+    const c = G.construction;
+    c.left -= dt;
+    for (const mark of [0.5, 0.25]) {
+      if (c.left / c.time <= mark && !c.warned[mark]) {
+        c.warned[mark] = true;
+        toast(`Construction ${Math.round(mark * 100)}% of the way to completion`, 'warn');
+        commsEvent('build', 1);
+      }
+    }
+    if (c.left <= 0) {
+      c.done = true;
+      for (const [x, z] of (c.def.addTurrets || [])) G.obstacles.push(spawn('turret', x, z));
+      for (let i = 0; i < (c.def.addGarrison || 0); i++) {
+        const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
+                                 COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
+        assignPatrol(g);
+      }
+      SFX.alarm();
+      commsEvent('built', 1);
+      toast('THE SITE IS OPERATIONAL — defences online', 'warn');
+    }
+  }
 
   /* --- population --- */
   let pop = 0, mpop = 0;
@@ -7733,7 +8341,7 @@ function showStartScreen(onStart) {
       </ul>
       <h3>Grow &amp; cast</h3>
       <ul>
-        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('B')}</span><em>wolf · boar · bear · raven · local</em></li>
+        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('H')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
         <li><span>${sxKey('F')} + click</span><em>Overgrowth — root every machine in a circle</em></li>
         <li><span>${sxKey('F1')} · ${sxKey('F3')}</span><em>in-game reference · performance overlay</em></li>
       </ul>
@@ -8619,6 +9227,8 @@ function onKey(e) {
     case 'KeyX': queueUnit('boar'); return;
     case 'KeyC': queueUnit('bear'); return;
     case 'KeyV': queueUnit('raven'); return;
+    case 'KeyG': queueUnit('porcupine'); return;
+    case 'KeyH': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
   }
 
@@ -9133,6 +9743,7 @@ function frame(now, manual) {
 
     updateAI(dt);
     updateWorld(dt);
+    updateWater(dt);
     updateFog(dt);
     reapDead(dt);
     updateScore(dt);
@@ -9150,6 +9761,7 @@ function frame(now, manual) {
   updateCombatFX(dt);
   updateVFX(dt);
   updateComms(dt);
+  updateWeather(dt);
   rtsCamera.update(dt);
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
@@ -9158,6 +9770,7 @@ function frame(now, manual) {
   }
   perfFrame(dt);
 
+  renderWaterReflection(renderer, scene, camera);
   renderer.render(scene, camera);
 }
 schedule();

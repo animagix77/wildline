@@ -10,12 +10,14 @@ import { SFX } from './audio.js';
 
 const HB_Y = {
   wolf: 2.7, boar: 3.0, bear: 4.3, raven: 1.6, guard: 3.2, drone: 1.5, local: 3.2,
+  porcupine: 2.6, beaver: 2.5, pump: 6.5,
   turret: 5.8, depot: 9.5, coolant: 15.6, core: 13.5, wall: 5.6,
   hearttree: 34, grove: 5.5,
 };
 const FLY_H = { raven: 7.5, drone: 6.5 };
 /* Units are drawn a little larger than life so they read at RTS zoom levels. */
-const V_SCALE = { wolf: 1.35, boar: 1.3, bear: 1.15, raven: 1.4, guard: 1.3, drone: 1.35, local: 1.3 };
+const V_SCALE = { wolf: 1.35, boar: 1.3, bear: 1.15, raven: 1.4, guard: 1.3, drone: 1.35, local: 1.3,
+  porcupine: 1.3, beaver: 1.3 };
 
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -658,6 +660,10 @@ export class Entity {
         break;
       }
       case 'turret': break;
+      case 'pump': {
+        if (a.wheel) a.wheel.rotation.y += dt * 2.4;
+        break;
+      }
       case 'depot': {
         if (a.beacon) a.beacon.visible = Math.sin(t * 3) > -0.2;
         break;

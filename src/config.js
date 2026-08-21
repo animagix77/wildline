@@ -58,6 +58,20 @@ export const DEFS = {
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
 
+  porcupine: {
+    name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
+    hp: 165, dmg: 17, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    armor: 5, vision: 26, cost: 55, build: 8, pop: 2, ranged: true, death: 'topple',
+    projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
+    blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
+  },
+  beaver: {
+    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
+    hp: 140, dmg: 14, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
+    armor: 2, vision: 22, cost: 45, build: 7, pop: 2, siege: 1.8, death: 'topple',
+    blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
+  },
+
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
@@ -80,6 +94,10 @@ export const DEFS = {
   depot: {
     name: 'Security Depot', team: TEAM.MACHINE, icon: '🏭',
     hp: 800, radius: 5.5, armor: 4, building: true, spawnEvery: 18,
+  },
+  pump: {
+    name: 'Intake Pump', team: TEAM.MACHINE, icon: '🚱',
+    hp: 520, radius: 3.4, armor: 3, building: true, pump: true,
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
@@ -131,4 +149,4 @@ export const RULES = {
   spellDuration:  5,
 };
 
-export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'local'];
+export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
