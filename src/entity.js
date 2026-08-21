@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G, addEntity } from './state.js';
-import { DEFS, TEAM } from './config.js';
+import { DEFS, TEAM, RULES } from './config.js';
 import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
 import { fireProjectile, applyDamage, burst } from './combat.js';
@@ -272,6 +272,7 @@ export class Entity {
     this.animT += dt;
 
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
+    if (this.def.repair) { this.updateTech(dt); return; }
 
     if (this.chargeT > 0) this.chargeT -= dt;
 
@@ -388,12 +389,59 @@ export class Entity {
     this.postUpdate(dt, moved / Math.max(0.0001, dt));
   }
 
+  /* ---------------------------------------------------------------- tech --
+     The compound's answer to attrition. A swarm wins by trading cheap bodies
+     for permanent chip damage on expensive structures; the technician is what
+     makes that trade stop paying. It is unarmed and flees fights, so the
+     counterplay is simply to shoot it -- which costs the player attention at
+     exactly the moment they have least to spare.                            */
+  updateTech(dt) {
+    let best = null, bd = 1e9;
+    for (const o of G.entities) {
+      if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      const d = dist2D(this.pos, o.pos);
+      /* prefer things that are nearly dead -- saving a wall is worth less than
+         saving the coolant tower the player has spent two minutes on */
+      const score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      if (score < bd) { bd = score; best = o; }
+    }
+
+    let moved = 0;
+    if (best) {
+      const gap = dist2D(this.pos, best.pos) - best.radius;
+      if (gap > this.def.range) {
+        moved = this.steer(best.pos, dt);
+      } else {
+        this.faceTo(best.pos, dt, 8);
+        const before = best.hp;
+        best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        this.repairing = best.hp > before;
+        /* one spark per half second, not per frame */
+        this._weldT = (this._weldT || 0) + dt;
+        if (this.repairing && this._weldT > 0.5) {
+          this._weldT = 0;
+          _v1.copy(best.pos); _v1.y += best.radius * 0.6;
+          burst(_v1, 0x59e5ff, 5, 3);
+        }
+      }
+    } else {
+      this.repairing = false;
+      /* nothing to fix: drift home and wait to be useful */
+      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) moved = this.steer(G.core.pos, dt);
+      else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
+    }
+
+    if (!best || moved > 0.001) { _face.copy(this.pos).add(this.vel); this.faceTo(_face, dt, 7); }
+    this.postUpdate(dt, moved / Math.max(0.0001, dt));
+  }
+
   steer(goal, dt) {
     _v1.set(goal.x - this.pos.x, 0, goal.z - this.pos.z);
     const d = _v1.length();
     if (d < 0.0001) return 0;
     _v1.divideScalar(d);
-    const sp = this.speed;
+    const sp = this.speed * this.greenMult();
     const accel = sp * 5;
     this.vel.x += (_v1.x * sp - this.vel.x) * Math.min(1, accel * dt / sp);
     this.vel.z += (_v1.z * sp - this.vel.z) * Math.min(1, accel * dt / sp);
@@ -550,7 +598,29 @@ export class Entity {
   }
 
   /* ------------------------------------------------------- presentation -- */
+  /* Movement multiplier from standing on the Green. Machines get nothing from
+     it -- the living ground is not theirs. */
+  greenMult() {
+    if (this.team !== TEAM.WILD || this.flying || !G.verdant) return 1;
+    const v = G.verdant.at(this.pos.x, this.pos.z);
+    return 1 + (RULES.greenHaste - 1) * v;
+  }
+
+  /* Out-of-combat regeneration. Deliberately does NOT tick during a fight, so
+     it can never win an engagement -- it only spares you the biomass of
+     rebuilding the survivors, which is the whole economy of a swarm. */
+  regen(dt) {
+    if (!this.alive || this.isBuilding) return;
+    if (this.team !== TEAM.WILD) return;
+    if (this.hp >= this.maxHp) return;
+    if (G.time - this.lastHitAt < RULES.regenDelay) return;
+    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
+    const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
+    this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
+  }
+
   postUpdate(dt, speedNow) {
+    this.regen(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {

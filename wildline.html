@@ -1001,9 +1001,22 @@ body.menu #comms{display:none!important}
         <h3>How to win</h3>
         <ul>
           <li>Walk any beast onto a <b>Grove</b> to bloom it (biomass).</li>
+          <li>Every grove also adds a <b>growing lane</b> &mdash; more groves, more
+              animals at once, up to four.</li>
           <li>Spend biomass at the <b>Heart Tree</b> to grow wildlife.</li>
           <li>Break the <b>3 Coolant Towers</b>, then kill the <b>Server Core</b>.</li>
-          <li>Ravens fly over walls. Bears eat turrets. Wolves are cheap.</li>
+        </ul>
+        <h3>You are the swarm</h3>
+        <ul>
+          <li>One wolf loses to one rifle. <b>Four wolves do not.</b> Never trickle
+              animals in &mdash; mass them, then commit.</li>
+          <li>The <b>Green</b> spreads from the Heart Tree and every bloomed grove.
+              On it your animals move faster and <b>heal when out of combat</b>.
+              Off it they stay hurt.</li>
+          <li>Ravens fly over walls. Bears and boars break armour. Wolves are cheap
+              enough to lose.</li>
+          <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
+              back together behind you.</li>
         </ul>
       </div>
     </div>
@@ -1472,49 +1485,49 @@ const DEFS = {
   /* ---- WILDLIFE (player) ---- */
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
-    hp: 80, dmg: 12, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 16, build: 2.8, pop: 1, death: 'topple',
-    blurb: 'Cheap, fast, dies fast. Bring friends.'
+    hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
+    armor: 0, vision: 26, cost: 11, build: 1.7, pop: 1, death: 'topple',
+    blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
-    hp: 170, dmg: 26, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 3, vision: 24, cost: 32, build: 5, pop: 2, siege: 1.4, death: 'topple',
+    hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
+    armor: 2, vision: 24, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 72, build: 9.5, pop: 3, siege: 2.2, death: 'topple',
-    blurb: 'Siege. Deals double damage to structures.'
+    armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
+    blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
-    hp: 60, dmg: 15, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
+    hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
+    armor: 0, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
 
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
-    hp: 130, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 60, build: 8, pop: 2, ranged: true, death: 'topple',
+    hp: 120, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
+    armor: 1, vision: 28, cost: 58, build: 7, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
 
   porcupine: {
     name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
-    hp: 165, dmg: 17, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
-    armor: 5, vision: 26, cost: 55, build: 8, pop: 2, ranged: true, death: 'topple',
+    hp: 120, dmg: 14, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    armor: 4, vision: 26, cost: 38, build: 5, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
     blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
   },
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
-    hp: 140, dmg: 14, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 22, cost: 45, build: 7, pop: 2, siege: 1.8, death: 'topple',
+    hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
+    armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
   },
 
@@ -1530,6 +1543,12 @@ const DEFS = {
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
     armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
+  },
+  tech: {
+    name: 'Field Technician', team: TEAM.MACHINE, icon: '\ud83d\udd27',
+    hp: 90, dmg: 0, rate: 1, range: 6, speed: 7.0, radius: 0.85,
+    armor: 1, vision: 24, pop: 1, death: 'topple', repair: 16,
+    blurb: 'Unarmed. Welds the compound back together behind you. Kill it first.'
   },
   turret: {
     name: 'Sentry Turret', team: TEAM.MACHINE, icon: '🗼',
@@ -1578,11 +1597,11 @@ const DEFS = {
 
 /* ---------------------------------------------------------- economy/game -- */
 const RULES = {
-  startBiomass:   180,
-  baseIncome:     0.8,      // per second from the Heart Tree
-  grovIncome:     2.2,      // per second per bloomed grove
+  startBiomass:   200,
+  baseIncome:     1.1,      // per second from the Heart Tree
+  grovIncome:     2.6,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
-  popCap:         52,
+  popCap:         96,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
@@ -1593,6 +1612,16 @@ const RULES = {
   spellCooldown:  26,
   spellRadius:    16,
   spellDuration:  5,
+
+  /* --- The Green (creep) ---------------------------------------------------
+     A swarm of individually weak things only works if losing bodies is
+     survivable and hurt bodies come back. Both live here. Regeneration is
+     gated on being out of combat so it never wins a fight for you -- it only
+     saves you the biomass of rebuilding between fights. */
+  regenDelay:     5,        // seconds out of combat before healing starts
+  regenOnGreen:   0.040,    // fraction of max HP per second, on the Green
+  regenOffGreen:  0.008,    // ...and out in the world, where you are alone
+  greenHaste:     1.18,     // movement multiplier on the Green
 };
 
 const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
@@ -4932,6 +4961,46 @@ const buildGuard = () => {
   return g;
 };
 
+/* Field technician: hi-vis, unarmed, carries a welding rig. Deliberately reads
+   as *not a soldier* at a glance, because shooting it is the correct answer and
+   the player needs to spot it inside a firefight. */
+const buildTech = () => {
+  const g = new THREE.Group();
+  const HIVIS = 0xe8862a, VEST = 0xf5c243, SKIN = 0x4b515c, DARK = 0x1b2028;
+
+  const body = mergeParts([
+    pBox(HIVIS, 0.82, 1.02, 0.54, 0, 0, 0),
+    pBox(VEST, 0.92, 0.34, 0.64, 0, 0.20, 0),
+    pBox(VEST, 0.92, 0.14, 0.64, 0, -0.14, 0),
+    pBox(SKIN, 0.44, 0.40, 0.44, 0, 0.73, 0),
+    pBox(VEST, 0.52, 0.20, 0.52, 0, 0.94, 0),      // hard hat
+    pBox(HIVIS, 0.23, 0.82, 0.23, -0.53, -0.05, 0.05),
+  ], VC_MAT_METAL);
+  body.position.y = 1.52;
+  body.castShadow = true;
+  g.add(body);
+
+  /* the welder sits where the rifle would, so the silhouette rhymes with a
+     guard at distance and separates up close */
+  const gun = mergeParts([
+    pBox(HIVIS, 0.23, 0.72, 0.23, 0, 0, -0.22, -1.0, 0, 0),
+    pBox(DARK, 0.16, 0.16, 0.7, 0, 0, 0.28),
+    pBox(0x59e5ff, 0.10, 0.10, 0.16, 0, 0, 0.66),  // arc tip
+  ], VC_MAT_METAL);
+  gun.position.set(0.48, 1.46, 0.42);
+  g.add(gun);
+
+  const legs = [];
+  for (const sx of [-1, 1]) {
+    const l = mergeParts([pBox(DARK, 0.27, 1.02, 0.27, sx * 0.21, 0, 0)], VC_MAT_METAL);
+    l.position.y = 0.51;
+    g.add(l); legs.push(l);
+  }
+
+  g.userData.anim = { kind: 'biped', legs, torso: body, head: null, gun, muzzle: new THREE.Vector3(0.48, 1.46, 1.1) };
+  return g;
+};
+
 const buildTurret = () => {
   const g = new THREE.Group();
   const STEEL = 0x5d6773, DARK = 0x2b3038;
@@ -5353,6 +5422,7 @@ const BUILDERS = {
   bear:   () => cached('bear', buildBear),
   raven:  () => cached('raven', buildRaven),
   guard:  () => cached('guard', buildGuard),
+  tech:   () => cached('tech', buildTech),
   local:  () => Math.random() < 0.5
     ? cached('local_w', () => buildLocalVariant('w'))
     : cached('local_m', () => buildLocalVariant('m')),
@@ -6239,6 +6309,7 @@ class Entity {
     this.animT += dt;
 
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
+    if (this.def.repair) { this.updateTech(dt); return; }
 
     if (this.chargeT > 0) this.chargeT -= dt;
 
@@ -6355,12 +6426,59 @@ class Entity {
     this.postUpdate(dt, moved / Math.max(0.0001, dt));
   }
 
+  /* ---------------------------------------------------------------- tech --
+     The compound's answer to attrition. A swarm wins by trading cheap bodies
+     for permanent chip damage on expensive structures; the technician is what
+     makes that trade stop paying. It is unarmed and flees fights, so the
+     counterplay is simply to shoot it -- which costs the player attention at
+     exactly the moment they have least to spare.                            */
+  updateTech(dt) {
+    let best = null, bd = 1e9;
+    for (const o of G.entities) {
+      if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      const d = dist2D(this.pos, o.pos);
+      /* prefer things that are nearly dead -- saving a wall is worth less than
+         saving the coolant tower the player has spent two minutes on */
+      const score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      if (score < bd) { bd = score; best = o; }
+    }
+
+    let moved = 0;
+    if (best) {
+      const gap = dist2D(this.pos, best.pos) - best.radius;
+      if (gap > this.def.range) {
+        moved = this.steer(best.pos, dt);
+      } else {
+        this.faceTo(best.pos, dt, 8);
+        const before = best.hp;
+        best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        this.repairing = best.hp > before;
+        /* one spark per half second, not per frame */
+        this._weldT = (this._weldT || 0) + dt;
+        if (this.repairing && this._weldT > 0.5) {
+          this._weldT = 0;
+          _v1.copy(best.pos); _v1.y += best.radius * 0.6;
+          burst(_v1, 0x59e5ff, 5, 3);
+        }
+      }
+    } else {
+      this.repairing = false;
+      /* nothing to fix: drift home and wait to be useful */
+      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) moved = this.steer(G.core.pos, dt);
+      else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
+    }
+
+    if (!best || moved > 0.001) { _face.copy(this.pos).add(this.vel); this.faceTo(_face, dt, 7); }
+    this.postUpdate(dt, moved / Math.max(0.0001, dt));
+  }
+
   steer(goal, dt) {
     _v1.set(goal.x - this.pos.x, 0, goal.z - this.pos.z);
     const d = _v1.length();
     if (d < 0.0001) return 0;
     _v1.divideScalar(d);
-    const sp = this.speed;
+    const sp = this.speed * this.greenMult();
     const accel = sp * 5;
     this.vel.x += (_v1.x * sp - this.vel.x) * Math.min(1, accel * dt / sp);
     this.vel.z += (_v1.z * sp - this.vel.z) * Math.min(1, accel * dt / sp);
@@ -6517,7 +6635,29 @@ class Entity {
   }
 
   /* ------------------------------------------------------- presentation -- */
+  /* Movement multiplier from standing on the Green. Machines get nothing from
+     it -- the living ground is not theirs. */
+  greenMult() {
+    if (this.team !== TEAM.WILD || this.flying || !G.verdant) return 1;
+    const v = G.verdant.at(this.pos.x, this.pos.z);
+    return 1 + (RULES.greenHaste - 1) * v;
+  }
+
+  /* Out-of-combat regeneration. Deliberately does NOT tick during a fight, so
+     it can never win an engagement -- it only spares you the biomass of
+     rebuilding the survivors, which is the whole economy of a swarm. */
+  regen(dt) {
+    if (!this.alive || this.isBuilding) return;
+    if (this.team !== TEAM.WILD) return;
+    if (this.hp >= this.maxHp) return;
+    if (G.time - this.lastHitAt < RULES.regenDelay) return;
+    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
+    const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
+    this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
+  }
+
   postUpdate(dt, speedNow) {
+    this.regen(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {
@@ -7640,6 +7780,180 @@ function bindMaskToProps() {
 }
 
 
+/* =================== src/verdant.js =================== */
+/* =========================================================================
+   The Green — creep.
+
+   The zerg idea, in a forest: the wild side spreads living ground outward from
+   the Heart Tree and every bloomed Grove. On the Green your critters move
+   faster and regenerate; off it they are slow and stay hurt. It grows over
+   time rather than appearing, so holding a grove visibly reclaims the map, and
+   the data centre's tarmac actively suppresses it.
+
+   Mechanically this is what makes "weak but numerous" work: a swarm that can
+   heal between pushes can afford to lose bodies. Off the Green you are a long
+   way from home and it feels like it.
+
+   Same shape as fog.js — a coarse grid, an R8 DataTexture, and one displaced
+   plane sampling it with a soft tent so it never reads as squares.
+   ========================================================================= */
+
+const VGRID = 96;
+const VCELL = WORLD / VGRID;
+const GROW = 2.2;              // cells per second the edge advances
+const Y_OFF = 0.22;            // sits under the fog veil (0.35) and over the ground
+
+let vfield = null;              // 0..255 current
+let vgoal = null;               // 0..255 target
+let vtex = null, vmesh = null, vmat = null;
+let vAcc = 0, vDirty = true;
+
+const vCellX = x => clamp(((x + HALF) / VCELL) | 0, 0, VGRID - 1);
+const vCellZ = z => clamp(((z + HALF) / VCELL) | 0, 0, VGRID - 1);
+
+function initVerdant(scene) {
+  disposeVerdant();
+  vfield = new Uint8Array(VGRID * VGRID);
+  vgoal = new Uint8Array(VGRID * VGRID);
+
+  vtex = new THREE.DataTexture(vfield, VGRID, VGRID, THREE.RedFormat, THREE.UnsignedByteType);
+  vtex.minFilter = vtex.magFilter = THREE.LinearFilter;
+  vtex.wrapS = vtex.wrapT = THREE.ClampToEdgeWrapping;
+  vtex.needsUpdate = true;
+
+  /* displaced to follow the terrain, like the fog veil, or it clips through hills */
+  const seg = 96;
+  const geo = new THREE.PlaneGeometry(WORLD, WORLD, seg, seg);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)) + Y_OFF);
+  }
+  geo.computeVertexNormals();
+
+  vmat = new THREE.ShaderMaterial({
+    uniforms: {
+      uVField: { value: vtex },
+      uTexel: { value: new THREE.Vector2(1 / VGRID, 1 / VGRID) },
+      uTime:  { value: 0 },
+      uHalf:  { value: HALF },
+      uWorld: { value: WORLD },
+      uNear:  { value: new THREE.Color(0x74d64a) },
+      uDeep:  { value: new THREE.Color(0x2f7a34) },
+    },
+    transparent: true, depthWrite: false,
+    vertexShader: `
+      uniform float uHalf, uWorld;
+      varying vec2 vUv; varying vec2 vWorld;
+      void main(){
+        vec4 wp = modelMatrix * vec4(position,1.0);
+        vWorld = wp.xz;
+        vUv = (wp.xz + uHalf) / uWorld;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }`,
+    fragmentShader: `
+      uniform sampler2D uVField; uniform vec2 uTexel; uniform float uTime;
+      uniform vec3 uNear, uDeep;
+      varying vec2 vUv; varying vec2 vWorld;
+      float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+        return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
+      void main(){
+        vec2 o = uTexel*0.5;
+        float v = texture2D(uVField, vUv+vec2( o.x, o.y)).r
+                + texture2D(uVField, vUv+vec2(-o.x, o.y)).r
+                + texture2D(uVField, vUv+vec2( o.x,-o.y)).r
+                + texture2D(uVField, vUv+vec2(-o.x,-o.y)).r;
+        v *= 0.25;
+        /* organic edge: break the boundary with noise so it creeps rather than
+           expanding as a clean disc */
+        float edge = n(vWorld*0.09) * 0.30 + n(vWorld*0.26)*0.12;
+        float a = smoothstep(0.18 + edge*0.5, 0.62 + edge*0.3, v);
+        if (a < 0.01) discard;
+        float mottle = n(vWorld*0.5)*0.5 + n(vWorld*1.6)*0.3;
+        vec3 col = mix(uDeep, uNear, mottle);
+        /* a slow pulse outward from wherever it is thickest */
+        col += 0.05 * sin(uTime*0.7 + vWorld.x*0.05 + vWorld.y*0.04) * v;
+        gl_FragColor = vec4(col, a * 0.5);
+      }`,
+  });
+
+  vmesh = new THREE.Mesh(geo, vmat);
+  vmesh.renderOrder = 1;          // above ground decals, below the fog veil
+  vmesh.frustumCulled = false;
+  vmesh.raycast = () => {};
+  scene.add(vmesh);
+  G.verdant = { at: verdantAt };
+  return vmesh;
+}
+
+/* Sources: the Heart Tree, and every grove you actually hold. */
+function stampGoal() {
+  vgoal.fill(0);
+  const add = (x, z, r, strength) => {
+    const r2 = r * r;
+    const ci = vCellX(x), cj = vCellZ(z), rad = Math.ceil(r / VCELL);
+    for (let j = Math.max(0, cj - rad); j <= Math.min(VGRID - 1, cj + rad); j++) {
+      const dz = (j + 0.5) * VCELL - HALF - z;
+      for (let i = Math.max(0, ci - rad); i <= Math.min(VGRID - 1, ci + rad); i++) {
+        const dx = (i + 0.5) * VCELL - HALF - x;
+        const d2 = dx * dx + dz * dz;
+        if (d2 > r2) continue;
+        const t = 1 - Math.sqrt(d2) / r;
+        const v = Math.min(255, strength * (0.45 + 0.55 * t));
+        const k = j * VGRID + i;
+        if (v > vgoal[k]) vgoal[k] = v;
+      }
+    }
+  };
+  if (G.heart && G.heart.alive) add(G.heart.pos.x, G.heart.pos.z, 34, 255);
+  for (const g of (G.groves || [])) if (g.owned) add(g.pos.x, g.pos.z, 26, 255);
+
+  /* the campus poisons the ground it sits on */
+  for (let j = 0; j < VGRID; j++) {
+    for (let i = 0; i < VGRID; i++) {
+      const k = j * VGRID + i;
+      if (!vgoal[k]) continue;
+      const wx = (i + 0.5) * VCELL - HALF, wz = (j + 0.5) * VCELL - HALF;
+      const b = blight(wx, wz);
+      if (b > 0.05) vgoal[k] = Math.max(0, vgoal[k] * (1 - b));
+    }
+  }
+}
+
+function updateVerdant(dt) {
+  if (!vfield) return;
+  vmat.uniforms.uTime.value += dt;
+
+  vAcc += dt;
+  if (vAcc >= 0.25) { stampGoal(); vAcc = 0; vDirty = true; }
+
+  /* advance toward the vgoal at a fixed rate — the edge crawls, it doesn't snap */
+  const step = Math.max(1, (GROW * 255 * dt) | 0);
+  let moved = false;
+  for (let k = 0; k < vfield.length; k++) {
+    const g = vgoal[k], f = vfield[k];
+    if (f === g) continue;
+    moved = true;
+    vfield[k] = f < g ? Math.min(g, f + step) : Math.max(g, f - Math.max(1, step >> 1));
+  }
+  if (moved || vDirty) { vtex.needsUpdate = true; vDirty = false; }
+}
+
+/** 0..1 — how alive the ground is under a point. */
+function verdantAt(x, z) {
+  if (!vfield) return 0;
+  return vfield[vCellZ(z) * VGRID + vCellX(x)] / 255;
+}
+
+function disposeVerdant() {
+  if (vmesh) { vmesh.parent && vmesh.parent.remove(vmesh); vmesh.geometry.dispose(); }
+  if (vmat) vmat.dispose();
+  if (vtex) vtex.dispose();
+  vfield = vgoal = null; vtex = vmesh = vmat = null;
+}
+
+
 /* =================== src/world.js =================== */
 /* =========================================================================
    Scene construction
@@ -8127,12 +8441,21 @@ function updateWorld(dt) {
   }
   G.pop = pop; G.machinePop = mpop;
 
-  /* --- production queue --- */
+  /* --- production queue -----------------------------------------------------
+     Parallel lanes, one per bloomed grove. This is the single change that makes
+     a swarm actually a swarm: a serial queue caps sustained spend at roughly one
+     wolf per build time no matter how rich you are, so past the third grove the
+     income simply piled up unspendable -- a playtest showed 1000 banked biomass
+     next to ten units on the field. Lanes turn map control into *throughput*
+     rather than just money, which is the reason to go take a grove at all. */
   if (G.queue.length && G.heart.alive) {
-    const item = G.queue[0];
-    item.remaining -= dt;
-    if (item.remaining <= 0) {
-      G.queue.shift();
+    const lanes = Math.min(4, 1 + (G.bloomed || 0));
+    G.lanes = lanes;
+    for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
+      const item = G.queue[i];
+      item.remaining -= dt;
+      if (item.remaining > 0) continue;
+      G.queue.splice(i, 1);
       if (!G.queue.length) rallyN = 0;      // batch finished; start the next one centred
       const a = rand(0, 6.28);
       const e = spawn(item.type, BASE.x + Math.cos(a) * 11, BASE.z + Math.sin(a) * 11);
@@ -8140,7 +8463,7 @@ function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  }
+  } else G.lanes = Math.min(4, 1 + (G.bloomed || 0));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -8180,12 +8503,12 @@ function queueUnit(type) {
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
-  if (G.queue.length >= 8) { SFX.deny(); return false; }
+  if (G.queue.length >= 12) { SFX.deny(); return false; }
   G.biomass -= def.cost;
-  /* Bloomed groves quicken the Heart Tree. Without this the serial queue capped
-     sustained spend at ~6 biomass/s while six groves paid 12.6 — everything past
-     the third grove was unspendable and could only be banked. */
-  const haste = 1 - 0.07 * (G.bloomed || 0);
+  /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
+     the lanes are the real lever, and stacking both at the old 7% made a maxed
+     economy produce faster than the pop cap could absorb. */
+  const haste = 1 - 0.04 * (G.bloomed || 0);
   const build = def.build * Math.max(0.55, haste);
   G.queue.push({ type, remaining: build, total: build });
   return true;
@@ -8246,9 +8569,16 @@ function updateAI(dt) {
          different threats, so rolling several drones early made a run materially
          harder for reasons the player could not see or plan around. */
       d.spawnN = (d.spawnN || 0) + 1;
-      const g = spawn(d.spawnN % 4 === 0 ? 'drone' : 'guard',
+      /* Technicians are capped hard. Three is enough to make chip damage stop
+         paying; more than that and a player who cannot yet reach the depots has
+         no line of play at all, which is the failure mode repair units usually
+         have. */
+      let kind = 'guard';
+      if (d.spawnN % 6 === 0 && countMachine('tech') < 3) kind = 'tech';
+      else if (d.spawnN % 4 === 0) kind = 'drone';
+      const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
-      assignPatrol(g);
+      if (kind !== 'tech') assignPatrol(g);   // techs go where the damage is
     }
   }
 
@@ -8375,6 +8705,12 @@ function castOvergrowth(point) {
     hit++;
   }
   return hit;
+}
+
+function countMachine(type) {
+  let n = 0;
+  for (const e of G.entities) if (e.alive && e.type === type) n++;
+  return n;
 }
 
 
@@ -10417,6 +10753,7 @@ function launchMission() {
   document.body.classList.remove('menu');
   populate();
   initFog();
+  initVerdant(scene);
   initScore();
   rtsCamera.cinematic = null;
   rtsCamera.focus(BASE, true, 95);   // the orbit leaves dist at 150; reset to default
@@ -10458,10 +10795,18 @@ if (HEADLESS) {
   // synchronous stepping so automated checks can fast-forward the simulation
   window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) frame(last + ms, true); };
   window.__begin = () => {
+    /* the splash sits in front of the menu, so a harness run has to clear it
+       first or every automated check silently measures an empty menu */
+    const cont = document.getElementById('sp-continue');
+    if (cont) { cont.disabled = false; cont.click(); }
     const btn = document.getElementById('ss-begin');
     if (btn) btn.click();
     return G.phase;
   };
+  /* balance checks need to actually play: queue units and issue orders */
+  window.__api = { queueUnit, order(units, type, pos, target) {
+    for (const u of units) u.setOrder(type, pos, target);
+  } };
 }
 
 function frame(now, manual) {
@@ -10490,6 +10835,7 @@ function frame(now, manual) {
     updateWorld(dt);
     updateWater(dt);
     updateFog(dt);
+    updateVerdant(dt);
     reapDead(dt);
     updateScore(dt);
   } else if (G.phase === 'over') {

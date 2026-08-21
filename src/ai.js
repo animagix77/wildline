@@ -34,9 +34,16 @@ export function updateAI(dt) {
          different threats, so rolling several drones early made a run materially
          harder for reasons the player could not see or plan around. */
       d.spawnN = (d.spawnN || 0) + 1;
-      const g = spawn(d.spawnN % 4 === 0 ? 'drone' : 'guard',
+      /* Technicians are capped hard. Three is enough to make chip damage stop
+         paying; more than that and a player who cannot yet reach the depots has
+         no line of play at all, which is the failure mode repair units usually
+         have. */
+      let kind = 'guard';
+      if (d.spawnN % 6 === 0 && countMachine('tech') < 3) kind = 'tech';
+      else if (d.spawnN % 4 === 0) kind = 'drone';
+      const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
-      assignPatrol(g);
+      if (kind !== 'tech') assignPatrol(g);   // techs go where the damage is
     }
   }
 
@@ -163,4 +170,10 @@ export function castOvergrowth(point) {
     hit++;
   }
   return hit;
+}
+
+function countMachine(type) {
+  let n = 0;
+  for (const e of G.entities) if (e.alive && e.type === type) n++;
+  return n;
 }

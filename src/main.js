@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { buildScene, populate, updateWorld, reapDead } from './world.js';
+import { queueUnit, buildScene, populate, updateWorld, reapDead } from './world.js';
 import { RTSCamera } from './camera.js';
 import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
@@ -17,6 +17,7 @@ import { toast } from './ui.js';
 import { showSplash, splashReady } from './splash.js';
 import { vw, vh } from './utils.js';
 import { initFog, updateFog, fogRevealAll } from './fog.js';
+import { initVerdant, updateVerdant } from './verdant.js';
 import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
 import { loadMap, DEFAULT_MAP, validateAllMaps } from './maps.js';
 import { SITES, pendingMission, setPending, applyCampaignMods, campState } from './campaign.js';
@@ -114,6 +115,7 @@ function launchMission() {
   document.body.classList.remove('menu');
   populate();
   initFog();
+  initVerdant(scene);
   initScore();
   rtsCamera.cinematic = null;
   rtsCamera.focus(BASE, true, 95);   // the orbit leaves dist at 150; reset to default
@@ -155,10 +157,18 @@ if (HEADLESS) {
   // synchronous stepping so automated checks can fast-forward the simulation
   window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) frame(last + ms, true); };
   window.__begin = () => {
+    /* the splash sits in front of the menu, so a harness run has to clear it
+       first or every automated check silently measures an empty menu */
+    const cont = document.getElementById('sp-continue');
+    if (cont) { cont.disabled = false; cont.click(); }
     const btn = document.getElementById('ss-begin');
     if (btn) btn.click();
     return G.phase;
   };
+  /* balance checks need to actually play: queue units and issue orders */
+  window.__api = { queueUnit, order(units, type, pos, target) {
+    for (const u of units) u.setOrder(type, pos, target);
+  } };
 }
 
 function frame(now, manual) {
@@ -187,6 +197,7 @@ function frame(now, manual) {
     updateWorld(dt);
     updateWater(dt);
     updateFog(dt);
+    updateVerdant(dt);
     reapDead(dt);
     updateScore(dt);
   } else if (G.phase === 'over') {

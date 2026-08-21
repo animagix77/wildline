@@ -26,49 +26,49 @@ export const DEFS = {
   /* ---- WILDLIFE (player) ---- */
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
-    hp: 80, dmg: 12, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 16, build: 2.8, pop: 1, death: 'topple',
-    blurb: 'Cheap, fast, dies fast. Bring friends.'
+    hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
+    armor: 0, vision: 26, cost: 11, build: 1.7, pop: 1, death: 'topple',
+    blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
-    hp: 170, dmg: 26, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 3, vision: 24, cost: 32, build: 5, pop: 2, siege: 1.4, death: 'topple',
+    hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
+    armor: 2, vision: 24, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 72, build: 9.5, pop: 3, siege: 2.2, death: 'topple',
-    blurb: 'Siege. Deals double damage to structures.'
+    armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
+    blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
-    hp: 60, dmg: 15, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 35, build: 5, pop: 1, flying: true, ranged: true, death: 'fall',
+    hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
+    armor: 0, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
 
   local: {
     name: 'Local', team: TEAM.WILD, icon: '🎯', key: 'B',
-    hp: 130, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
-    armor: 1, vision: 28, cost: 60, build: 8, pop: 2, ranged: true, death: 'topple',
+    hp: 120, dmg: 16, rate: 0.65, range: 20, speed: 7.2, radius: 0.95,
+    armor: 1, vision: 28, cost: 58, build: 7, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xffe08a, speed: 95, size: 0.15 },
     blurb: 'The valley\'s people, armed and done asking. Expensive, and very good shots.'
   },
 
   porcupine: {
     name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
-    hp: 165, dmg: 17, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
-    armor: 5, vision: 26, cost: 55, build: 8, pop: 2, ranged: true, death: 'topple',
+    hp: 120, dmg: 14, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    armor: 4, vision: 26, cost: 38, build: 5, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
     blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
   },
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
-    hp: 140, dmg: 14, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 22, cost: 45, build: 7, pop: 2, siege: 1.8, death: 'topple',
+    hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
+    armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
   },
 
@@ -84,6 +84,12 @@ export const DEFS = {
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
     armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
+  },
+  tech: {
+    name: 'Field Technician', team: TEAM.MACHINE, icon: '\ud83d\udd27',
+    hp: 90, dmg: 0, rate: 1, range: 6, speed: 7.0, radius: 0.85,
+    armor: 1, vision: 24, pop: 1, death: 'topple', repair: 16,
+    blurb: 'Unarmed. Welds the compound back together behind you. Kill it first.'
   },
   turret: {
     name: 'Sentry Turret', team: TEAM.MACHINE, icon: '🗼',
@@ -132,11 +138,11 @@ export const DEFS = {
 
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
-  startBiomass:   180,
-  baseIncome:     0.8,      // per second from the Heart Tree
-  grovIncome:     2.2,      // per second per bloomed grove
+  startBiomass:   200,
+  baseIncome:     1.1,      // per second from the Heart Tree
+  grovIncome:     2.6,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
-  popCap:         52,
+  popCap:         96,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
@@ -147,6 +153,16 @@ export const RULES = {
   spellCooldown:  26,
   spellRadius:    16,
   spellDuration:  5,
+
+  /* --- The Green (creep) ---------------------------------------------------
+     A swarm of individually weak things only works if losing bodies is
+     survivable and hurt bodies come back. Both live here. Regeneration is
+     gated on being out of combat so it never wins a fight for you -- it only
+     saves you the biomass of rebuilding between fights. */
+  regenDelay:     5,        // seconds out of combat before healing starts
+  regenOnGreen:   0.040,    // fraction of max HP per second, on the Green
+  regenOffGreen:  0.008,    // ...and out in the world, where you are alone
+  greenHaste:     1.18,     // movement multiplier on the Green
 };
 
 export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];

@@ -181,7 +181,31 @@ Two guards run on every build: a fast regex scan for duplicate top-level names, 
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
 
-### Balance, and why it isn't luck
+## Two species, on purpose
+
+The critters are a swarm; the data centre is an army. That asymmetry is the game.
+
+| | Critters | Data centre |
+|---|---|---|
+| Unit | cheap, weak, fast to grow | expensive, strong, slow to replace |
+| Wolf vs Guard, 1v1 | loses | wins |
+| Wolf vs Guard, 3v1 | wins | loses |
+| Range | melee, mostly | 15&ndash;21m, everything |
+| Recovery | heals out of combat, on the Green | Field Technicians weld it back |
+| Territory | the Green spreads and is worth standing on | walls, gates, turrets |
+| Throughput | one growing lane per bloomed grove | depots on a fixed timer |
+
+A wolf costs 11 biomass and 1.7 seconds. It does *not* trade evenly with a rifle
+and it is not supposed to. The population cap is 96, four growing lanes run at
+once at full map control, and a hurt animal standing on the Green heals back to
+full &mdash; so the resource you actually spend is attention, not bodies.
+
+The corresponding failure state is trickling. Feeding animals into the compound a
+few at a time loses every time; the automated check that sends them in piecemeal
+never scratches the Server Core, while the same composition massed to ~70 pop and
+pointed at the coolant towers takes the map in under a minute of fighting.
+
+## Balance, and why it isn't luck
 
 An independent analyst ran ~700 simulated matches against this build. The headline
 finding was that outcomes were **bimodal** — the same scripted plan produced either a

@@ -49,6 +49,7 @@ const MODULES = [
   'src/combat.js',
   'src/entity.js',
   'src/fog.js',
+  'src/verdant.js',
   'src/world.js',
   'src/ai.js',
   'src/camera.js',

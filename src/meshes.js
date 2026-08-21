@@ -390,6 +390,46 @@ export const buildGuard = () => {
   return g;
 };
 
+/* Field technician: hi-vis, unarmed, carries a welding rig. Deliberately reads
+   as *not a soldier* at a glance, because shooting it is the correct answer and
+   the player needs to spot it inside a firefight. */
+export const buildTech = () => {
+  const g = new THREE.Group();
+  const HIVIS = 0xe8862a, VEST = 0xf5c243, SKIN = 0x4b515c, DARK = 0x1b2028;
+
+  const body = mergeParts([
+    pBox(HIVIS, 0.82, 1.02, 0.54, 0, 0, 0),
+    pBox(VEST, 0.92, 0.34, 0.64, 0, 0.20, 0),
+    pBox(VEST, 0.92, 0.14, 0.64, 0, -0.14, 0),
+    pBox(SKIN, 0.44, 0.40, 0.44, 0, 0.73, 0),
+    pBox(VEST, 0.52, 0.20, 0.52, 0, 0.94, 0),      // hard hat
+    pBox(HIVIS, 0.23, 0.82, 0.23, -0.53, -0.05, 0.05),
+  ], VC_MAT_METAL);
+  body.position.y = 1.52;
+  body.castShadow = true;
+  g.add(body);
+
+  /* the welder sits where the rifle would, so the silhouette rhymes with a
+     guard at distance and separates up close */
+  const gun = mergeParts([
+    pBox(HIVIS, 0.23, 0.72, 0.23, 0, 0, -0.22, -1.0, 0, 0),
+    pBox(DARK, 0.16, 0.16, 0.7, 0, 0, 0.28),
+    pBox(0x59e5ff, 0.10, 0.10, 0.16, 0, 0, 0.66),  // arc tip
+  ], VC_MAT_METAL);
+  gun.position.set(0.48, 1.46, 0.42);
+  g.add(gun);
+
+  const legs = [];
+  for (const sx of [-1, 1]) {
+    const l = mergeParts([pBox(DARK, 0.27, 1.02, 0.27, sx * 0.21, 0, 0)], VC_MAT_METAL);
+    l.position.y = 0.51;
+    g.add(l); legs.push(l);
+  }
+
+  g.userData.anim = { kind: 'biped', legs, torso: body, head: null, gun, muzzle: new THREE.Vector3(0.48, 1.46, 1.1) };
+  return g;
+};
+
 export const buildTurret = () => {
   const g = new THREE.Group();
   const STEEL = 0x5d6773, DARK = 0x2b3038;
@@ -811,6 +851,7 @@ export const BUILDERS = {
   bear:   () => cached('bear', buildBear),
   raven:  () => cached('raven', buildRaven),
   guard:  () => cached('guard', buildGuard),
+  tech:   () => cached('tech', buildTech),
   local:  () => Math.random() < 0.5
     ? cached('local_w', () => buildLocalVariant('w'))
     : cached('local_m', () => buildLocalVariant('m')),

@@ -502,12 +502,21 @@ export function updateWorld(dt) {
   }
   G.pop = pop; G.machinePop = mpop;
 
-  /* --- production queue --- */
+  /* --- production queue -----------------------------------------------------
+     Parallel lanes, one per bloomed grove. This is the single change that makes
+     a swarm actually a swarm: a serial queue caps sustained spend at roughly one
+     wolf per build time no matter how rich you are, so past the third grove the
+     income simply piled up unspendable -- a playtest showed 1000 banked biomass
+     next to ten units on the field. Lanes turn map control into *throughput*
+     rather than just money, which is the reason to go take a grove at all. */
   if (G.queue.length && G.heart.alive) {
-    const item = G.queue[0];
-    item.remaining -= dt;
-    if (item.remaining <= 0) {
-      G.queue.shift();
+    const lanes = Math.min(4, 1 + (G.bloomed || 0));
+    G.lanes = lanes;
+    for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
+      const item = G.queue[i];
+      item.remaining -= dt;
+      if (item.remaining > 0) continue;
+      G.queue.splice(i, 1);
       if (!G.queue.length) rallyN = 0;      // batch finished; start the next one centred
       const a = rand(0, 6.28);
       const e = spawn(item.type, BASE.x + Math.cos(a) * 11, BASE.z + Math.sin(a) * 11);
@@ -515,7 +524,7 @@ export function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  }
+  } else G.lanes = Math.min(4, 1 + (G.bloomed || 0));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -555,12 +564,12 @@ export function queueUnit(type) {
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
-  if (G.queue.length >= 8) { SFX.deny(); return false; }
+  if (G.queue.length >= 12) { SFX.deny(); return false; }
   G.biomass -= def.cost;
-  /* Bloomed groves quicken the Heart Tree. Without this the serial queue capped
-     sustained spend at ~6 biomass/s while six groves paid 12.6 — everything past
-     the third grove was unspendable and could only be banked. */
-  const haste = 1 - 0.07 * (G.bloomed || 0);
+  /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
+     the lanes are the real lever, and stacking both at the old 7% made a maxed
+     economy produce faster than the pop cap could absorb. */
+  const haste = 1 - 0.04 * (G.bloomed || 0);
   const build = def.build * Math.max(0.55, haste);
   G.queue.push({ type, remaining: build, total: build });
   return true;
