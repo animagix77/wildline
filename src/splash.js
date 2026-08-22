@@ -33,11 +33,35 @@ function markIntroSeen() {
   try { sessionStorage.setItem(SEEN, '1'); } catch {}
 }
 
+/* The load used to be dead air with five generic verbs on it. It is the only
+   moment the player is sitting still and reading, so it now tells the setup —
+   in TerraByte's own paperwork, because the premise is much funnier from the
+   villain's side than narrated straight. The arc runs: they build, they ignore
+   everyone, the valley starts biting, and the escalation path ends at you.
+
+   These advance on their own clock rather than on bar position: loading is
+   quick, and a story rationed to the progress bar would be cut off two beats
+   in. They keep cycling once the button lights, so a player who lingers gets
+   the whole thing and a player who does not still gets the joke. */
 const STEPS = [
-  'Waking the forest…',
-  'Surveying the valley floor…',
-  'Counting the trees…',
-  'Reading TerraByte’s planning application…',
+  'Filing environmental impact assessment… marked N/A.',
+  'Consulting local stakeholders… none found. (Did not look.)',
+  'Pouring 40,000 tonnes of concrete on a Site of Special Scientific Interest.',
+  'Rerouting the river. The river has been notified.',
+  'Planting 3 (three) commemorative saplings in the overflow car park.',
+  'Logging complaint from: one (1) badger. Filed under “other”.',
+  'Q3 objective: synergise the wetland. Status: wetland missing.',
+  'Something is chewing the fibre. Escalating to Facilities.',
+  'Facilities has escalated to Security.',
+  'Security has escalated to the valley.',
+  'The valley has escalated to you.',
+];
+
+/* Between missions the story is not the point — you have already read it. */
+const QUICK = [
+  'Warming the biomass…',
+  'Rousing the pack…',
+  'Checking TerraByte’s permits. Still fake.',
   'Sharpening claws…',
 ];
 
@@ -65,7 +89,7 @@ export function showSplash(onContinue) {
         <div class="sp-cmark">CRITTERS <i>VS</i> COMPUTE</div>
         <div class="sp-load">
           <div class="sp-barwrap"><i class="sp-bar"></i></div>
-          <div class="sp-note">Waking the forest…</div>
+          <div class="sp-note">Warming the biomass…</div>
         </div>
       </div>`;
     document.getElementById('app').appendChild(spEl);
@@ -86,7 +110,7 @@ export function showSplash(onContinue) {
       <div class="sp-sub">A real-time strategy game about a valley that has had enough</div>
       <div class="sp-load">
         <div class="sp-barwrap"><i class="sp-bar"></i></div>
-        <div class="sp-note">Waking the forest…</div>
+        <div class="sp-note">Filing environmental impact assessment… marked N/A.</div>
       </div>
       <button class="sp-btn" id="sp-continue" type="button" disabled><span>Get Started</span></button>
       <div class="sp-foot">TerraByte Solutions is not affiliated with this product and would like that on the record.</div>
@@ -117,7 +141,20 @@ function runProgress() {
      times faster than the first-run reveal, which is paced to be looked at. */
   const climb = compact ? 0.035 : 0.012;
   const ease  = compact ? 0.40  : 0.18;
-  let shown = 0, target = 0.06, step = 0;
+  const lines = compact ? QUICK : STEPS;
+  const dwell = compact ? 22 : 42;        // ticks per line (tick is 40ms)
+  /* The story gets its OWN interval, because the progress ticker is cleared the
+     instant loading finishes — which is precisely when the player starts
+     sitting and reading. This one runs until dismiss. */
+  let step = 0;
+  spEl._story = setInterval(() => {
+    if (!note) return;
+    step = (step + 1) % lines.length;
+    note.style.opacity = '0';
+    setTimeout(() => { if (note) { note.textContent = lines[step]; note.style.opacity = '1'; } }, 130);
+  }, dwell * 40);
+
+  let shown = 0, target = 0.06;
   spEl._tick = setInterval(() => {
     target = Math.min(ready ? 1 : 0.92, target + climb);
     /* Once the world is genuinely up, converge in a couple of ticks whatever the
@@ -125,12 +162,10 @@ function runProgress() {
        purely by tick count sat on screen for 25s with the game ready behind it. */
     shown += ready ? Math.max((target - shown) * ease, 0.34) : (target - shown) * ease;
     bar.style.width = (shown * 100).toFixed(1) + '%';
-    const s = Math.min(STEPS.length - 1, Math.floor(shown * STEPS.length));
-    if (s !== step) { step = s; note.textContent = STEPS[s]; }
     if (ready && shown > 0.985) {
       clearInterval(spEl._tick); spEl._tick = null;
       bar.style.width = '100%';
-      note.textContent = 'Ready.';
+      if (compact) note.textContent = 'Ready.';
       spEl.classList.add('sp-ready');
       /* Compact mode has nothing to press — it is a loading bar, so it simply
          hands over as soon as the world is up. */
@@ -201,6 +236,7 @@ function dismiss() {
   markIntroSeen();
   window.removeEventListener('keydown', spKey);
   if (spEl._tick) clearInterval(spEl._tick);
+  if (spEl._story) clearInterval(spEl._story);
   if (spEl._unMove) spEl._unMove();
   cancelAnimationFrame(raf);
   spEl.classList.add('sp-out');
