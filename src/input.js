@@ -389,7 +389,7 @@ function onKey(e) {
     case 'KeyC': queueUnit('bear'); return;
     case 'KeyV': queueUnit('raven'); return;
     case 'KeyG': queueUnit('porcupine'); return;
-    case 'KeyH': queueUnit('beaver'); return;
+    case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
   }
 

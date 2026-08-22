@@ -98,7 +98,13 @@ export function musicStinger(name) {
   stinger = name;
   playInternal(name);
   const a = els[name];
-  a.onended = () => { if (stinger === name) stinger = null; };
+  const release = () => { if (stinger === name) stinger = null; };
+  a.onended = release;
+  a.onerror = release;
+  /* belt and braces: no stinger is longer than 60s, so a stuck one — play()
+     rejected, file truncated mid-stream — cannot duck the bed for a whole
+     mission */
+  setTimeout(release, 65000);
 }
 
 /** Hard stop of everything that is playing (mission teardown). */
@@ -121,15 +127,18 @@ export function musicSetMuted(v) { musMuted = !!v; }
 /* --------------------------------------------------------------- update -- */
 /* Called once a frame. Runs the fades, and ducks the bed while a fight is on
    so the informative sounds stay legible over the score. */
-let duckT = 0;
+let duckT = 0, duckPhase = 0;
 
 export function updateMusic(dt) {
   /* combat intensity: anything hurt in the last 2.5s keeps the duck alive */
   duckT = Math.max(0, duckT - dt);
   if (G.phase === 'playing' && G.entities) {
-    for (let i = 0; i < G.entities.length; i += 7) {   // sampled, not exhaustive
+    /* sampled with a rotating offset so no entity sits in a permanent blind
+       spot, and buildings count — sieging the compound IS the main combat mode */
+    duckPhase = (duckPhase + 1) % 7;
+    for (let i = duckPhase; i < G.entities.length; i += 7) {
       const e = G.entities[i];
-      if (e.alive && !e.isBuilding && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
+      if (e.alive && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
     }
   }
   const duckTarget = (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));

@@ -246,7 +246,7 @@ export function showStartScreen(onStart) {
       </ul>
       <h3>Grow &amp; cast</h3>
       <ul>
-        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('H')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
+        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
         <li><span>${sxKey('F')} + click</span><em>Overgrowth — root every machine in a circle</em></li>
         <li><span>${sxKey('F1')} · ${sxKey('F3')}</span><em>in-game reference · performance overlay</em></li>
       </ul>
@@ -338,6 +338,7 @@ export function showStartScreen(onStart) {
       window.removeEventListener('keydown', startKeyHandler, true);
       startKeyHandler = null;
     }
+    if (startResizeHandler) { window.removeEventListener('resize', startResizeHandler); startResizeHandler = null; }
     startEl = null;
     setTimeout(() => root.remove(), 340);
     if (typeof onStart === 'function') onStart(chosen);
@@ -755,19 +756,19 @@ export function showBriefing(site, mods, onBegin) {
   const go = sxEl('button', 'ss-begin', '<span>Begin the strike</span>');
   go.id = 'br-begin';
   go.type = 'button';
-  go.addEventListener('click', () => { root.remove(); onBegin(); });
+  go.addEventListener('click', () => { window.removeEventListener('keydown', onKey); root.remove(); onBegin(); });
   /* the pending strike survives a refresh (deliberate — you can resume), so the
      briefing needs a way OUT or a closed tab becomes a one-way door */
   const withdraw = sxEl('button', 'ss-begin camp-back', '<span>Withdraw</span>');
   withdraw.id = 'br-withdraw';
   withdraw.type = 'button';
-  withdraw.addEventListener('click', () => { setPending({ mode: 'return' }); location.reload(); });
+  withdraw.addEventListener('click', () => { window.removeEventListener('keydown', onKey); setPending({ mode: 'return' }); location.reload(); });
   const row = sxEl('div', 'ss-btnrow');
   row.appendChild(withdraw); row.appendChild(go);
   panel.appendChild(row);
   root.appendChild(panel);
   sxHost().appendChild(root);
-  const onKey = e => { if (e.code === 'Enter') { window.removeEventListener('keydown', onKey); go.click(); } };
+  function onKey(e) { if (e.code === 'Enter') go.click(); }
   window.addEventListener('keydown', onKey);
   return root;
 }

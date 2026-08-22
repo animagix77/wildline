@@ -54,7 +54,7 @@ export function initPost(renderer) {
   }));
 
   brightMat = new THREE.ShaderMaterial({
-    uniforms: { tSrc: { value: null }, uThreshold: { value: 1.0 }, uKnee: { value: 0.6 } },
+    uniforms: { tSrc: { value: null }, uThreshold: { value: 0.9 }, uKnee: { value: 0.6 } },
     vertexShader: VS,
     fragmentShader: `
       uniform sampler2D tSrc; uniform float uThreshold, uKnee;
@@ -90,7 +90,7 @@ export function initPost(renderer) {
   compMat = new THREE.ShaderMaterial({
     uniforms: {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null },
-      uStrength: { value: 0.85 }, uExposure: { value: 1.08 },
+      uStrength: { value: 0.7 }, uExposure: { value: 1.08 },
       uVignette: { value: 0.32 }, uShake: { value: 0 }, uAberration: { value: 0.0 },
     },
     vertexShader: VS,
@@ -118,9 +118,9 @@ export function initPost(renderer) {
         } else {
           col = texture2D(tScene, uv).rgb;
         }
-        vec3 bloom = texture2D(tB0, uv).rgb * 0.55
-                   + texture2D(tB1, uv).rgb * 0.30
-                   + texture2D(tB2, uv).rgb * 0.15;
+        vec3 bloom = texture2D(tB0, uv).rgb * 0.42
+                   + texture2D(tB1, uv).rgb * 0.33
+                   + texture2D(tB2, uv).rgb * 0.25;
         col += bloom * uStrength;
         col *= uExposure;
         col = aces(col);
@@ -184,12 +184,15 @@ export function renderPost(renderer, scene, camera, dt) {
   brightMat.uniforms.tSrc.value = sceneRT.texture;
   blit(renderer, brightMat, chain[0].a);
 
-  /* 3 · separable blur per level, each seeded from the one above */
+  /* 3 · separable blur per level. The threshold ran ONCE, at extraction —
+     re-applying it at each downsample (the original bug) starved the wide
+     levels to black and half the bloom budget was spent compositing darkness.
+     Lower levels seed straight from the level above: the first blur pass reads
+     the higher-res texture through linear filtering, which IS the downsample. */
   for (let i = 0; i < chain.length; i++) {
     const lvl = chain[i];
-    if (i > 0) { brightMat.uniforms.tSrc.value = chain[i - 1].a.texture; blit(renderer, brightMat, lvl.a); }
     const tx = 1 / lvl.a.width, ty = 1 / lvl.a.height;
-    blurMat.uniforms.tSrc.value = lvl.a.texture;
+    blurMat.uniforms.tSrc.value = (i === 0 ? lvl.a : chain[i - 1].a).texture;
     blurMat.uniforms.uTexel.value.set(tx, ty);
     blurMat.uniforms.uDir.value.set(1, 0);
     blit(renderer, blurMat, lvl.b);

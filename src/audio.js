@@ -79,8 +79,15 @@ export function toggleMute() { return setMuted(!muted); }
 export function updateListener() {
   const cam = G.camera;
   if (!cam) return;
-  listenX = cam.position.x; listenZ = cam.position.z;
+  /* The ear belongs at the point the camera is LOOKING at, not where it sits —
+     the RTS rig parks the eye a long way behind the focus, and measuring from
+     there attenuated dead-center combat to a fifth of nominal. Project the view
+     ray onto the ground plane and listen from the intersection. */
   const e = cam.matrixWorld.elements;
+  const fx = -e[8], fy = -e[9], fz = -e[10];         // camera forward
+  const t = fy < -0.05 ? cam.position.y / -fy : 0;   // distance to y=0 along the ray
+  listenX = cam.position.x + fx * t;
+  listenZ = cam.position.z + fz * t;
   const rx = e[0], rz = e[2];
   const len = Math.hypot(rx, rz) || 1;
   rightX = rx / len; rightZ = rz / len;
@@ -159,7 +166,8 @@ function noise(o = {}) {
   f1.frequency.value = (o.hp === undefined ? 400 : o.hp) * rnd(0.85, 1.18);
   const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass';
   f2.frequency.value = (o.lp === undefined ? 6000 : o.lp) * rnd(0.85, 1.18);
-  if (o.q) { f2.Q.value = o.q; f2.type = 'bandpass'; }
+  if (o.q) f2.Q.value = o.q;    // resonant lowpass — NOT a bandpass; that
+                                // repitched weld/gnaw/drain an octave up
   src.connect(f1); f1.connect(f2);
   voiceOut(f2, t0, o.a === undefined ? 0.004 : o.a, d,
         (o.peak === undefined ? 0.25 : o.peak) * (o.gain === undefined ? 1 : o.gain), o);
@@ -325,6 +333,13 @@ export const SFX = {
   spread: () => gate('spd', 4000) && (() => {
     tone(174, { type: 'sine', a: 0.4, d: 1.4, peak: 0.05, slide: 40, wet: 0.9, vary: false });
     tone(261, { type: 'sine', a: 0.5, d: 1.6, peak: 0.03, slide: 30, wet: 0.9, vary: false });
+    return true;
+  })(),
+  /* the base is dying and you are looking elsewhere — this must cut through */
+  heartAlarm: () => gate('hal', 9000) && (() => {
+    tone(196, { type: 'sawtooth', a: 0.02, d: 0.7, peak: 0.20, slide: -30, lp: 900, wet: 0.7, vary: false });
+    tone(98,  { type: 'sine', a: 0.02, d: 0.9, peak: 0.22, slide: -12, wet: 0.6, vary: false });
+    later(450, () => tone(185, { type: 'sawtooth', a: 0.02, d: 0.8, peak: 0.18, slide: -40, lp: 800, wet: 0.8, vary: false }));
     return true;
   })(),
   alarm: () => {

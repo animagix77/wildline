@@ -409,10 +409,11 @@ export class Entity {
     }
 
     let moved = 0;
+    const fromX = this.pos.x, fromZ = this.pos.z;
     if (best) {
       const gap = dist2D(this.pos, best.pos) - best.radius;
       if (gap > this.def.range) {
-        moved = this.steer(best.pos, dt);
+        if (!this.isRooted()) moved = this.steer(best.pos, dt);
       } else {
         this.faceTo(best.pos, dt, 8);
         const before = best.hp;
@@ -430,9 +431,15 @@ export class Entity {
     } else {
       this.repairing = false;
       /* nothing to fix: drift home and wait to be useful */
-      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) moved = this.steer(G.core.pos, dt);
-      else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
+      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) {
+        if (!this.isRooted()) moved = this.steer(G.core.pos, dt);
+      } else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
     }
+
+    /* same collision contract as every other walker — a welder does not phase
+       through the perimeter it is welding */
+    this.resolveObstacles(dt, fromX, fromZ);
+    this.clampToWorld();
 
     if (!best || moved > 0.001) { _face.copy(this.pos).add(this.vel); this.faceTo(_face, dt, 7); }
     this.postUpdate(dt, moved / Math.max(0.0001, dt));

@@ -945,6 +945,12 @@ body.menu #comms{display:none!important}
 @media (prefers-reduced-motion:reduce){
   .sp-title{ animation:none } #splash.sp-ready .sp-btn{ animation:none } }
 
+/* ---- growing lanes ---- */
+.qlanes{ display:inline-flex; align-items:center; margin-left:8px; padding:2px 8px;
+  border-radius:9px; font-size:11px; font-weight:700; letter-spacing:1px;
+  color:var(--leaf); border:1px solid rgba(127,212,74,.4); background:rgba(20,36,18,.5); }
+.qitem.q-live{ outline:1px solid rgba(127,212,74,.55); box-shadow:0 0 8px rgba(127,212,74,.25); }
+
 </style>
 </head>
 <body>
@@ -1018,7 +1024,7 @@ body.menu #comms{display:none!important}
           <li><b>Right click</b> — move / attack target</li>
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
-          <li><b>Z X C V G H B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
+          <li><b>Z X C V G N B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
           <li><b>F1</b> help · <b>F3</b> performance · <b>M</b> mute</li>
@@ -1521,7 +1527,7 @@ const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 11, build: 1.7, pop: 1, death: 'topple',
+    armor: 0, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
     blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
@@ -1554,13 +1560,13 @@ const DEFS = {
 
   porcupine: {
     name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
-    hp: 120, dmg: 14, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    hp: 120, dmg: 14, rate: 1.15, range: 16, speed: 4.6, radius: 1.1,
     armor: 4, vision: 26, cost: 38, build: 5, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
     blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
   },
   beaver: {
-    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
+    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
@@ -1588,7 +1594,7 @@ const DEFS = {
   turret: {
     name: 'Sentry Turret', team: TEAM.MACHINE, icon: '🗼',
     hp: 460, dmg: 15, rate: 0.85, range: 21, speed: 0, radius: 2.2,
-    armor: 4, vision: 27, ranged: true, building: true,
+    armor: 4, vision: 27, ranged: true, building: true, splash: 2.6,
     projectile: { color: 0xff8a3d, speed: 110, size: 0.25 },
   },
   depot: {
@@ -1789,7 +1795,10 @@ function insideCompound(x, z, margin = 0) {
 /* --- spatial hash for neighbour queries --------------------------------- */
 class Grid {
   constructor(cell = 12) { this.cell = cell; this.map = new Map(); }
-  key(x, z) { return ((x / this.cell) | 0) + ',' + ((z / this.cell) | 0); }
+  /* integer key, not a string — the string version minted ~7k throwaway
+     strings a frame at 96 pop, all garbage by the next one. 4096 columns is
+     plenty: the world is 240 units and cells are 12. */
+  key(x, z) { return (((x / this.cell) | 0) + 2048) * 4096 + (((z / this.cell) | 0) + 2048); }
   clear() { this.map.clear(); }
   insert(e) {
     const k = this.key(e.pos.x, e.pos.z);
@@ -1800,9 +1809,9 @@ class Grid {
   near(x, z, r, out) {
     out.length = 0;
     const c = this.cell, n = Math.ceil(r / c);
-    const cx = (x / c) | 0, cz = (z / c) | 0;
+    const cx = ((x / c) | 0) + 2048, cz = ((z / c) | 0) + 2048;
     for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
-      const b = this.map.get((cx + i) + ',' + (cz + j));
+      const b = this.map.get((cx + i) * 4096 + (cz + j));
       if (b) for (let k = 0; k < b.length; k++) out.push(b[k]);
     }
     return out;
@@ -2660,7 +2669,7 @@ function initPost(renderer) {
   }));
 
   brightMat = new THREE.ShaderMaterial({
-    uniforms: { tSrc: { value: null }, uThreshold: { value: 1.0 }, uKnee: { value: 0.6 } },
+    uniforms: { tSrc: { value: null }, uThreshold: { value: 0.9 }, uKnee: { value: 0.6 } },
     vertexShader: VS,
     fragmentShader: `
       uniform sampler2D tSrc; uniform float uThreshold, uKnee;
@@ -2696,7 +2705,7 @@ function initPost(renderer) {
   compMat = new THREE.ShaderMaterial({
     uniforms: {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null },
-      uStrength: { value: 0.85 }, uExposure: { value: 1.08 },
+      uStrength: { value: 0.7 }, uExposure: { value: 1.08 },
       uVignette: { value: 0.32 }, uShake: { value: 0 }, uAberration: { value: 0.0 },
     },
     vertexShader: VS,
@@ -2724,9 +2733,9 @@ function initPost(renderer) {
         } else {
           col = texture2D(tScene, uv).rgb;
         }
-        vec3 bloom = texture2D(tB0, uv).rgb * 0.55
-                   + texture2D(tB1, uv).rgb * 0.30
-                   + texture2D(tB2, uv).rgb * 0.15;
+        vec3 bloom = texture2D(tB0, uv).rgb * 0.42
+                   + texture2D(tB1, uv).rgb * 0.33
+                   + texture2D(tB2, uv).rgb * 0.25;
         col += bloom * uStrength;
         col *= uExposure;
         col = aces(col);
@@ -2790,12 +2799,15 @@ function renderPost(renderer, scene, camera, dt) {
   brightMat.uniforms.tSrc.value = sceneRT.texture;
   blit(renderer, brightMat, chain[0].a);
 
-  /* 3 · separable blur per level, each seeded from the one above */
+  /* 3 · separable blur per level. The threshold ran ONCE, at extraction —
+     re-applying it at each downsample (the original bug) starved the wide
+     levels to black and half the bloom budget was spent compositing darkness.
+     Lower levels seed straight from the level above: the first blur pass reads
+     the higher-res texture through linear filtering, which IS the downsample. */
   for (let i = 0; i < chain.length; i++) {
     const lvl = chain[i];
-    if (i > 0) { brightMat.uniforms.tSrc.value = chain[i - 1].a.texture; blit(renderer, brightMat, lvl.a); }
     const tx = 1 / lvl.a.width, ty = 1 / lvl.a.height;
-    blurMat.uniforms.tSrc.value = lvl.a.texture;
+    blurMat.uniforms.tSrc.value = (i === 0 ? lvl.a : chain[i - 1].a).texture;
     blurMat.uniforms.uTexel.value.set(tx, ty);
     blurMat.uniforms.uDir.value.set(1, 0);
     blit(renderer, blurMat, lvl.b);
@@ -3178,14 +3190,27 @@ function groveWaterFactor(x, z) {
 
 /* ------------------------------------------------------------ reflection -- */
 /* Mirror the scene through the water plane once a frame at low resolution. */
+let reflFlip = false;
+const _look = new THREE.Vector3();
 function renderWaterReflection(renderer, scene, camera) {
   if (!lakes.length || !reflectTarget) return;
+  /* A full second scene render is the single most expensive thing this game
+     does. Mirrors at half rate are imperceptible on slow water, and a map
+     whose lakes are all far outside the view doesn't pay for one at all. */
+  reflFlip = !reflFlip;
+  if (reflFlip) return;
+  let near = false;
+  for (const L2 of lakes) {
+    const dx = L2.mesh.position.x - camera.position.x, dz = L2.mesh.position.z - camera.position.z;
+    if (dx * dx + dz * dz < 220 * 220) { near = true; break; }
+  }
+  if (!near) return;
   const L = lakes[0];
   const y = L.y;
 
   reflectCam.copy(camera);
   reflectCam.position.set(camera.position.x, 2 * y - camera.position.y, camera.position.z);
-  const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
+  const look = _look.set(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
   reflectCam.up.set(0, 1, 0);
   reflectCam.lookAt(look.x, 2 * y - look.y, look.z);
   reflectCam.updateMatrixWorld();
@@ -3201,7 +3226,10 @@ function renderWaterReflection(renderer, scene, camera) {
   renderer.clippingPlanes = [_plane];
   renderer.setRenderTarget(reflectTarget);
   renderer.clear();
+  const prevShadow = renderer.shadowMap.autoUpdate;
+  renderer.shadowMap.autoUpdate = false;   // reuse this frame's shadow map
   renderer.render(scene, reflectCam);
+  renderer.shadowMap.autoUpdate = prevShadow;
   renderer.setRenderTarget(prevTarget);
   renderer.clippingPlanes = prevPlanes;
   for (const [m, v] of visible) m.visible = v;
@@ -3761,8 +3789,15 @@ function toggleMute() { return setMuted(!muted); }
 function updateListener() {
   const cam = G.camera;
   if (!cam) return;
-  listenX = cam.position.x; listenZ = cam.position.z;
+  /* The ear belongs at the point the camera is LOOKING at, not where it sits —
+     the RTS rig parks the eye a long way behind the focus, and measuring from
+     there attenuated dead-center combat to a fifth of nominal. Project the view
+     ray onto the ground plane and listen from the intersection. */
   const e = cam.matrixWorld.elements;
+  const fx = -e[8], fy = -e[9], fz = -e[10];         // camera forward
+  const t = fy < -0.05 ? cam.position.y / -fy : 0;   // distance to y=0 along the ray
+  listenX = cam.position.x + fx * t;
+  listenZ = cam.position.z + fz * t;
   const rx = e[0], rz = e[2];
   const len = Math.hypot(rx, rz) || 1;
   rightX = rx / len; rightZ = rz / len;
@@ -3841,7 +3876,8 @@ function noise(o = {}) {
   f1.frequency.value = (o.hp === undefined ? 400 : o.hp) * rnd(0.85, 1.18);
   const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass';
   f2.frequency.value = (o.lp === undefined ? 6000 : o.lp) * rnd(0.85, 1.18);
-  if (o.q) { f2.Q.value = o.q; f2.type = 'bandpass'; }
+  if (o.q) f2.Q.value = o.q;    // resonant lowpass — NOT a bandpass; that
+                                // repitched weld/gnaw/drain an octave up
   src.connect(f1); f1.connect(f2);
   voiceOut(f2, t0, o.a === undefined ? 0.004 : o.a, d,
         (o.peak === undefined ? 0.25 : o.peak) * (o.gain === undefined ? 1 : o.gain), o);
@@ -4007,6 +4043,13 @@ const SFX = {
   spread: () => gate('spd', 4000) && (() => {
     tone(174, { type: 'sine', a: 0.4, d: 1.4, peak: 0.05, slide: 40, wet: 0.9, vary: false });
     tone(261, { type: 'sine', a: 0.5, d: 1.6, peak: 0.03, slide: 30, wet: 0.9, vary: false });
+    return true;
+  })(),
+  /* the base is dying and you are looking elsewhere — this must cut through */
+  heartAlarm: () => gate('hal', 9000) && (() => {
+    tone(196, { type: 'sawtooth', a: 0.02, d: 0.7, peak: 0.20, slide: -30, lp: 900, wet: 0.7, vary: false });
+    tone(98,  { type: 'sine', a: 0.02, d: 0.9, peak: 0.22, slide: -12, wet: 0.6, vary: false });
+    later(450, () => tone(185, { type: 'sawtooth', a: 0.02, d: 0.8, peak: 0.18, slide: -40, lp: 800, wet: 0.8, vary: false }));
     return true;
   })(),
   alarm: () => {
@@ -4175,7 +4218,13 @@ function musicStinger(name) {
   stinger = name;
   playInternal(name);
   const a = els[name];
-  a.onended = () => { if (stinger === name) stinger = null; };
+  const release = () => { if (stinger === name) stinger = null; };
+  a.onended = release;
+  a.onerror = release;
+  /* belt and braces: no stinger is longer than 60s, so a stuck one — play()
+     rejected, file truncated mid-stream — cannot duck the bed for a whole
+     mission */
+  setTimeout(release, 65000);
 }
 
 /** Hard stop of everything that is playing (mission teardown). */
@@ -4198,15 +4247,18 @@ function musicSetMuted(v) { musMuted = !!v; }
 /* --------------------------------------------------------------- update -- */
 /* Called once a frame. Runs the fades, and ducks the bed while a fight is on
    so the informative sounds stay legible over the score. */
-let duckT = 0;
+let duckT = 0, duckPhase = 0;
 
 function updateMusic(dt) {
   /* combat intensity: anything hurt in the last 2.5s keeps the duck alive */
   duckT = Math.max(0, duckT - dt);
   if (G.phase === 'playing' && G.entities) {
-    for (let i = 0; i < G.entities.length; i += 7) {   // sampled, not exhaustive
+    /* sampled with a rotating offset so no entity sits in a permanent blind
+       spot, and buildings count — sieging the compound IS the main combat mode */
+    duckPhase = (duckPhase + 1) % 7;
+    for (let i = duckPhase; i < G.entities.length; i += 7) {
       const e = G.entities[i];
-      if (e.alive && !e.isBuilding && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
+      if (e.alive && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
     }
   }
   const duckTarget = (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));
@@ -6114,6 +6166,7 @@ function alloc(key, geo, matOpts) {
   if (!m) {
     m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial(Object.assign({
       transparent: true, depthWrite: false,
+      fog: false,      // an explosion is a light source; fog was greying them out at range
     }, matOpts)));
     m.userData.poolKey = key;
     m.raycast = () => {};
@@ -6135,13 +6188,13 @@ function push(item) {
 
 /* ------------------------------------------------------------- pieces --- */
 
-function flash(pos, r, color = 0xfff2c8) {
+function flash(pos, r, color = 0xfff2c8, life = 0.16) {
   const m = alloc('flash', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
   m.material.color.set(color).multiplyScalar(4.5);   // HDR: this is what blooms
   m.material.opacity = 0.95;
   m.position.copy(pos);
   m.scale.setScalar(r * 0.25);
-  push({ kind: 'flash', m, life: 0.16, r });
+  push({ kind: 'flash', m, life, r });
 }
 
 function groundGlow(pos, r, color = 0xffb45a) {
@@ -6173,6 +6226,18 @@ function firePuff(pos, speed, size, nature) {
   push({
     kind: 'fire', m, life: rand(0.45, 0.8), size, nature,
     vel: new THREE.Vector3(rand(-1, 1), rand(0.5, 1.6), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.35, 1)),
+  });
+}
+
+function ember(pos, power, nature) {
+  const m = alloc('ember', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
+  m.material.color.setHex(nature ? 0x9dff6a : 0xffb050).multiplyScalar(2.6);
+  m.material.opacity = 1;
+  m.position.copy(pos).add(new THREE.Vector3(rand(-1.5, 1.5), rand(0, 2), rand(-1.5, 1.5)));
+  m.scale.setScalar(rand(0.10, 0.24));
+  push({
+    kind: 'ember', m, life: rand(1.4, 2.8) + power * 0.4, phase: rand(0, 6.28),
+    vel: new THREE.Vector3(rand(-2.5, 2.5), rand(2, 5.5) * (0.5 + power * 0.3), rand(-2.5, 2.5)),
   });
 }
 
@@ -6266,7 +6331,7 @@ function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   if (G.rts) G.rts.shake = Math.min(1.5, (G.rts.shake || 0) + 0.22 + p * 0.28);
 
   flashLight(pos, nature ? 0x9dff8a : 0xffa650, 4 + p * 26, 0.32 + p * 0.22, 30 + p * 34);
-  flash(pos, 2.5 + p * 3.2, nature ? 0xd6ffc0 : 0xfff2c8);
+  flash(pos, 2.5 + p * 3.2, nature ? 0xd6ffc0 : 0xfff2c8, 0.16 + p * 0.07);
   groundGlow(pos, 4 + p * 4.5, nature ? 0x7fe07a : 0xffb45a);
   shockRing(pos, 3.5 + p * 3.6, nature ? 0x9dff8a : 0xffc276);
   if (p >= 1.6) shockRing(pos, 5.5 + p * 4.2, nature ? 0x6fd06a : 0xff9a4a, 0.12);
@@ -6279,6 +6344,8 @@ function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   }
   const nS = Math.round(3 + p * 3);
   for (let i = 0; i < nS; i++) smokePuff(pos, 1.2 + p * 1.1, rand(0.05, 0.45));
+  const nE = Math.round(3 + p * 6);
+  for (let i = 0; i < nE; i++) ember(pos, p, nature);
   debris(pos, Math.round(4 + p * 5), p, nature ? 0x3a4a2c : 0x2c2f34);
   if (p >= 0.9) scorch(pos, 2.5 + p * 2.2);
 }
@@ -6404,6 +6471,16 @@ function updateVFX(dt) {
         m.scale.setScalar(0.32 * (1 + age * 0.6));
         m.material.opacity = 0.8 * k;
         break;
+      case 'ember': {
+        it.vel.y -= dt * 3.2;                 // embers arc over and sink
+        it.vel.x *= 1 - dt * 0.8; it.vel.z *= 1 - dt * 0.8;
+        m.position.addScaledVector(it.vel, dt);
+        m.position.x += Math.sin(vt * 5 + it.phase) * dt * 0.8;
+        const flicker = 0.7 + 0.3 * Math.sin(vt * 23 + it.phase * 7);
+        m.material.opacity = k * k * flicker; // quadratic: gutters, not fades
+        if (cam) m.quaternion.copy(cam.quaternion);
+        break;
+      }
       case 'muzzle':
         m.material.opacity = 0.9 * k;
         break;
@@ -6498,11 +6575,29 @@ function updateParticles(dt) {
 const shots = [];
 const shotGeo = new THREE.BoxGeometry(1, 1, 1);
 
+/* Tracer meshes are pooled and PARKED (visible=false) rather than removed —
+   at 96 pop the old alloc + scene-graph churn was measurable GC pressure.
+   Their material is an HDR-boosted glow: >1.0 colour so every tracer feeds the
+   bloom pass and gunfire reads as light, not as coloured sticks. */
+const shotPool = [];
+const hdrGlow = new Map();
+function shotMat(c) {
+  let m = hdrGlow.get(c);
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ color: c });
+    m.color.multiplyScalar(2.3);
+    hdrGlow.set(c, m);
+  }
+  return m;
+}
+
 function fireProjectile(from, target, dmg, pdef, attacker) {
-  const m = new THREE.Mesh(shotGeo, GLOW(pdef.color));
+  const m = shotPool.pop() || new THREE.Mesh(shotGeo);
+  m.material = shotMat(pdef.color);
   m.scale.set(pdef.size, pdef.size, pdef.size * 7);
   m.position.copy(from);
-  G.fxRoot.add(m);
+  m.visible = true;
+  if (!m.parent) G.fxRoot.add(m);
   shots.push({ m, target, dmg, speed: pdef.speed, attacker, t: 3 });
   burst(from, pdef.color, 2, 3, 0.14, 0.35);
 }
@@ -6517,7 +6612,8 @@ function updateShots(dt) {
     s.t -= dt;
     const alive = s.target && s.target.alive;
     if (!alive || s.t <= 0) {
-      G.fxRoot.remove(s.m);
+      s.m.visible = false;
+      shotPool.push(s.m);
       shots.splice(i, 1);
       continue;
     }
@@ -6526,8 +6622,19 @@ function updateShots(dt) {
     const step = s.speed * dt;
     if (d <= step + 0.6) {
       applyDamage(s.target, s.dmg, s.attacker);
+      /* Turret shells burst: the Terran answer to a wolf carpet. Armour is
+         applied per victim, so the splash shreds unarmoured swarm and only
+         dents boars/bears — which is what finally makes mixed comps matter. */
+      const spl = s.attacker && s.attacker.alive && s.attacker.def.splash;
+      if (spl) {
+        for (const o of G.entities) {
+          if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
+          if (dist2D(o.pos, s.target.pos) < spl) applyDamage(o, s.dmg * 0.5, s.attacker);
+        }
+      }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);
-      G.fxRoot.remove(s.m);
+      s.m.visible = false;
+      shotPool.push(s.m);
       shots.splice(i, 1);
       continue;
     }
@@ -6567,6 +6674,9 @@ function applyDamage(target, amount, attacker) {
     const d = Math.hypot(dx, dz) || 1;
     target.hitDirX = dx / d; target.hitDirZ = dz / d;
   }
+  /* The one attack the player must never miss: the Heart Tree itself. */
+  if (target === G.heart) SFX.heartAlarm();
+
   /* Fight back. The old rule only fired when the victim was already idle AND had
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */
@@ -7034,10 +7144,11 @@ class Entity {
     }
 
     let moved = 0;
+    const fromX = this.pos.x, fromZ = this.pos.z;
     if (best) {
       const gap = dist2D(this.pos, best.pos) - best.radius;
       if (gap > this.def.range) {
-        moved = this.steer(best.pos, dt);
+        if (!this.isRooted()) moved = this.steer(best.pos, dt);
       } else {
         this.faceTo(best.pos, dt, 8);
         const before = best.hp;
@@ -7055,9 +7166,15 @@ class Entity {
     } else {
       this.repairing = false;
       /* nothing to fix: drift home and wait to be useful */
-      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) moved = this.steer(G.core.pos, dt);
-      else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
+      if (G.core && G.core.alive && dist2D(this.pos, G.core.pos) > 18) {
+        if (!this.isRooted()) moved = this.steer(G.core.pos, dt);
+      } else this.vel.multiplyScalar(Math.max(0, 1 - dt * 4));
     }
+
+    /* same collision contract as every other walker — a welder does not phase
+       through the perimeter it is welding */
+    this.resolveObstacles(dt, fromX, fromZ);
+    this.clampToWorld();
 
     if (!best || moved > 0.001) { _face.copy(this.pos).add(this.vel); this.faceTo(_face, dt, 7); }
     this.postUpdate(dt, moved / Math.max(0.0001, dt));
@@ -8408,7 +8525,8 @@ function bindMaskToProps() {
 
 const VGRID = 96;
 const VCELL = WORLD / VGRID;
-const GROW = 2.2;              // cells per second the edge advances
+const FRONT = 2.4;             // world units/sec the reclamation front advances
+const FILL = 0.55;             // per-cell fade-in rate behind the front (0..1/s)
 const Y_OFF = 0.22;            // sits under the fog veil (0.35) and over the ground
 
 let vfield = null;              // 0..255 current
@@ -8478,10 +8596,14 @@ function initVerdant(scene) {
         float edge = n(vWorld*0.09) * 0.30 + n(vWorld*0.26)*0.12;
         float a = smoothstep(0.18 + edge*0.5, 0.62 + edge*0.3, v);
         if (a < 0.01) discard;
-        float mottle = n(vWorld*0.5)*0.5 + n(vWorld*1.6)*0.3;
+        float mottle = n(vWorld*0.5 + uTime*0.05)*0.5 + n(vWorld*1.6)*0.3;
         vec3 col = mix(uDeep, uNear, mottle);
         /* a slow pulse outward from wherever it is thickest */
         col += 0.05 * sin(uTime*0.7 + vWorld.x*0.05 + vWorld.y*0.04) * v;
+        /* the advancing edge glows — brighter than 1.0 so the bloom pass picks
+           it up and the reclamation front reads from a full zoom-out */
+        float front = smoothstep(0.14, 0.26, v) * (1.0 - smoothstep(0.26, 0.46, v));
+        col += front * vec3(0.5, 1.25, 0.4) * (0.7 + 0.3*sin(uTime*2.6 + vWorld.x*0.3 + vWorld.y*0.21));
         gl_FragColor = vec4(col, a * 0.5);
       }`,
   });
@@ -8495,8 +8617,21 @@ function initVerdant(scene) {
   return vmesh;
 }
 
-/* Sources: the Heart Tree, and every grove you actually hold. */
+/* Sources: the Heart Tree, and every grove you actually hold. Each source's
+   disc grows outward at FRONT wu/s from the moment it activates, so the map is
+   visibly reclaimed rather than popping in finished — the whole point of creep.
+   The Heart Tree pre-dates the mission, so it starts fully grown. */
+const born = new Map();        // entity id -> activation time
+let advancing = false;         // any front still short of its full radius?
+function activeRadius(id, rMax, preGrown) {
+  let t0 = born.get(id);
+  if (t0 === undefined) { t0 = preGrown ? -rMax / FRONT : G.time; born.set(id, t0); }
+  const r = Math.min(rMax, Math.max(2.5, (G.time - t0) * FRONT));
+  if (r < rMax) advancing = true;
+  return r;
+}
 function stampGoal() {
+  advancing = false;
   vgoal.fill(0);
   const add = (x, z, r, strength) => {
     const r2 = r * r;
@@ -8514,8 +8649,11 @@ function stampGoal() {
       }
     }
   };
-  if (G.heart && G.heart.alive) add(G.heart.pos.x, G.heart.pos.z, 34, 255);
-  for (const g of (G.groves || [])) if (g.owned) add(g.pos.x, g.pos.z, 26, 255);
+  if (G.heart && G.heart.alive) add(G.heart.pos.x, G.heart.pos.z, activeRadius(G.heart.id, 34, true), 255);
+  for (const g of (G.groves || [])) {
+    if (g.owned) add(g.pos.x, g.pos.z, activeRadius(g.id, 26, false), 255);
+    else born.delete(g.id);            // lose the grove, the clock resets
+  }
 
   /* the campus poisons the ground it sits on */
   for (let j = 0; j < VGRID; j++) {
@@ -8534,10 +8672,12 @@ function updateVerdant(dt) {
   vmat.uniforms.uTime.value += dt;
 
   vAcc += dt;
-  if (vAcc >= 0.25) { stampGoal(); vAcc = 0; vDirty = true; }
+  if (vAcc >= 0.25) { stampGoal(); vAcc = 0; vDirty = true;
+    if (advancing) SFX.spread();    // the Green claiming ground has a sound (self-gated 4s)
+  }
 
-  /* advance toward the vgoal at a fixed rate — the edge crawls, it doesn't snap */
-  const step = Math.max(1, (GROW * 255 * dt) | 0);
+  /* cells behind the front fade in at FILL — a soft ~2s bloom, not a snap */
+  const step = Math.max(1, (FILL * 255 * dt) | 0);
   let moved = false;
   for (let k = 0; k < vfield.length; k++) {
     const g = vgoal[k], f = vfield[k];
@@ -8559,6 +8699,7 @@ function disposeVerdant() {
   if (vmat) vmat.dispose();
   if (vtex) vtex.dispose();
   vfield = vgoal = null; vtex = vmesh = vmat = null;
+  born.clear();
 }
 
 
@@ -8980,6 +9121,7 @@ function updateWorld(dt) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
       if (!g.owned && g.prog >= RULES.captureTime) {
         g.owned = true;
+        g.bloomAt = G.time;      // income ramps in — see below
         g.anim.bloom.visible = true;
         g.anim.pillar.material.opacity = 0.75;
         g.anim.water.material.uniforms.wl_bloom.value = 1;
@@ -9018,7 +9160,13 @@ function updateWorld(dt) {
   /* Each bloomed grove pays according to the water table beneath it, so letting
      the lakes drain is a slow, visible, entirely non-random economic defeat. */
   let groveYield = 0;
-  for (const g of G.groves) if (g.owned) groveYield += RULES.grovIncome * groveWaterFactor(g.pos.x, g.pos.z);
+  for (const g of G.groves) if (g.owned) {
+    /* A fresh grove pays out as it wakes: 30% at bloom, full after 25s. Instant
+       full yield made three fast uncontested captures a 15x income spike in the
+       first minute, and the whole early game collapsed into a scripted rush. */
+    const ramp = 0.3 + 0.7 * Math.min(1, (G.time - (g.bloomAt || 0)) / 25);
+    groveYield += RULES.grovIncome * ramp * groveWaterFactor(g.pos.x, g.pos.z);
+  }
   G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
 
@@ -9189,7 +9337,11 @@ function updateAI(dt) {
          no line of play at all, which is the failure mode repair units usually
          have. */
       let kind = 'guard';
-      if (d.spawnN % 6 === 0 && countMachine('tech') < 3) kind = 'tech';
+      /* Techs spawn when there is something to weld, not on a blind cycle — the
+         %6 rota meant they effectively never appeared in real games. */
+      const needsRepair = G.entities.some(e =>
+        e.alive && e.isBuilding && e.team === TEAM.MACHINE && e.hp < e.maxHp * 0.9);
+      if (needsRepair && countMachine('tech') < 2) kind = 'tech';
       else if (d.spawnN % 4 === 0) kind = 'drone';
       const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
@@ -9258,8 +9410,12 @@ function launchWave() {
      were identical, so a player who took the map and massed to the pop cap could
      simply sit there forever — which removes the commit-timing decision entirely.
      Early waves are unchanged; it is the late ones that now keep escalating. */
-  let guards = Math.min(20, 3 + n + Math.max(0, n - 4) * 2);
-  let drones = Math.min(10, 1 + Math.floor(n / 2) + Math.max(0, n - 5));
+  /* Escalation is only real if it never stops. The min(20) cap made wave 8 and
+     wave 20 identical, and a 96-pop turtle measured ZERO heart damage across 20
+     waves — the sweeps simply could not scale to the new swarm cap. Past wave 8
+     the caps lift 2 guards + 1 drone per wave, forever. */
+  let guards = Math.min(20 + Math.max(0, n - 8) * 2, 3 + n + Math.max(0, n - 4) * 2);
+  let drones = Math.min(10 + Math.max(0, n - 8), 1 + Math.floor(n / 2) + Math.max(0, n - 5));
   if (guards + drones > surgeRoom) {
     const k = surgeRoom / (guards + drones);
     // floor the sweep at a real threat: the title screen promises escalation, and a
@@ -9998,7 +10154,7 @@ function showStartScreen(onStart) {
       </ul>
       <h3>Grow &amp; cast</h3>
       <ul>
-        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('H')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
+        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
         <li><span>${sxKey('F')} + click</span><em>Overgrowth — root every machine in a circle</em></li>
         <li><span>${sxKey('F1')} · ${sxKey('F3')}</span><em>in-game reference · performance overlay</em></li>
       </ul>
@@ -10090,6 +10246,7 @@ function showStartScreen(onStart) {
       window.removeEventListener('keydown', startKeyHandler, true);
       startKeyHandler = null;
     }
+    if (startResizeHandler) { window.removeEventListener('resize', startResizeHandler); startResizeHandler = null; }
     startEl = null;
     setTimeout(() => root.remove(), 340);
     if (typeof onStart === 'function') onStart(chosen);
@@ -10507,19 +10664,19 @@ function showBriefing(site, mods, onBegin) {
   const go = sxEl('button', 'ss-begin', '<span>Begin the strike</span>');
   go.id = 'br-begin';
   go.type = 'button';
-  go.addEventListener('click', () => { root.remove(); onBegin(); });
+  go.addEventListener('click', () => { window.removeEventListener('keydown', onKey); root.remove(); onBegin(); });
   /* the pending strike survives a refresh (deliberate — you can resume), so the
      briefing needs a way OUT or a closed tab becomes a one-way door */
   const withdraw = sxEl('button', 'ss-begin camp-back', '<span>Withdraw</span>');
   withdraw.id = 'br-withdraw';
   withdraw.type = 'button';
-  withdraw.addEventListener('click', () => { setPending({ mode: 'return' }); location.reload(); });
+  withdraw.addEventListener('click', () => { window.removeEventListener('keydown', onKey); setPending({ mode: 'return' }); location.reload(); });
   const row = sxEl('div', 'ss-btnrow');
   row.appendChild(withdraw); row.appendChild(go);
   panel.appendChild(row);
   root.appendChild(panel);
   sxHost().appendChild(root);
-  const onKey = e => { if (e.code === 'Enter') { window.removeEventListener('keydown', onKey); go.click(); } };
+  function onKey(e) { if (e.code === 'Enter') go.click(); }
   window.addEventListener('keydown', onKey);
   return root;
 }
@@ -10905,7 +11062,7 @@ function onKey(e) {
     case 'KeyC': queueUnit('bear'); return;
     case 'KeyV': queueUnit('raven'); return;
     case 'KeyG': queueUnit('porcupine'); return;
-    case 'KeyH': queueUnit('beaver'); return;
+    case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
   }
 
@@ -11040,14 +11197,18 @@ function updateHUD() {
   if (rem > 0) { cd.style.display = 'flex'; cd.textContent = Math.ceil(rem); }
   else { cd.style.display = 'none'; spellCard.classList.toggle('locked', G.biomass < RULES.spellCost); }
 
-  /* queue */
+  /* queue — the lane count is the economy's most important number, so it is
+     shown right here where the player is already looking, and the slots that
+     are actively growing are visually distinct from the ones merely waiting */
   const q = el('queue');
-  const sig = G.queue.map(i => i.type).join(',') + '|' + G.queue.length;
+  const lanes = G.lanes || 1;
+  const sig = G.queue.map(i => i.type).join(',') + '|' + G.queue.length + '|' + lanes;
   if (q.dataset.sig !== sig) {
     q.dataset.sig = sig;
-    q.innerHTML = G.queue.length
-      ? G.queue.map((i, n) => `<div class="qitem" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
-      : '<span class="qhint">nothing growing — pick a card above</span>';
+    q.innerHTML = (G.queue.length
+      ? G.queue.map((i, n) => `<div class="qitem${n < lanes ? ' q-live' : ''}" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
+      : '<span class="qhint">nothing growing — pick a card above</span>')
+      + `<span class="qlanes" title="Growing lanes — one per bloomed grove, up to four">×${lanes}</span>`;
   }
   if (G.queue.length) {
     const items = q.children;
@@ -11292,6 +11453,10 @@ renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.setSize(vw(), vh());
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+/* Shadows are redrawn on OUR schedule: every other frame, once — not on every
+   render() call. A 2048 map twice a frame was ~1.3ms of CPU nobody could see. */
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -11485,6 +11650,7 @@ function frame(now, manual) {
   }
   perfFrame(dt);
 
+  if ((framesPresented & 1) === 0) renderer.shadowMap.needsUpdate = true;
   renderWaterReflection(renderer, scene, camera);
   renderPost(renderer, scene, camera, dt);
 

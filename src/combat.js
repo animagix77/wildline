@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { GLOW } from './meshes.js';
-import { rand, terrainHeight } from './utils.js';
+import { rand, terrainHeight, dist2D } from './utils.js';
 import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
@@ -93,11 +93,29 @@ function updateParticles(dt) {
 const shots = [];
 const shotGeo = new THREE.BoxGeometry(1, 1, 1);
 
+/* Tracer meshes are pooled and PARKED (visible=false) rather than removed —
+   at 96 pop the old alloc + scene-graph churn was measurable GC pressure.
+   Their material is an HDR-boosted glow: >1.0 colour so every tracer feeds the
+   bloom pass and gunfire reads as light, not as coloured sticks. */
+const shotPool = [];
+const hdrGlow = new Map();
+function shotMat(c) {
+  let m = hdrGlow.get(c);
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ color: c });
+    m.color.multiplyScalar(2.3);
+    hdrGlow.set(c, m);
+  }
+  return m;
+}
+
 export function fireProjectile(from, target, dmg, pdef, attacker) {
-  const m = new THREE.Mesh(shotGeo, GLOW(pdef.color));
+  const m = shotPool.pop() || new THREE.Mesh(shotGeo);
+  m.material = shotMat(pdef.color);
   m.scale.set(pdef.size, pdef.size, pdef.size * 7);
   m.position.copy(from);
-  G.fxRoot.add(m);
+  m.visible = true;
+  if (!m.parent) G.fxRoot.add(m);
   shots.push({ m, target, dmg, speed: pdef.speed, attacker, t: 3 });
   burst(from, pdef.color, 2, 3, 0.14, 0.35);
 }
@@ -112,7 +130,8 @@ function updateShots(dt) {
     s.t -= dt;
     const alive = s.target && s.target.alive;
     if (!alive || s.t <= 0) {
-      G.fxRoot.remove(s.m);
+      s.m.visible = false;
+      shotPool.push(s.m);
       shots.splice(i, 1);
       continue;
     }
@@ -121,8 +140,19 @@ function updateShots(dt) {
     const step = s.speed * dt;
     if (d <= step + 0.6) {
       applyDamage(s.target, s.dmg, s.attacker);
+      /* Turret shells burst: the Terran answer to a wolf carpet. Armour is
+         applied per victim, so the splash shreds unarmoured swarm and only
+         dents boars/bears — which is what finally makes mixed comps matter. */
+      const spl = s.attacker && s.attacker.alive && s.attacker.def.splash;
+      if (spl) {
+        for (const o of G.entities) {
+          if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
+          if (dist2D(o.pos, s.target.pos) < spl) applyDamage(o, s.dmg * 0.5, s.attacker);
+        }
+      }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);
-      G.fxRoot.remove(s.m);
+      s.m.visible = false;
+      shotPool.push(s.m);
       shots.splice(i, 1);
       continue;
     }
@@ -162,6 +192,9 @@ export function applyDamage(target, amount, attacker) {
     const d = Math.hypot(dx, dz) || 1;
     target.hitDirX = dx / d; target.hitDirZ = dz / d;
   }
+  /* The one attack the player must never miss: the Heart Tree itself. */
+  if (target === G.heart) SFX.heartAlarm();
+
   /* Fight back. The old rule only fired when the victim was already idle AND had
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */

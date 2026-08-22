@@ -27,7 +27,7 @@ export const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 11, build: 1.7, pop: 1, death: 'topple',
+    armor: 0, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
     blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
@@ -60,13 +60,13 @@ export const DEFS = {
 
   porcupine: {
     name: 'Porcupine', team: TEAM.WILD, icon: '🦔', key: 'G',
-    hp: 120, dmg: 14, rate: 1.15, range: 14, speed: 4.6, radius: 1.1,
+    hp: 120, dmg: 14, rate: 1.15, range: 16, speed: 4.6, radius: 1.1,
     armor: 4, vision: 26, cost: 38, build: 5, pop: 2, ranged: true, death: 'topple',
     projectile: { color: 0xd9c08a, speed: 58, size: 0.13 },
     blurb: 'Quill volley. Slow, armoured, and the only thing on four legs that answers a rifle in kind.'
   },
   beaver: {
-    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'H',
+    name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
@@ -94,7 +94,7 @@ export const DEFS = {
   turret: {
     name: 'Sentry Turret', team: TEAM.MACHINE, icon: '🗼',
     hp: 460, dmg: 15, rate: 0.85, range: 21, speed: 0, radius: 2.2,
-    armor: 4, vision: 27, ranged: true, building: true,
+    armor: 4, vision: 27, ranged: true, building: true, splash: 2.6,
     projectile: { color: 0xff8a3d, speed: 110, size: 0.25 },
   },
   depot: {

@@ -74,7 +74,10 @@ export function insideCompound(x, z, margin = 0) {
 /* --- spatial hash for neighbour queries --------------------------------- */
 export class Grid {
   constructor(cell = 12) { this.cell = cell; this.map = new Map(); }
-  key(x, z) { return ((x / this.cell) | 0) + ',' + ((z / this.cell) | 0); }
+  /* integer key, not a string — the string version minted ~7k throwaway
+     strings a frame at 96 pop, all garbage by the next one. 4096 columns is
+     plenty: the world is 240 units and cells are 12. */
+  key(x, z) { return (((x / this.cell) | 0) + 2048) * 4096 + (((z / this.cell) | 0) + 2048); }
   clear() { this.map.clear(); }
   insert(e) {
     const k = this.key(e.pos.x, e.pos.z);
@@ -85,9 +88,9 @@ export class Grid {
   near(x, z, r, out) {
     out.length = 0;
     const c = this.cell, n = Math.ceil(r / c);
-    const cx = (x / c) | 0, cz = (z / c) | 0;
+    const cx = ((x / c) | 0) + 2048, cz = ((z / c) | 0) + 2048;
     for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
-      const b = this.map.get((cx + i) + ',' + (cz + j));
+      const b = this.map.get((cx + i) * 4096 + (cz + j));
       if (b) for (let k = 0; k < b.length; k++) out.push(b[k]);
     }
     return out;

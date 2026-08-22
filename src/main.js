@@ -36,6 +36,10 @@ renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.setSize(vw(), vh());
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+/* Shadows are redrawn on OUR schedule: every other frame, once — not on every
+   render() call. A 2048 map twice a frame was ~1.3ms of CPU nobody could see. */
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -229,6 +233,7 @@ function frame(now, manual) {
   }
   perfFrame(dt);
 
+  if ((framesPresented & 1) === 0) renderer.shadowMap.needsUpdate = true;
   renderWaterReflection(renderer, scene, camera);
   renderPost(renderer, scene, camera, dt);
 

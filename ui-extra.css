@@ -738,3 +738,9 @@
   .sp-body{ padding-bottom:24px } .sp-sub{ margin-bottom:12px } }
 @media (prefers-reduced-motion:reduce){
   .sp-title{ animation:none } #splash.sp-ready .sp-btn{ animation:none } }
+
+/* ---- growing lanes ---- */
+.qlanes{ display:inline-flex; align-items:center; margin-left:8px; padding:2px 8px;
+  border-radius:9px; font-size:11px; font-weight:700; letter-spacing:1px;
+  color:var(--leaf); border:1px solid rgba(127,212,74,.4); background:rgba(20,36,18,.5); }
+.qitem.q-live{ outline:1px solid rgba(127,212,74,.55); box-shadow:0 0 8px rgba(127,212,74,.25); }

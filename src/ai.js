@@ -40,7 +40,11 @@ export function updateAI(dt) {
          no line of play at all, which is the failure mode repair units usually
          have. */
       let kind = 'guard';
-      if (d.spawnN % 6 === 0 && countMachine('tech') < 3) kind = 'tech';
+      /* Techs spawn when there is something to weld, not on a blind cycle — the
+         %6 rota meant they effectively never appeared in real games. */
+      const needsRepair = G.entities.some(e =>
+        e.alive && e.isBuilding && e.team === TEAM.MACHINE && e.hp < e.maxHp * 0.9);
+      if (needsRepair && countMachine('tech') < 2) kind = 'tech';
       else if (d.spawnN % 4 === 0) kind = 'drone';
       const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
@@ -109,8 +113,12 @@ function launchWave() {
      were identical, so a player who took the map and massed to the pop cap could
      simply sit there forever — which removes the commit-timing decision entirely.
      Early waves are unchanged; it is the late ones that now keep escalating. */
-  let guards = Math.min(20, 3 + n + Math.max(0, n - 4) * 2);
-  let drones = Math.min(10, 1 + Math.floor(n / 2) + Math.max(0, n - 5));
+  /* Escalation is only real if it never stops. The min(20) cap made wave 8 and
+     wave 20 identical, and a 96-pop turtle measured ZERO heart damage across 20
+     waves — the sweeps simply could not scale to the new swarm cap. Past wave 8
+     the caps lift 2 guards + 1 drone per wave, forever. */
+  let guards = Math.min(20 + Math.max(0, n - 8) * 2, 3 + n + Math.max(0, n - 4) * 2);
+  let drones = Math.min(10 + Math.max(0, n - 8), 1 + Math.floor(n / 2) + Math.max(0, n - 5));
   if (guards + drones > surgeRoom) {
     const k = surgeRoom / (guards + drones);
     // floor the sweep at a real threat: the title screen promises escalation, and a

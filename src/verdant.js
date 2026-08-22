@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD, HALF } from './config.js';
 import { terrainHeight, blight, clamp } from './utils.js';
+import { SFX } from './audio.js';
 
 /* =========================================================================
    The Green — creep.
@@ -22,7 +23,8 @@ import { terrainHeight, blight, clamp } from './utils.js';
 
 const VGRID = 96;
 const VCELL = WORLD / VGRID;
-const GROW = 2.2;              // cells per second the edge advances
+const FRONT = 2.4;             // world units/sec the reclamation front advances
+const FILL = 0.55;             // per-cell fade-in rate behind the front (0..1/s)
 const Y_OFF = 0.22;            // sits under the fog veil (0.35) and over the ground
 
 let vfield = null;              // 0..255 current
@@ -92,10 +94,14 @@ export function initVerdant(scene) {
         float edge = n(vWorld*0.09) * 0.30 + n(vWorld*0.26)*0.12;
         float a = smoothstep(0.18 + edge*0.5, 0.62 + edge*0.3, v);
         if (a < 0.01) discard;
-        float mottle = n(vWorld*0.5)*0.5 + n(vWorld*1.6)*0.3;
+        float mottle = n(vWorld*0.5 + uTime*0.05)*0.5 + n(vWorld*1.6)*0.3;
         vec3 col = mix(uDeep, uNear, mottle);
         /* a slow pulse outward from wherever it is thickest */
         col += 0.05 * sin(uTime*0.7 + vWorld.x*0.05 + vWorld.y*0.04) * v;
+        /* the advancing edge glows — brighter than 1.0 so the bloom pass picks
+           it up and the reclamation front reads from a full zoom-out */
+        float front = smoothstep(0.14, 0.26, v) * (1.0 - smoothstep(0.26, 0.46, v));
+        col += front * vec3(0.5, 1.25, 0.4) * (0.7 + 0.3*sin(uTime*2.6 + vWorld.x*0.3 + vWorld.y*0.21));
         gl_FragColor = vec4(col, a * 0.5);
       }`,
   });
@@ -109,8 +115,21 @@ export function initVerdant(scene) {
   return vmesh;
 }
 
-/* Sources: the Heart Tree, and every grove you actually hold. */
+/* Sources: the Heart Tree, and every grove you actually hold. Each source's
+   disc grows outward at FRONT wu/s from the moment it activates, so the map is
+   visibly reclaimed rather than popping in finished — the whole point of creep.
+   The Heart Tree pre-dates the mission, so it starts fully grown. */
+const born = new Map();        // entity id -> activation time
+let advancing = false;         // any front still short of its full radius?
+function activeRadius(id, rMax, preGrown) {
+  let t0 = born.get(id);
+  if (t0 === undefined) { t0 = preGrown ? -rMax / FRONT : G.time; born.set(id, t0); }
+  const r = Math.min(rMax, Math.max(2.5, (G.time - t0) * FRONT));
+  if (r < rMax) advancing = true;
+  return r;
+}
 function stampGoal() {
+  advancing = false;
   vgoal.fill(0);
   const add = (x, z, r, strength) => {
     const r2 = r * r;
@@ -128,8 +147,11 @@ function stampGoal() {
       }
     }
   };
-  if (G.heart && G.heart.alive) add(G.heart.pos.x, G.heart.pos.z, 34, 255);
-  for (const g of (G.groves || [])) if (g.owned) add(g.pos.x, g.pos.z, 26, 255);
+  if (G.heart && G.heart.alive) add(G.heart.pos.x, G.heart.pos.z, activeRadius(G.heart.id, 34, true), 255);
+  for (const g of (G.groves || [])) {
+    if (g.owned) add(g.pos.x, g.pos.z, activeRadius(g.id, 26, false), 255);
+    else born.delete(g.id);            // lose the grove, the clock resets
+  }
 
   /* the campus poisons the ground it sits on */
   for (let j = 0; j < VGRID; j++) {
@@ -148,10 +170,12 @@ export function updateVerdant(dt) {
   vmat.uniforms.uTime.value += dt;
 
   vAcc += dt;
-  if (vAcc >= 0.25) { stampGoal(); vAcc = 0; vDirty = true; }
+  if (vAcc >= 0.25) { stampGoal(); vAcc = 0; vDirty = true;
+    if (advancing) SFX.spread();    // the Green claiming ground has a sound (self-gated 4s)
+  }
 
-  /* advance toward the vgoal at a fixed rate — the edge crawls, it doesn't snap */
-  const step = Math.max(1, (GROW * 255 * dt) | 0);
+  /* cells behind the front fade in at FILL — a soft ~2s bloom, not a snap */
+  const step = Math.max(1, (FILL * 255 * dt) | 0);
   let moved = false;
   for (let k = 0; k < vfield.length; k++) {
     const g = vgoal[k], f = vfield[k];
@@ -173,4 +197,5 @@ export function disposeVerdant() {
   if (vmat) vmat.dispose();
   if (vtex) vtex.dispose();
   vfield = vgoal = null; vtex = vmesh = vmat = null;
+  born.clear();
 }

@@ -169,14 +169,27 @@ export function groveWaterFactor(x, z) {
 
 /* ------------------------------------------------------------ reflection -- */
 /* Mirror the scene through the water plane once a frame at low resolution. */
+let reflFlip = false;
+const _look = new THREE.Vector3();
 export function renderWaterReflection(renderer, scene, camera) {
   if (!lakes.length || !reflectTarget) return;
+  /* A full second scene render is the single most expensive thing this game
+     does. Mirrors at half rate are imperceptible on slow water, and a map
+     whose lakes are all far outside the view doesn't pay for one at all. */
+  reflFlip = !reflFlip;
+  if (reflFlip) return;
+  let near = false;
+  for (const L2 of lakes) {
+    const dx = L2.mesh.position.x - camera.position.x, dz = L2.mesh.position.z - camera.position.z;
+    if (dx * dx + dz * dz < 220 * 220) { near = true; break; }
+  }
+  if (!near) return;
   const L = lakes[0];
   const y = L.y;
 
   reflectCam.copy(camera);
   reflectCam.position.set(camera.position.x, 2 * y - camera.position.y, camera.position.z);
-  const look = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
+  const look = _look.set(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
   reflectCam.up.set(0, 1, 0);
   reflectCam.lookAt(look.x, 2 * y - look.y, look.z);
   reflectCam.updateMatrixWorld();
@@ -192,7 +205,10 @@ export function renderWaterReflection(renderer, scene, camera) {
   renderer.clippingPlanes = [_plane];
   renderer.setRenderTarget(reflectTarget);
   renderer.clear();
+  const prevShadow = renderer.shadowMap.autoUpdate;
+  renderer.shadowMap.autoUpdate = false;   // reuse this frame's shadow map
   renderer.render(scene, reflectCam);
+  renderer.shadowMap.autoUpdate = prevShadow;
   renderer.setRenderTarget(prevTarget);
   renderer.clippingPlanes = prevPlanes;
   for (const [m, v] of visible) m.visible = v;

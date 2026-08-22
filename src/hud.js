@@ -51,14 +51,18 @@ export function updateHUD() {
   if (rem > 0) { cd.style.display = 'flex'; cd.textContent = Math.ceil(rem); }
   else { cd.style.display = 'none'; spellCard.classList.toggle('locked', G.biomass < RULES.spellCost); }
 
-  /* queue */
+  /* queue — the lane count is the economy's most important number, so it is
+     shown right here where the player is already looking, and the slots that
+     are actively growing are visually distinct from the ones merely waiting */
   const q = el('queue');
-  const sig = G.queue.map(i => i.type).join(',') + '|' + G.queue.length;
+  const lanes = G.lanes || 1;
+  const sig = G.queue.map(i => i.type).join(',') + '|' + G.queue.length + '|' + lanes;
   if (q.dataset.sig !== sig) {
     q.dataset.sig = sig;
-    q.innerHTML = G.queue.length
-      ? G.queue.map((i, n) => `<div class="qitem" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
-      : '<span class="qhint">nothing growing — pick a card above</span>';
+    q.innerHTML = (G.queue.length
+      ? G.queue.map((i, n) => `<div class="qitem${n < lanes ? ' q-live' : ''}" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
+      : '<span class="qhint">nothing growing — pick a card above</span>')
+      + `<span class="qlanes" title="Growing lanes — one per bloomed grove, up to four">×${lanes}</span>`;
   }
   if (G.queue.length) {
     const items = q.children;

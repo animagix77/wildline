@@ -98,6 +98,7 @@ function alloc(key, geo, matOpts) {
   if (!m) {
     m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial(Object.assign({
       transparent: true, depthWrite: false,
+      fog: false,      // an explosion is a light source; fog was greying them out at range
     }, matOpts)));
     m.userData.poolKey = key;
     m.raycast = () => {};
@@ -119,13 +120,13 @@ function push(item) {
 
 /* ------------------------------------------------------------- pieces --- */
 
-function flash(pos, r, color = 0xfff2c8) {
+function flash(pos, r, color = 0xfff2c8, life = 0.16) {
   const m = alloc('flash', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
   m.material.color.set(color).multiplyScalar(4.5);   // HDR: this is what blooms
   m.material.opacity = 0.95;
   m.position.copy(pos);
   m.scale.setScalar(r * 0.25);
-  push({ kind: 'flash', m, life: 0.16, r });
+  push({ kind: 'flash', m, life, r });
 }
 
 function groundGlow(pos, r, color = 0xffb45a) {
@@ -157,6 +158,18 @@ function firePuff(pos, speed, size, nature) {
   push({
     kind: 'fire', m, life: rand(0.45, 0.8), size, nature,
     vel: new THREE.Vector3(rand(-1, 1), rand(0.5, 1.6), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.35, 1)),
+  });
+}
+
+function ember(pos, power, nature) {
+  const m = alloc('ember', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
+  m.material.color.setHex(nature ? 0x9dff6a : 0xffb050).multiplyScalar(2.6);
+  m.material.opacity = 1;
+  m.position.copy(pos).add(new THREE.Vector3(rand(-1.5, 1.5), rand(0, 2), rand(-1.5, 1.5)));
+  m.scale.setScalar(rand(0.10, 0.24));
+  push({
+    kind: 'ember', m, life: rand(1.4, 2.8) + power * 0.4, phase: rand(0, 6.28),
+    vel: new THREE.Vector3(rand(-2.5, 2.5), rand(2, 5.5) * (0.5 + power * 0.3), rand(-2.5, 2.5)),
   });
 }
 
@@ -250,7 +263,7 @@ export function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   if (G.rts) G.rts.shake = Math.min(1.5, (G.rts.shake || 0) + 0.22 + p * 0.28);
 
   flashLight(pos, nature ? 0x9dff8a : 0xffa650, 4 + p * 26, 0.32 + p * 0.22, 30 + p * 34);
-  flash(pos, 2.5 + p * 3.2, nature ? 0xd6ffc0 : 0xfff2c8);
+  flash(pos, 2.5 + p * 3.2, nature ? 0xd6ffc0 : 0xfff2c8, 0.16 + p * 0.07);
   groundGlow(pos, 4 + p * 4.5, nature ? 0x7fe07a : 0xffb45a);
   shockRing(pos, 3.5 + p * 3.6, nature ? 0x9dff8a : 0xffc276);
   if (p >= 1.6) shockRing(pos, 5.5 + p * 4.2, nature ? 0x6fd06a : 0xff9a4a, 0.12);
@@ -263,6 +276,8 @@ export function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   }
   const nS = Math.round(3 + p * 3);
   for (let i = 0; i < nS; i++) smokePuff(pos, 1.2 + p * 1.1, rand(0.05, 0.45));
+  const nE = Math.round(3 + p * 6);
+  for (let i = 0; i < nE; i++) ember(pos, p, nature);
   debris(pos, Math.round(4 + p * 5), p, nature ? 0x3a4a2c : 0x2c2f34);
   if (p >= 0.9) scorch(pos, 2.5 + p * 2.2);
 }
@@ -388,6 +403,16 @@ export function updateVFX(dt) {
         m.scale.setScalar(0.32 * (1 + age * 0.6));
         m.material.opacity = 0.8 * k;
         break;
+      case 'ember': {
+        it.vel.y -= dt * 3.2;                 // embers arc over and sink
+        it.vel.x *= 1 - dt * 0.8; it.vel.z *= 1 - dt * 0.8;
+        m.position.addScaledVector(it.vel, dt);
+        m.position.x += Math.sin(vt * 5 + it.phase) * dt * 0.8;
+        const flicker = 0.7 + 0.3 * Math.sin(vt * 23 + it.phase * 7);
+        m.material.opacity = k * k * flicker; // quadratic: gutters, not fades
+        if (cam) m.quaternion.copy(cam.quaternion);
+        break;
+      }
       case 'muzzle':
         m.material.opacity = 0.9 * k;
         break;
