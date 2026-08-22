@@ -172,6 +172,7 @@ export class Entity {
     this.hp = Math.min(this.maxHp, Math.max(this.hp, this.maxHp * frac));
     this.dmgMult = 1 + 0.12 * rank;
     this.showRank();
+    if (rank > 0) SFX.promote(this.pos);
   }
 
   /* Rank pips floating over the unit — cheap, unlit, and only on veterans. */
@@ -421,6 +422,7 @@ export class Entity {
         this._weldT = (this._weldT || 0) + dt;
         if (this.repairing && this._weldT > 0.5) {
           this._weldT = 0;
+          SFX.weld(this.pos);
           _v1.copy(best.pos); _v1.y += best.radius * 0.6;
           burst(_v1, 0x59e5ff, 5, 3);
         }
@@ -559,12 +561,28 @@ export class Entity {
       muzzleFlash(_v2, this.def.projectile.color);
       fireProjectile(_v2.clone(), tgt, dmg, this.def.projectile, this);
       this.recoil = 1;
-      SFX.shot();
+      this.shotSfx();
     } else {
       applyDamage(tgt, dmg, this);
       this.lunge = 1;
+      /* melee species get their own bark on the lunge, throttled hard so a pack
+         reads as a pack rather than a wall of noise */
+      if (this.type === 'bear') SFX.roar(this.pos);
+      else if (this.type === 'boar') SFX.snort(this.pos);
+      else if (this.type === 'beaver') SFX.gnaw(this.pos);
       burst(tgt.aimPoint(), 0xffd9a0, 4, 6, 0.25, 0.4);
     }
+  }
+
+  /* Which gun is firing is tactical information, so give each one its own
+     voice rather than a shared click. */
+  shotSfx() {
+    const t = this.type;
+    if (t === 'turret') SFX.turretShot(this.pos);
+    else if (t === 'drone') SFX.droneShot(this.pos);
+    else if (t === 'porcupine') SFX.quill(this.pos);
+    else if (t === 'hearttree') SFX.quill(this.pos);
+    else SFX.shot(this.pos);
   }
 
   /* ------------------------------------------------- building behaviour -- */
@@ -589,7 +607,7 @@ export class Entity {
           this.muzzlePoint(_v2);
           muzzleFlash(_v2, def.projectile.color);
           fireProjectile(_v2.clone(), this.target, def.dmg, def.projectile, this);
-          SFX.shot();
+          this.shotSfx();
         }
       }
     }
@@ -855,9 +873,11 @@ export class Entity {
           if (Math.abs(c.rollVel) > 2.2) {
             c.rollVel *= -0.22;                // one small bounce off the ground
             dustPuff(this.pos, this.def.radius * 0.8, 4);
+            SFX.thud(this.pos);
           } else {
             c.rollVel = 0; c.settled = true; c.settleAt = c.t;
             dustPuff(this.pos, this.def.radius * 0.9, 5);
+            SFX.thud(this.pos);
           }
         }
       }

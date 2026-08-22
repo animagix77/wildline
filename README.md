@@ -154,7 +154,7 @@ src/
   state.js      the shared game-state object (also exposed as window.G)
   utils.js      terrain height field, noise, spatial hash, viewport helpers
   score.js      scoring, chain multiplier, floating popups, rank
-  audio.js      Web Audio synth voices + master mute
+  audio.js      Web Audio synth: 32 positional voices, reverb bus, ambience
   shaders.js    GLSL suite: terrain, sky, water, core shield, energy field
   meshes.js     every model, procedural; part merging for draw-call control
   combat.js     projectiles, damage, particle + ring pools, death
@@ -180,6 +180,34 @@ both stylesheets and the markup, and emits `wildline.html`.
 Two guards run on every build: a fast regex scan for duplicate top-level names, and then
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
+
+## Sound
+
+Every voice is synthesised at runtime -- oscillators, filtered noise, and a
+convolution reverb built from a decaying noise buffer rather than a shipped
+impulse file. Thirty-two voices, no audio assets.
+
+Three things separate it from a beep library:
+
+- **Variation.** Ninety wolves biting the identical 200 Hz burst reads as a
+  glitch, not a pack. Every voice jitters pitch, length, filter cutoff, and its
+  read offset into the noise buffer.
+- **Position.** Sounds are panned and attenuated against the camera's right
+  vector, so rotating with Q/E swaps which ear a fight is in. Past 150 m a sound
+  is not played at all. Measured: 60 m to the left pans -0.9, 60 m right +0.9,
+  centred -0.08.
+- **Headroom.** The bus runs master -> compressor -> out, and throttles are
+  wall-clock rather than per-frame, so a coolant tower detonating inside a
+  forty-unit melee does not clip to a click.
+
+Weapons have distinct voices because *which gun is firing is tactical
+information*: a turret is not a rifle is not a drone is not a quill volley.
+The technician's arc welder is audible for the same reason -- it is the tell
+that your damage is being undone.
+
+Music prompts for a generative tool live in [MUSIC.md](MUSIC.md). No music
+ships yet; the notes there explain what adding it would cost the single-file
+build.
 
 ## Two species, on purpose
 

@@ -146,7 +146,7 @@ export function applyDamage(target, amount, attacker) {
       const p = target.aimPoint().clone();
       p.y += 6;
       burst(p, 0x39d7ea, 5, 8, 0.35, 0.5);
-      SFX.hitMetal();
+      SFX.shieldPing(target.pos);
     }
     return;
   }
@@ -166,7 +166,11 @@ export function applyDamage(target, amount, attacker) {
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */
   if (attacker && target.team !== TEAM.NEUTRAL && target.provoke) target.provoke(attacker);
-  if (target.team === TEAM.MACHINE) SFX.hitMetal(); else SFX.bite();
+  /* three materials, three answers: a wall does not ring like a drone, and a
+     wolf does not ring at all */
+  if (target.team !== TEAM.MACHINE) SFX.bite(target.pos);
+  else if (def.wall || def.building) SFX.hitStone(target.pos);
+  else SFX.hitMetal(target.pos);
   if (target.hp <= 0) kill(target, attacker);
 }
 
@@ -181,7 +185,9 @@ export function kill(e, killer) {
   e.deadAt = G.wallTime;
   const p = e.pos.clone(); p.y += e.def.building ? 3 : 1;
   if (e.def.building) {
-    SFX.boom();
+    if (e.type === 'wall') SFX.wallBreak(e.pos);
+    else if (e.type === 'coolant' || e.type === 'core' || e.type === 'hearttree') SFX.boomBig(e.pos);
+    else SFX.boom(e.pos);
     const nature = e.team === TEAM.WILD;
     /* structure death scales the pyrotechnics to what just fell */
     const POWER = { wall: 0.9, turret: 1.2, depot: 2, coolant: 2.2, core: 3, grove: 1, hearttree: 2.6 };
@@ -192,7 +198,7 @@ export function kill(e, killer) {
     if (e.type === 'core') chainExplosion(e.pos, e.def.radius, 6, 1.4, {});
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
-    SFX.death();
+    SFX.death(e.pos);
     /* Nothing that walks on legs detonates. A drone is a machine falling out of
        the sky — its explosion happens when it hits the ground (see updateCorpse).
        A guard is a person in a hi-vis vest: sparks off the gear, then they go

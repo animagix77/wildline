@@ -11,6 +11,7 @@ import { commsEvent, updateComms } from './comms.js';
 import { updateWeather } from './weather.js';
 import { updateWater, renderWaterReflection } from './water.js';
 import { initPost, renderPost, resizePost } from './post.js';
+import { SFX, updateListener, ambientVoices } from './audio.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND } from './config.js';
 import { toast } from './ui.js';
@@ -166,7 +167,7 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, order(units, type, pos, target) {
+  window.__api = { queueUnit, SFX, order(units, type, pos, target) {
     for (const u of units) u.setOrder(type, pos, target);
   } };
 }
@@ -193,6 +194,8 @@ function frame(now, manual) {
 
     for (const e of G.entities) e.update(dt);
 
+    updateListener();      // pan/attenuation for everything played this frame
+    ambientVoices(dt);
     updateAI(dt);
     updateWorld(dt);
     updateWater(dt);

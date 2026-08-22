@@ -286,6 +286,7 @@ export function populate() {
       } else {
         commsEvent('coreExposed');
         G.coreExposed = true;
+        SFX.shieldDown();
         SFX.alarm();
         toast('THERMAL RUNAWAY — the Server Core is exposed', 'warn');
       }
@@ -449,6 +450,10 @@ export function updateWorld(dt) {
     }
     if (g.owned) bloomed++;
   }
+  /* A new lane is a real step up in throughput, so it gets its own chime --
+     otherwise the only feedback for the most important economic decision in the
+     game is a number quietly changing in the build panel. */
+  if (bloomed > (G.bloomed || 0) && G.lanes !== undefined && Math.min(4, 1 + bloomed) > Math.min(4, 1 + (G.bloomed || 0))) SFX.lane();
   G.bloomed = bloomed;
 
   /* --- core shield tracks the coolant towers --- */
