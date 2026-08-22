@@ -115,6 +115,88 @@ export function setPending(p) {
   try { p ? localStorage.setItem(PENDING, JSON.stringify(p)) : localStorage.removeItem(PENDING); } catch {}
 }
 
+
+/* ------------------------------------------------------------ save code -- */
+/* localStorage is per-browser and per-origin: clear your site data, switch
+   machines, or open the game in a different browser and the run is gone. There
+   is no backend and there isn't going to be one, so the save travels as text
+   the player owns — copy it out, paste it back, done.
+
+   Format: "CVC1-" + base64 of the state JSON. The prefix is a version tag so a
+   future schema change can reject or migrate old codes instead of throwing
+   somewhere deep in the map screen. */
+const CODE_PREFIX = 'CVC1-';
+
+/* base64 that survives non-ASCII (site names, blurbs) intact. */
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64decode(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/** The current run as a portable string. */
+export function exportCode() {
+  const st = campState();
+  /* Only what campState() actually reads — exporting stray keys would let a
+     stale schema ride along and reappear after an import. */
+  const slim = {
+    started: st.started, liberated: st.liberated, ranks: st.ranks,
+    attempts: st.attempts, pack: st.pack, history: st.history,
+  };
+  try { return CODE_PREFIX + b64encode(JSON.stringify(slim)); } catch { return null; }
+}
+
+/** Restore from a code. Returns {ok, error, summary}. Never throws. */
+export function importCode(raw) {
+  const text = String(raw || '').trim().replace(/\s+/g, '');
+  if (!text) return { ok: false, error: 'Paste a save code first.' };
+  if (!text.startsWith(CODE_PREFIX)) {
+    return { ok: false, error: 'That does not look like a Critters vs Compute save code.' };
+  }
+  let parsed;
+  try { parsed = JSON.parse(b64decode(text.slice(CODE_PREFIX.length))); }
+  catch { return { ok: false, error: 'That code is damaged or incomplete.' }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'That code does not contain a run.' };
+  }
+  /* Write it, then read it back through campState() — the normaliser is the
+     only thing that decides what a valid run looks like, and letting it be the
+     gate means a hand-edited code cannot poison the map screen. */
+  const before = localStorage.getItem(KEY);
+  try {
+    localStorage.setItem(KEY, JSON.stringify(parsed));
+    const st = campState();
+    const known = st.liberated.length;
+    /* `started` alone is not enough to count as a run. A code whose site ids are
+       all unknown normalises down to nothing, and accepting it would replace a
+       real save with an empty one — destructive, and for no gain. Demand at
+       least one liberated site or one banked veteran. */
+    if (!known && !st.pack.length) {
+      if (before === null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, before);
+      return { ok: false, error: 'That code contains no progress to load.' };
+    }
+    setPending(null);              // never resume someone else's half-played strike
+    return { ok: true, summary: `${known} site${known === 1 ? '' : 's'} liberated, ${st.pack.length} veterans` };
+  } catch {
+    if (before !== null) { try { localStorage.setItem(KEY, before); } catch {} }
+    return { ok: false, error: 'Could not save that code to this browser.' };
+  }
+}
+
+/** One-line description of the current run, for the map screen. */
+export function saveSummary() {
+  const st = campState();
+  if (!st.started && !st.liberated.length) return null;
+  return `${st.liberated.length} of ${Object.keys(SITES).length - 1} liberated · ${st.pack.length} veterans banked`;
+}
+
 /* --------------------------------------------------------------- graph --- */
 export function siteStatus(st, id) {
   const s = SITES[id];

@@ -7,7 +7,7 @@
 
 import { RULES, DEFS } from './config.js';
 import { G } from './state.js';
-import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete, packSummary } from './campaign.js';
+import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete, packSummary, exportCode, importCode, saveSummary } from './campaign.js';
 import { musicPlay } from './music.js';
 import { rankFor } from './score.js';
 
@@ -724,11 +724,75 @@ export function showCampaignMap() {
   reset.addEventListener('click', () => {
     campReset(); campEl.remove(); campEl = null; showCampaignMap();
   });
+  /* Saving has always worked and never said so, which meant players assumed
+     closing the tab lost the run. Say it, and give the run a way off this
+     browser — localStorage does not survive cleared site data or a new machine. */
+  const saveRow = sxEl('div', 'camp-save');
+  const line = saveSummary();
+  saveRow.innerHTML = `<span class="cs-note">${line ? `Progress saved automatically — ${line}` : 'Progress saves automatically after every mission'}</span>`;
+  const cpy = sxEl('button', 'cs-btn', '<span>Copy save code</span>');
+  cpy.type = 'button';
+  const imp = sxEl('button', 'cs-btn', '<span>Load from code</span>');
+  imp.type = 'button';
+  const status = sxEl('div', 'cs-status');
+
+  function showCode(code) {
+    status.className = 'cs-status';
+    status.innerHTML = '<div class="cs-hint">Copy this code:</div>';
+    const ta = document.createElement('textarea');
+    ta.className = 'cs-field'; ta.readOnly = true; ta.value = code;
+    status.appendChild(ta);
+    ta.focus(); ta.select();
+  }
+
+  cpy.addEventListener('click', () => {
+    const code = exportCode();
+    if (!code) { status.textContent = 'Could not build a save code.'; status.className = 'cs-status bad'; return; }
+    const done = () => { status.textContent = 'Save code copied — paste it somewhere safe.'; status.className = 'cs-status good'; };
+    /* Clipboard access can be refused (permissions, insecure origin, older
+       browsers). Falling back to a selectable field means the player still gets
+       their code instead of a dead button. */
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(done, () => showCode(code));
+    } else showCode(code);
+  });
+
+  imp.addEventListener('click', () => {
+    status.className = 'cs-status';
+    status.innerHTML = '<div class="cs-hint">Paste a save code and press Load:</div>';
+    const ta = document.createElement('textarea');
+    ta.className = 'cs-field'; ta.placeholder = 'CVC1-…';
+    const go = sxEl('button', 'cs-btn', '<span>Load</span>');
+    go.type = 'button';
+    let armed = false;
+    go.addEventListener('click', () => {
+      /* Loading replaces whatever is in this browser. If that is a run with
+         progress in it, make the player say so twice. */
+      const cur = campState();
+      const atRisk = cur.liberated.length || (cur.pack && cur.pack.length);
+      if (atRisk && !armed) {
+        armed = true;
+        go.innerHTML = '<span>Overwrite my run</span>';
+        status.querySelector('.cs-hint').textContent =
+          `This replaces your current run (${cur.liberated.length} liberated, ${cur.pack.length} veterans). Copy a save code first if you want it back.`;
+        return;
+      }
+      const r = importCode(ta.value);
+      if (!r.ok) { status.textContent = r.error; status.className = 'cs-status bad'; return; }
+      campEl.remove(); campEl = null; showCampaignMap();   // rebuild from restored state
+    });
+    status.appendChild(ta); status.appendChild(go);
+    ta.focus();
+  });
+
+  saveRow.appendChild(cpy); saveRow.appendChild(imp); saveRow.appendChild(status);
+
   btns.appendChild(strike); btns.appendChild(back);
   // any progress at all earns an escape hatch — a legacy save with liberated sites
   // but no `started` flag used to leave the player with no way to reset
   if (st.started || st.liberated.length || (st.pack && st.pack.length)) btns.appendChild(reset);
   foot.appendChild(btns);
+  foot.appendChild(saveRow);
   panel.appendChild(foot);
 
   info.innerHTML = '<p class="ci-idle">Choose where the forest strikes next. TerraByte\u2019s lawyers are standing by.</p>';

@@ -766,7 +766,8 @@ body.menu #comms{display:none!important}
 /* ================= THE RECLAMATION — campaign screens ================= */
 .camp-panel{ width:min(980px,94vw); }
 .camp-title{ letter-spacing:8px; }
-.camp-board{ position:relative; width:100%; aspect-ratio:2/1; min-height:280px;
+.camp-board{ position:relative; width:100%; aspect-ratio:2/1; min-height:240px;
+  max-height:min(46vh, 420px);
   background:
     radial-gradient(60% 90% at 20% 70%, rgba(127,212,74,.10), transparent 60%),
     radial-gradient(50% 80% at 82% 40%, rgba(57,215,234,.09), transparent 60%),
@@ -790,7 +791,7 @@ body.menu #comms{display:none!important}
 .camp-node.locked{ cursor:default; opacity:.4; }
 .camp-node.sel i{ outline:2px solid var(--bone); outline-offset:2px; }
 @keyframes camp-pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
-.camp-foot{ display:flex; gap:18px; align-items:flex-start; }
+.camp-foot{ display:flex; flex-wrap:wrap; gap:18px; align-items:flex-start; }
 .camp-info{ flex:1; min-height:86px; font-size:12.5px; line-height:1.55; color:#c3d3c4; }
 .camp-info h4{ font-size:14px; letter-spacing:1px; color:var(--bone); margin-bottom:2px; }
 .ci-tier{ font-size:10px; letter-spacing:2px; color:var(--machine); margin-bottom:6px; }
@@ -960,6 +961,24 @@ body.menu #comms{display:none!important}
 .sub .drag, #biorate .drag{ color:#ff9a6a; font-weight:700; margin-left:3px; }
 #waterres.low #waterlvl{ color:#ffc46a; }
 #waterres.dry #waterlvl{ color:#ff7a5c; }
+
+/* ---- save / load codes ---- */
+.camp-save{ flex:1 0 100%; margin-top:10px; padding-top:10px; border-top:1px solid rgba(127,212,74,.16);
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; justify-content:center; }
+.cs-note{ flex:1 1 auto; text-align:left; font-size:10.5px; letter-spacing:.6px;
+  color:#8fa389; }
+.cs-btn{ flex:0 0 auto; padding:6px 13px; border-radius:8px; cursor:pointer; font-family:var(--font);
+  font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; font-weight:600;
+  border:1px solid rgba(127,212,74,.35); background:rgba(16,30,18,.7); color:var(--leaf); }
+.cs-btn:hover{ background:rgba(127,212,74,.16); }
+.cs-status{ width:100%; text-align:center; font-size:10.5px; letter-spacing:.4px;
+  color:#9db096; margin-top:4px; }
+.cs-status.good{ color:var(--leaf); }
+.cs-status.bad{ color:#ff8f6a; }
+.cs-hint{ margin-bottom:5px; }
+.cs-field{ width:min(460px,90%); height:52px; resize:none; font-family:ui-monospace,monospace;
+  font-size:10px; line-height:1.4; padding:7px 9px; border-radius:7px; color:#dfe9d8;
+  border:1px solid rgba(127,212,74,.3); background:rgba(6,14,8,.85); margin-bottom:6px; }
 
 </style>
 </head>
@@ -2200,6 +2219,88 @@ function pendingMission() {
 }
 function setPending(p) {
   try { p ? localStorage.setItem(PENDING, JSON.stringify(p)) : localStorage.removeItem(PENDING); } catch {}
+}
+
+
+/* ------------------------------------------------------------ save code -- */
+/* localStorage is per-browser and per-origin: clear your site data, switch
+   machines, or open the game in a different browser and the run is gone. There
+   is no backend and there isn't going to be one, so the save travels as text
+   the player owns — copy it out, paste it back, done.
+
+   Format: "CVC1-" + base64 of the state JSON. The prefix is a version tag so a
+   future schema change can reject or migrate old codes instead of throwing
+   somewhere deep in the map screen. */
+const CODE_PREFIX = 'CVC1-';
+
+/* base64 that survives non-ASCII (site names, blurbs) intact. */
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64decode(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/** The current run as a portable string. */
+function exportCode() {
+  const st = campState();
+  /* Only what campState() actually reads — exporting stray keys would let a
+     stale schema ride along and reappear after an import. */
+  const slim = {
+    started: st.started, liberated: st.liberated, ranks: st.ranks,
+    attempts: st.attempts, pack: st.pack, history: st.history,
+  };
+  try { return CODE_PREFIX + b64encode(JSON.stringify(slim)); } catch { return null; }
+}
+
+/** Restore from a code. Returns {ok, error, summary}. Never throws. */
+function importCode(raw) {
+  const text = String(raw || '').trim().replace(/\s+/g, '');
+  if (!text) return { ok: false, error: 'Paste a save code first.' };
+  if (!text.startsWith(CODE_PREFIX)) {
+    return { ok: false, error: 'That does not look like a Critters vs Compute save code.' };
+  }
+  let parsed;
+  try { parsed = JSON.parse(b64decode(text.slice(CODE_PREFIX.length))); }
+  catch { return { ok: false, error: 'That code is damaged or incomplete.' }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'That code does not contain a run.' };
+  }
+  /* Write it, then read it back through campState() — the normaliser is the
+     only thing that decides what a valid run looks like, and letting it be the
+     gate means a hand-edited code cannot poison the map screen. */
+  const before = localStorage.getItem(KEY);
+  try {
+    localStorage.setItem(KEY, JSON.stringify(parsed));
+    const st = campState();
+    const known = st.liberated.length;
+    /* `started` alone is not enough to count as a run. A code whose site ids are
+       all unknown normalises down to nothing, and accepting it would replace a
+       real save with an empty one — destructive, and for no gain. Demand at
+       least one liberated site or one banked veteran. */
+    if (!known && !st.pack.length) {
+      if (before === null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, before);
+      return { ok: false, error: 'That code contains no progress to load.' };
+    }
+    setPending(null);              // never resume someone else's half-played strike
+    return { ok: true, summary: `${known} site${known === 1 ? '' : 's'} liberated, ${st.pack.length} veterans` };
+  } catch {
+    if (before !== null) { try { localStorage.setItem(KEY, before); } catch {} }
+    return { ok: false, error: 'Could not save that code to this browser.' };
+  }
+}
+
+/** One-line description of the current run, for the map screen. */
+function saveSummary() {
+  const st = campState();
+  if (!st.started && !st.liberated.length) return null;
+  return `${st.liberated.length} of ${Object.keys(SITES).length - 1} liberated · ${st.pack.length} veterans banked`;
 }
 
 /* --------------------------------------------------------------- graph --- */
@@ -10862,11 +10963,75 @@ function showCampaignMap() {
   reset.addEventListener('click', () => {
     campReset(); campEl.remove(); campEl = null; showCampaignMap();
   });
+  /* Saving has always worked and never said so, which meant players assumed
+     closing the tab lost the run. Say it, and give the run a way off this
+     browser — localStorage does not survive cleared site data or a new machine. */
+  const saveRow = sxEl('div', 'camp-save');
+  const line = saveSummary();
+  saveRow.innerHTML = `<span class="cs-note">${line ? `Progress saved automatically — ${line}` : 'Progress saves automatically after every mission'}</span>`;
+  const cpy = sxEl('button', 'cs-btn', '<span>Copy save code</span>');
+  cpy.type = 'button';
+  const imp = sxEl('button', 'cs-btn', '<span>Load from code</span>');
+  imp.type = 'button';
+  const status = sxEl('div', 'cs-status');
+
+  function showCode(code) {
+    status.className = 'cs-status';
+    status.innerHTML = '<div class="cs-hint">Copy this code:</div>';
+    const ta = document.createElement('textarea');
+    ta.className = 'cs-field'; ta.readOnly = true; ta.value = code;
+    status.appendChild(ta);
+    ta.focus(); ta.select();
+  }
+
+  cpy.addEventListener('click', () => {
+    const code = exportCode();
+    if (!code) { status.textContent = 'Could not build a save code.'; status.className = 'cs-status bad'; return; }
+    const done = () => { status.textContent = 'Save code copied — paste it somewhere safe.'; status.className = 'cs-status good'; };
+    /* Clipboard access can be refused (permissions, insecure origin, older
+       browsers). Falling back to a selectable field means the player still gets
+       their code instead of a dead button. */
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(done, () => showCode(code));
+    } else showCode(code);
+  });
+
+  imp.addEventListener('click', () => {
+    status.className = 'cs-status';
+    status.innerHTML = '<div class="cs-hint">Paste a save code and press Load:</div>';
+    const ta = document.createElement('textarea');
+    ta.className = 'cs-field'; ta.placeholder = 'CVC1-…';
+    const go = sxEl('button', 'cs-btn', '<span>Load</span>');
+    go.type = 'button';
+    let armed = false;
+    go.addEventListener('click', () => {
+      /* Loading replaces whatever is in this browser. If that is a run with
+         progress in it, make the player say so twice. */
+      const cur = campState();
+      const atRisk = cur.liberated.length || (cur.pack && cur.pack.length);
+      if (atRisk && !armed) {
+        armed = true;
+        go.innerHTML = '<span>Overwrite my run</span>';
+        status.querySelector('.cs-hint').textContent =
+          `This replaces your current run (${cur.liberated.length} liberated, ${cur.pack.length} veterans). Copy a save code first if you want it back.`;
+        return;
+      }
+      const r = importCode(ta.value);
+      if (!r.ok) { status.textContent = r.error; status.className = 'cs-status bad'; return; }
+      campEl.remove(); campEl = null; showCampaignMap();   // rebuild from restored state
+    });
+    status.appendChild(ta); status.appendChild(go);
+    ta.focus();
+  });
+
+  saveRow.appendChild(cpy); saveRow.appendChild(imp); saveRow.appendChild(status);
+
   btns.appendChild(strike); btns.appendChild(back);
   // any progress at all earns an escape hatch — a legacy save with liberated sites
   // but no `started` flag used to leave the player with no way to reset
   if (st.started || st.liberated.length || (st.pack && st.pack.length)) btns.appendChild(reset);
   foot.appendChild(btns);
+  foot.appendChild(saveRow);
   panel.appendChild(foot);
 
   info.innerHTML = '<p class="ci-idle">Choose where the forest strikes next. TerraByte\u2019s lawyers are standing by.</p>';
@@ -11845,7 +12010,7 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, SFX, musicState, order(units, type, pos, target) {
+  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState, order(units, type, pos, target) {
     for (const u of units) u.setOrder(type, pos, target);
   } };
 }

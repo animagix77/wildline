@@ -186,6 +186,22 @@ Two guards run on every build: a fast regex scan for duplicate top-level names, 
 **the real parser** over the flattened payload via `node --check`. Flattening modules is
 the one step that can silently change semantics, so it is verified rather than assumed.
 
+## Saving
+
+Progress autosaves to `localStorage` after every mission — liberated sites,
+per-site ranks and attempts, your banked veteran pack, and the last four
+mission ranks that feed the difficulty band. There is no mid-mission save:
+quit halfway and you replay that mission, never the campaign.
+
+Because `localStorage` is per-browser and per-origin, a run also travels as a
+**save code** — `CVC1-` plus base64 of the state, copied from the campaign map
+and pasted back anywhere. No backend, no account. Import is deliberately
+paranoid: the code is written, read back through the same normaliser that
+guards every load, and rejected (with the previous save restored untouched) if
+it is malformed, empty, or contains no real progress. Loading over a run that
+has progress needs two clicks and tells you exactly what it is about to
+destroy.
+
 ## Sound
 
 Every voice is synthesised at runtime -- oscillators, filtered noise, and a

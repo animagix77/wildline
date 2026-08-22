@@ -21,7 +21,7 @@ import { initFog, updateFog, fogRevealAll } from './fog.js';
 import { initVerdant, updateVerdant } from './verdant.js';
 import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
 import { loadMap, DEFAULT_MAP, validateAllMaps } from './maps.js';
-import { SITES, pendingMission, setPending, applyCampaignMods, campState } from './campaign.js';
+import { SITES, pendingMission, setPending, applyCampaignMods, campState, exportCode, importCode } from './campaign.js';
 import { initScore, updateScore, setProjector } from './score.js';
 import { initPerf, perfFrame } from './perf.js';
 
@@ -173,7 +173,7 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, SFX, musicState, order(units, type, pos, target) {
+  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState, order(units, type, pos, target) {
     for (const u of units) u.setOrder(type, pos, target);
   } };
 }
