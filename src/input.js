@@ -5,7 +5,7 @@ import { queueUnit, cancelQueue, resetRallySpiral } from './world.js';
 import { castOvergrowth } from './ai.js';
 import { ring, burst } from './combat.js';
 import { toast } from './ui.js';
-import { SFX, initAudio, resumeAudio, toggleMute, isMuted } from './audio.js';
+import { SFX, initAudio, resumeAudio, toggleMute, isMuted, voiceFor } from './audio.js';
 import { shorePoint } from './water.js';
 
 const _wv = new THREE.Vector3();   // scratch for the send-to-water order
@@ -226,7 +226,7 @@ function clickSelect(x, y, additive, screenOnly) {
     const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
       && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
-    SFX.select();
+    SFX.select(); voiceFor(G.selection, 'select');
     lastClickEnt = null;
     return;
   }
@@ -239,7 +239,7 @@ function clickSelect(x, y, additive, screenOnly) {
   } else {
     setSelection([ent]);
   }
-  SFX.select();
+  SFX.select(); voiceFor(G.selection, 'select');
 }
 
 function onScreen(e) {
@@ -266,7 +266,7 @@ function boxSelect(x0, y0, x1, y1, additive) {
     for (const f of found) set.add(f);
     setSelection([...set]);
   } else setSelection(found);
-  SFX.select();
+  SFX.select(); voiceFor(G.selection, 'select');
 }
 
 function drawSelBox(x0, y0, x1, y1) {
@@ -295,7 +295,7 @@ function issueAt(x, y, attackMove) {
     resetRallySpiral();
     ring(pt, 0x9bff6a, 3.2, 0.7);
     toast('Rally point set');
-    SFX.order();
+    SFX.order(); voiceFor(commandable(), 'order');
     return;
   }
   if (!sel.length) return;
@@ -308,7 +308,7 @@ function issueAt(x, y, attackMove) {
     }
     for (const e of sel) e.setOrder('attack', null, ent);
     ring(ent.pos, 0xff6a3d, ent.radius * 2 + 1.5, 0.7);
-    SFX.order();
+    SFX.order(); voiceFor(commandable(), 'order');
     return;
   }
   if (!pt) return;
@@ -317,7 +317,7 @@ function issueAt(x, y, attackMove) {
   sel.forEach((e, i) => e.setOrder(attackMove ? 'attackmove' : 'move', formation[i]));
   ring(pt, attackMove ? 0xffc85c : 0x9bff6a, 2.6, 0.6);
   burst(pt, attackMove ? 0xffc85c : 0x9bff6a, 5, 5, 0.4, 0.35);
-  SFX.order();
+  SFX.order(); voiceFor(commandable(), 'order');
 }
 
 function makeFormation(sel, center) {
@@ -414,7 +414,7 @@ function onKey(e) {
         const p = shorePoint(u.pos.x, u.pos.z, _wv);
         if (p) { u.setOrder('move', p.clone()); sent++; }
       }
-      if (sent) { SFX.order(); toast(`${sent} sent to drink`); }
+      if (sent) { SFX.order(); voiceFor(commandable(), 'order'); toast(`${sent} sent to drink`); }
       else { SFX.deny(); toast('No water left to drink', 'warn'); }
       return;
     }
@@ -451,7 +451,7 @@ function onKey(e) {
       const now = performance.now();
       if (lastGroupKey.key === k && now - lastGroupKey.at < 400) rts.focus(g[0].pos);
       lastGroupKey = { key: k, at: now };
-      SFX.select();
+      SFX.select(); voiceFor(G.selection, 'select');
     }
   }
 }

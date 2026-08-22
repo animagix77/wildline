@@ -291,6 +291,32 @@ export const SFX = {
     later(150, () => tone(f * 0.9, { type: 'sawtooth', a: 0.01, d: 0.10, peak: 0.05 * g, slide: -f * 0.4, lp: 4000, pan, wet: 0.5, vary: false }));
   }),
 
+  /* Capybara: the largest rodent alive, and it sounds like it — a low, placid
+     purr-grunt with no urgency in it whatsoever. */
+  purr: sited('pur', 1500, (g, pan) => {
+    tone(rnd(105, 135), { type: 'triangle', a: 0.04, d: 0.42, peak: 0.09 * g, slide: -18, lp: 700, pan, wet: 0.45 });
+    noise({ d: 0.34, peak: 0.045 * g, hp: 90, lp: 620, q: 2, pan, wet: 0.35 });
+  }),
+  /* Beaver: a fast chitter, teeth and air. */
+  chitter: sited('chi', 1200, (g, pan) => {
+    for (let i = 0; i < 4; i++) {
+      later(i * 55, () => noise({ d: 0.035, peak: 0.05 * g, hp: 1600, lp: 6500, q: 4, pan, wet: 0.3 }));
+    }
+    tone(rnd(700, 900), { type: 'square', d: 0.09, peak: 0.028 * g, slide: -260, lp: 3200, pan });
+  }),
+  /* Porcupine: quills rattling — dry, and a warning rather than a threat. */
+  rattle: sited('rat', 1400, (g, pan) => {
+    for (let i = 0; i < 7; i++) {
+      later(i * 34, () => noise({ d: 0.03, peak: 0.035 * g, hp: 3200, lp: 12000, pan, wet: 0.25 }));
+    }
+  }),
+  /* The Locals are people. They do not growl; they shout at a data centre. */
+  shout: sited('sht2', 2200, (g, pan) => {
+    const f = rnd(210, 330);
+    tone(f, { type: 'sawtooth', a: 0.02, d: 0.28, peak: 0.075 * g, slide: -f * 0.35, lp: 2400, pan, wet: 0.6, vary: false });
+    later(150, () => tone(f * 1.18, { type: 'sawtooth', a: 0.02, d: 0.22, peak: 0.05 * g, slide: -f * 0.4, lp: 2200, pan, wet: 0.6, vary: false }));
+  }),
+
   /* ---- the compound ---- */
   /* the technician's arc welder: the audio tell that your damage is being undone */
   weld: sited('wld', 260, (g, pan) => {
@@ -374,6 +400,37 @@ export const SFX = {
   })(),
 };
 
+/* ----------------------------------------------------------- responses -- */
+/* Click a wolf and a wolf answers. This is the oldest trick in the genre and
+   the game did not have it: selection and orders played one synthetic blip
+   regardless of what you had selected, so a pack of bears sounded like a menu.
+
+   Exactly ONE unit of a selection speaks, chosen by id so the same click gives
+   the same voice, and it is throttled hard — thirty wolves acknowledging at
+   once is not atmosphere, it is a fault. */
+let lastVoiceAt = 0;
+export function voiceFor(units, kind) {
+  if (!ctx || muted || !units || !units.length) return;
+  const now = performance.now();
+  if (now - lastVoiceAt < (kind === 'order' ? 260 : 200)) return;
+  /* prefer something with an actual voice over, say, a lone beaver */
+  let pick = null;
+  for (const u of units) { if (u.alive && IDLE_VOICE[u.type]) { pick = u; break; } }
+  if (!pick) return;
+  lastVoiceAt = now;
+  const fn = SFX[IDLE_VOICE[pick.type]];
+  if (!fn) return;
+  /* bypass the per-voice idle gate: this is a direct answer to the player, and
+     it should never be swallowed because the same species chirped recently */
+  gates[VOICE_GATE[pick.type] || ''] = 0;
+  fn(pick.pos);
+}
+/* map species -> the gate key its voice uses, so a response can clear it */
+const VOICE_GATE = {
+  wolf: 'hwl', raven: 'caw', bear: 'ror', boar: 'snt',
+  capybara: 'pur', beaver: 'chi', porcupine: 'rat', local: 'sht2',
+};
+
 /* ------------------------------------------------------------- ambience -- */
 /* Occasional idle voices from whatever is actually on screen. Scheduling this
    centrally rather than per-unit means the density stays constant whether you
@@ -383,7 +440,10 @@ export const SFX = {
    Only units that are NOT fighting speak, so combat never has to compete with
    flavour, and the sudden quiet when a fight starts does real work. */
 let ambT = 0, humT = 0, drainT = 0;
-const IDLE_VOICE = { wolf: 'howl', raven: 'caw', bear: 'roar', boar: 'snort' };
+const IDLE_VOICE = {
+  wolf: 'howl', raven: 'caw', bear: 'roar', boar: 'snort',
+  capybara: 'purr', beaver: 'chitter', porcupine: 'rattle', local: 'shout',
+};
 
 export function ambientVoices(dt) {
   if (!ctx || muted) return;
