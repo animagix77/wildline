@@ -51,6 +51,7 @@
       <span class="sub">TIME</span>
       <span id="clock">0:00</span>
     </div>
+    <button id="pausebtn" title="Pause (P)">❚❚</button>
     <button id="mutebtn" title="Mute audio (M)">♪</button>
     <button id="helpbtn" title="Toggle help (F1)">?</button>
   </div>
@@ -78,6 +79,19 @@
   </div>
 
   <!-- ================= HELP ================= -->
+  <div id="pause" class="hidden">
+    <div class="pz-card">
+      <div class="pz-title">PAUSED</div>
+      <div class="pz-sub">The valley holds its breath.</div>
+      <div class="pz-stats" id="pzstats"></div>
+      <div class="pz-btns">
+        <button id="pz-resume" type="button"><span>Resume</span></button>
+        <button id="pz-help" type="button" class="pz-alt"><span>Orders (F1)</span></button>
+      </div>
+      <div class="pz-hint">P or Esc to resume</div>
+    </div>
+  </div>
+
   <div id="help" class="hidden">
     <h2>CRITTERS VS COMPUTE</h2>
     <p class="tagline">You are the forest. They are the data centre. Take it back.</p>
@@ -90,6 +104,7 @@
           <li><b>Right click</b> — move / attack target</li>
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
+          <li><b>P</b> / <b>Esc</b> — pause</li>
           <li><b>Z X C V G N B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
@@ -121,7 +136,8 @@
               On it your animals move faster and <b>heal when out of combat</b>.
               Off it they stay hurt.</li>
           <li>Ravens fly over walls. Bears and boars break armour. Wolves are cheap
-              enough to lose.</li>
+              enough to lose. <b>Beavers rebuild</b> the Heart Tree and your groves
+              whenever they are not fighting.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
         </ul>

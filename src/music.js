@@ -141,7 +141,7 @@ export function updateMusic(dt) {
       if (e.alive && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
     }
   }
-  const duckTarget = (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));
+  const duckTarget = G.paused ? 0.35 : (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));
   duck += (duckTarget - duck) * Math.min(1, dt * 2.2);
 
   for (let i = fades.length - 1; i >= 0; i--) {

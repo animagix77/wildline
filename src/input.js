@@ -151,7 +151,10 @@ function positionTip(x, y) {
 /* ------------------------------------------------------------- pointer -- */
 function onDown(e) {
   if (G.over) return;
+  /* Middle-drag still pans while paused — surveying the board is the whole
+     reason to pause — but nothing that changes the game state gets through. */
   if (e.button === 1) { down = { x: e.clientX, y: e.clientY, button: 1 }; e.preventDefault(); return; }
+  if (pausedByPlayer) return;
   down = { x: e.clientX, y: e.clientY, button: e.button, t: performance.now() };
   dragging = false;
 }
@@ -370,13 +373,19 @@ function onKey(e) {
 
   if (e.code === 'F1') { e.preventDefault(); if (!G.over) toggleHelp(); return; }
   if (e.code === 'Escape') {
+    if (pausedByPlayer) return setPaused(false);
     if (!document.getElementById('help').classList.contains('hidden')) return toggleHelp();
     if (G.mode !== 'normal') return setMode('normal');
-    setSelection([]);
+    /* Escape cancels whatever is outstanding; with nothing left to cancel it
+       means "get me out", which in a game is pause. */
+    if (G.selection.length) return setSelection([]);
+    togglePause();
     return;
   }
+  if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
   if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }   // works even once the round is over
   if (G.over) return;
+  if (pausedByPlayer) return;    // no orders, no production, no spell while paused
 
   switch (e.code) {
     case 'KeyA': if (commandable().length) setMode('attack'); return;
@@ -419,10 +428,51 @@ function syncMuteButton(off) {
   if (mb) { mb.classList.toggle('off', off); mb.title = off ? 'Unmute audio (M)' : 'Mute audio (M)'; }
 }
 
+/* Pause has two independent sources — the player asking for it, and the help
+   panel, which has always frozen the game while it is open. Keeping them apart
+   and OR-ing them means closing help cannot un-pause a game the player
+   deliberately paused, which is exactly the bug a single shared flag causes. */
+let pausedByPlayer = false;
+
+function syncPaused() {
+  const helpOpen = !document.getElementById('help').classList.contains('hidden');
+  G.paused = pausedByPlayer || helpOpen;
+  const pz = document.getElementById('pause');
+  if (pz) pz.classList.toggle('hidden', !pausedByPlayer);
+  const pb = document.getElementById('pausebtn');
+  if (pb) { pb.classList.toggle('on', pausedByPlayer); pb.textContent = pausedByPlayer ? '▶' : '❚❚'; }
+  document.body.classList.toggle('paused', !!G.paused);
+  if (pausedByPlayer) fillPauseCard();
+}
+
+export function setPaused(on) {
+  /* Nothing to pause before the match starts or after it ends, and pausing the
+     end card would trap the player behind an overlay with no game under it. */
+  if (G.phase !== 'playing' || G.over) { if (!on) { pausedByPlayer = false; syncPaused(); } return; }
+  pausedByPlayer = !!on;
+  syncPaused();
+}
+export function togglePause() { setPaused(!pausedByPlayer); }
+export function isPaused() { return pausedByPlayer; }
+
+/* A pause is the one moment the player is actually reading the screen, so tell
+   them where the run stands rather than showing a bare word. */
+function fillPauseCard() {
+  const el = document.getElementById('pzstats');
+  if (!el) return;
+  const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
+  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  el.innerHTML = `
+    <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
+    <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
+    <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
+    <div><b>${towers}</b><span>towers left</span></div>`;
+}
+
 function toggleHelp() {
   const h = document.getElementById('help');
   h.classList.toggle('hidden');
-  G.paused = !h.classList.contains('hidden');
+  syncPaused();
 }
 
 /* ----------------------------------------------------------- minimap --- */
@@ -469,6 +519,12 @@ function initCards() {
   mb.addEventListener('click', () => syncMuteButton(toggleMute()));
   syncMuteButton(isMuted());
   document.getElementById('helpbtn').addEventListener('click', toggleHelp);
+  const pb = document.getElementById('pausebtn');
+  if (pb) pb.addEventListener('click', () => togglePause());
+  const pr = document.getElementById('pz-resume');
+  if (pr) pr.addEventListener('click', () => setPaused(false));
+  const ph = document.getElementById('pz-help');
+  if (ph) ph.addEventListener('click', () => { setPaused(false); toggleHelp(); });
   document.getElementById('helpclose').addEventListener('click', toggleHelp);
   document.getElementById('queue').addEventListener('click', ev => {
     const i = ev.target.closest('.qitem');

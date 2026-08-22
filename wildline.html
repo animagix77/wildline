@@ -980,6 +980,36 @@ body.menu #comms{display:none!important}
   font-size:10px; line-height:1.4; padding:7px 9px; border-radius:7px; color:#dfe9d8;
   border:1px solid rgba(127,212,74,.3); background:rgba(6,14,8,.85); margin-bottom:6px; }
 
+/* ================= PAUSE ================= */
+#pause{ position:absolute; inset:0; z-index:70; display:flex;
+  align-items:center; justify-content:center; pointer-events:none;
+  background:radial-gradient(70% 70% at 50% 45%, rgba(4,10,7,.55), rgba(3,7,5,.86)); }
+#pause.hidden{ display:none; }
+.pz-card{ pointer-events:auto; text-align:center; padding:30px 46px;
+  border:1px solid rgba(127,212,74,.28); border-radius:10px;
+  background:rgba(8,17,11,.86); backdrop-filter:blur(7px);
+  box-shadow:0 24px 70px rgba(0,0,0,.6); animation:pz-in .18s ease-out; }
+@keyframes pz-in{ from{opacity:0; transform:translateY(8px) scale(.985)} to{opacity:1} }
+.pz-title{ font-size:26px; font-weight:800; letter-spacing:12px; color:var(--leaf);
+  text-shadow:0 0 26px rgba(127,212,74,.35); }
+.pz-sub{ margin-top:5px; font-size:11px; letter-spacing:1.6px; color:#8fa389; font-style:italic; }
+.pz-stats{ display:flex; gap:26px; justify-content:center; margin:20px 0 22px; }
+.pz-stats div{ display:flex; flex-direction:column; gap:3px; }
+.pz-stats b{ font-size:19px; font-weight:700; color:var(--bone); }
+.pz-stats b i{ font-style:normal; font-size:12px; color:#6f7d6c; }
+.pz-stats span{ font-size:9px; letter-spacing:1.8px; text-transform:uppercase; color:#7d8c78; }
+.pz-btns{ display:flex; gap:10px; justify-content:center; }
+.pz-btns button{ padding:11px 30px; border-radius:9px; cursor:pointer;
+  font-family:var(--font); font-size:11.5px; font-weight:700; letter-spacing:3px;
+  text-transform:uppercase; border:1px solid rgba(127,212,74,.5);
+  background:rgba(127,212,74,.14); color:var(--leaf); }
+.pz-btns button:hover{ background:var(--leaf); color:#06110a; }
+.pz-btns .pz-alt{ border-color:rgba(255,255,255,.18); color:#b6c4b1; background:rgba(255,255,255,.05); }
+.pz-btns .pz-alt:hover{ background:rgba(255,255,255,.14); color:#fff; }
+.pz-hint{ margin-top:14px; font-size:9.5px; letter-spacing:1.6px; color:#63715f; text-transform:uppercase; }
+#pausebtn.on{ color:var(--leaf); border-color:rgba(127,212,74,.55); }
+body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
+
 </style>
 </head>
 <body>
@@ -1019,6 +1049,7 @@ body.menu #comms{display:none!important}
       <span class="sub">TIME</span>
       <span id="clock">0:00</span>
     </div>
+    <button id="pausebtn" title="Pause (P)">❚❚</button>
     <button id="mutebtn" title="Mute audio (M)">♪</button>
     <button id="helpbtn" title="Toggle help (F1)">?</button>
   </div>
@@ -1046,6 +1077,19 @@ body.menu #comms{display:none!important}
   </div>
 
   <!-- ================= HELP ================= -->
+  <div id="pause" class="hidden">
+    <div class="pz-card">
+      <div class="pz-title">PAUSED</div>
+      <div class="pz-sub">The valley holds its breath.</div>
+      <div class="pz-stats" id="pzstats"></div>
+      <div class="pz-btns">
+        <button id="pz-resume" type="button"><span>Resume</span></button>
+        <button id="pz-help" type="button" class="pz-alt"><span>Orders (F1)</span></button>
+      </div>
+      <div class="pz-hint">P or Esc to resume</div>
+    </div>
+  </div>
+
   <div id="help" class="hidden">
     <h2>CRITTERS VS COMPUTE</h2>
     <p class="tagline">You are the forest. They are the data centre. Take it back.</p>
@@ -1058,6 +1102,7 @@ body.menu #comms{display:none!important}
           <li><b>Right click</b> — move / attack target</li>
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
+          <li><b>P</b> / <b>Esc</b> — pause</li>
           <li><b>Z X C V G N B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
@@ -1089,7 +1134,8 @@ body.menu #comms{display:none!important}
               On it your animals move faster and <b>heal when out of combat</b>.
               Off it they stay hurt.</li>
           <li>Ravens fly over walls. Bears and boars break armour. Wolves are cheap
-              enough to lose.</li>
+              enough to lose. <b>Beavers rebuild</b> the Heart Tree and your groves
+              whenever they are not fighting.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
         </ul>
@@ -1603,7 +1649,8 @@ const DEFS = {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
-    blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
+    mend: 14, mendRange: 7,
+    blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
   /* ---- MACHINE (enemy) ---- */
@@ -4524,7 +4571,7 @@ function updateMusic(dt) {
       if (e.alive && G.time - (e.lastHitAt || -99) < 1.2) { duckT = 2.5; break; }
     }
   }
-  const duckTarget = (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));
+  const duckTarget = G.paused ? 0.35 : (stinger ? 0.25 : (duckT > 0 ? 0.55 : 1));
   duck += (duckTarget - duck) * Math.min(1, dt * 2.2);
 
   for (let i = fades.length - 1; i >= 0; i--) {
@@ -7665,6 +7712,40 @@ class Entity {
     ripple(this.pos, 1.6, 0x8fe8ff);
   }
 
+  /* The beaver's third job. Opportunistic, like drinking: no order to give and
+     nothing to micromanage — a beaver that is not fighting patches up whatever
+     of yours is hurt nearby, the Heart Tree included. Gated on being out of
+     combat for the same reason regeneration is: it must never win a fight, only
+     undo the damage between them. The machines have had this since the Field
+     Technician shipped; this is the wild side's answer. */
+  mend(dt) {
+    if (!this.def.mend || this.isBuilding) return;
+    this.mending = null;
+    if (this.target || G.time - this.lastHitAt < 2 || this.isRooted()) return;
+    const reach = this.def.mendRange || 7;
+    let best = null, bd = 1e9;
+    for (const o of G.entities) {
+      if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      const d = dist2D(this.pos, o.pos) - o.radius;
+      if (d > reach) continue;
+      /* worst-hurt first, so a dying Heart Tree outranks a scratched grove */
+      const score = (o.hp / o.maxHp) * 100 + d;
+      if (score < bd) { bd = score; best = o; }
+    }
+    if (!best) return;
+    best.hp = Math.min(best.maxHp, best.hp + this.def.mend * dt);
+    this.mending = best;
+    this.faceTo(best.pos, dt, 6);
+    this._mendT = (this._mendT || 0) + dt;
+    if (this._mendT > 0.55) {
+      this._mendT = 0;
+      _v1.copy(best.pos); _v1.y += best.radius * 0.5;
+      burst(_v1, 0x9bff6a, 5, 4, 0.5, 0.5);
+      SFX.gnaw(this.pos);
+    }
+  }
+
   /* A blue sheen so a watered swarm is readable at a glance, without adding a
      per-unit sprite: tint the existing body material's emissive. */
   showWatered(on) {
@@ -7699,6 +7780,7 @@ class Entity {
   postUpdate(dt, speedNow) {
     this.regen(dt);
     this.drink(dt);
+    this.mend(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {
@@ -11219,7 +11301,10 @@ function positionTip(x, y) {
 /* ------------------------------------------------------------- pointer -- */
 function onDown(e) {
   if (G.over) return;
+  /* Middle-drag still pans while paused — surveying the board is the whole
+     reason to pause — but nothing that changes the game state gets through. */
   if (e.button === 1) { down = { x: e.clientX, y: e.clientY, button: 1 }; e.preventDefault(); return; }
+  if (pausedByPlayer) return;
   down = { x: e.clientX, y: e.clientY, button: e.button, t: performance.now() };
   dragging = false;
 }
@@ -11438,13 +11523,19 @@ function onKey(e) {
 
   if (e.code === 'F1') { e.preventDefault(); if (!G.over) toggleHelp(); return; }
   if (e.code === 'Escape') {
+    if (pausedByPlayer) return setPaused(false);
     if (!document.getElementById('help').classList.contains('hidden')) return toggleHelp();
     if (G.mode !== 'normal') return setMode('normal');
-    setSelection([]);
+    /* Escape cancels whatever is outstanding; with nothing left to cancel it
+       means "get me out", which in a game is pause. */
+    if (G.selection.length) return setSelection([]);
+    togglePause();
     return;
   }
+  if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
   if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }   // works even once the round is over
   if (G.over) return;
+  if (pausedByPlayer) return;    // no orders, no production, no spell while paused
 
   switch (e.code) {
     case 'KeyA': if (commandable().length) setMode('attack'); return;
@@ -11487,10 +11578,51 @@ function syncMuteButton(off) {
   if (mb) { mb.classList.toggle('off', off); mb.title = off ? 'Unmute audio (M)' : 'Mute audio (M)'; }
 }
 
+/* Pause has two independent sources — the player asking for it, and the help
+   panel, which has always frozen the game while it is open. Keeping them apart
+   and OR-ing them means closing help cannot un-pause a game the player
+   deliberately paused, which is exactly the bug a single shared flag causes. */
+let pausedByPlayer = false;
+
+function syncPaused() {
+  const helpOpen = !document.getElementById('help').classList.contains('hidden');
+  G.paused = pausedByPlayer || helpOpen;
+  const pz = document.getElementById('pause');
+  if (pz) pz.classList.toggle('hidden', !pausedByPlayer);
+  const pb = document.getElementById('pausebtn');
+  if (pb) { pb.classList.toggle('on', pausedByPlayer); pb.textContent = pausedByPlayer ? '▶' : '❚❚'; }
+  document.body.classList.toggle('paused', !!G.paused);
+  if (pausedByPlayer) fillPauseCard();
+}
+
+function setPaused(on) {
+  /* Nothing to pause before the match starts or after it ends, and pausing the
+     end card would trap the player behind an overlay with no game under it. */
+  if (G.phase !== 'playing' || G.over) { if (!on) { pausedByPlayer = false; syncPaused(); } return; }
+  pausedByPlayer = !!on;
+  syncPaused();
+}
+function togglePause() { setPaused(!pausedByPlayer); }
+function isPaused() { return pausedByPlayer; }
+
+/* A pause is the one moment the player is actually reading the screen, so tell
+   them where the run stands rather than showing a bare word. */
+function fillPauseCard() {
+  const el = document.getElementById('pzstats');
+  if (!el) return;
+  const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
+  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  el.innerHTML = `
+    <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
+    <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
+    <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
+    <div><b>${towers}</b><span>towers left</span></div>`;
+}
+
 function toggleHelp() {
   const h = document.getElementById('help');
   h.classList.toggle('hidden');
-  G.paused = !h.classList.contains('hidden');
+  syncPaused();
 }
 
 /* ----------------------------------------------------------- minimap --- */
@@ -11537,6 +11669,12 @@ function initCards() {
   mb.addEventListener('click', () => syncMuteButton(toggleMute()));
   syncMuteButton(isMuted());
   document.getElementById('helpbtn').addEventListener('click', toggleHelp);
+  const pb = document.getElementById('pausebtn');
+  if (pb) pb.addEventListener('click', () => togglePause());
+  const pr = document.getElementById('pz-resume');
+  if (pr) pr.addEventListener('click', () => setPaused(false));
+  const ph = document.getElementById('pz-help');
+  if (ph) ph.addEventListener('click', () => { setPaused(false); toggleHelp(); });
   document.getElementById('helpclose').addEventListener('click', toggleHelp);
   document.getElementById('queue').addEventListener('click', ev => {
     const i = ev.target.closest('.qitem');
@@ -12024,7 +12162,12 @@ function frame(now, manual) {
   if (!(dt > 0)) dt = 0;
   else if (dt > 0.1) dt = 0.1;
   G.dt = dt;
-  G.wallTime += dt;             // never pauses: FX and corpse decay run off this
+  /* A pause has to stop the picture, not just the simulation. wallTime drives
+     VFX and corpse decay, and shaders/particles run outside the sim gate, so a
+     "paused" game still had fire licking and bodies sinking. Freeze all of it
+     and keep only the camera live. */
+  const simDt = G.paused ? 0 : dt;
+  G.wallTime += simDt;
   updateMusic(dt);              // music fades/ducking run in every phase, even menus
 
   if (G.over && G.phase === 'playing') G.phase = 'over';
@@ -12057,12 +12200,12 @@ function frame(now, manual) {
 
   if (camera.aspect !== vw() / vh()) fitViewport();
 
-  tickShaders(G.time, dt);
-  updateCombatFX(dt);
-  updateVFX(dt);
-  updateComms(dt);
-  updateWeather(dt);
-  rtsCamera.update(dt);
+  tickShaders(G.time, simDt);
+  updateCombatFX(simDt);
+  updateVFX(simDt);
+  updateComms(simDt);
+  updateWeather(simDt);
+  rtsCamera.update(dt);          // the camera stays live so you can look around
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
     hudAccum += dt;

@@ -657,6 +657,40 @@ export class Entity {
     ripple(this.pos, 1.6, 0x8fe8ff);
   }
 
+  /* The beaver's third job. Opportunistic, like drinking: no order to give and
+     nothing to micromanage — a beaver that is not fighting patches up whatever
+     of yours is hurt nearby, the Heart Tree included. Gated on being out of
+     combat for the same reason regeneration is: it must never win a fight, only
+     undo the damage between them. The machines have had this since the Field
+     Technician shipped; this is the wild side's answer. */
+  mend(dt) {
+    if (!this.def.mend || this.isBuilding) return;
+    this.mending = null;
+    if (this.target || G.time - this.lastHitAt < 2 || this.isRooted()) return;
+    const reach = this.def.mendRange || 7;
+    let best = null, bd = 1e9;
+    for (const o of G.entities) {
+      if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      const d = dist2D(this.pos, o.pos) - o.radius;
+      if (d > reach) continue;
+      /* worst-hurt first, so a dying Heart Tree outranks a scratched grove */
+      const score = (o.hp / o.maxHp) * 100 + d;
+      if (score < bd) { bd = score; best = o; }
+    }
+    if (!best) return;
+    best.hp = Math.min(best.maxHp, best.hp + this.def.mend * dt);
+    this.mending = best;
+    this.faceTo(best.pos, dt, 6);
+    this._mendT = (this._mendT || 0) + dt;
+    if (this._mendT > 0.55) {
+      this._mendT = 0;
+      _v1.copy(best.pos); _v1.y += best.radius * 0.5;
+      burst(_v1, 0x9bff6a, 5, 4, 0.5, 0.5);
+      SFX.gnaw(this.pos);
+    }
+  }
+
   /* A blue sheen so a watered swarm is readable at a glance, without adding a
      per-unit sprite: tint the existing body material's emissive. */
   showWatered(on) {
@@ -691,6 +725,7 @@ export class Entity {
   postUpdate(dt, speedNow) {
     this.regen(dt);
     this.drink(dt);
+    this.mend(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {

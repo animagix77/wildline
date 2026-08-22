@@ -187,7 +187,12 @@ function frame(now, manual) {
   if (!(dt > 0)) dt = 0;
   else if (dt > 0.1) dt = 0.1;
   G.dt = dt;
-  G.wallTime += dt;             // never pauses: FX and corpse decay run off this
+  /* A pause has to stop the picture, not just the simulation. wallTime drives
+     VFX and corpse decay, and shaders/particles run outside the sim gate, so a
+     "paused" game still had fire licking and bodies sinking. Freeze all of it
+     and keep only the camera live. */
+  const simDt = G.paused ? 0 : dt;
+  G.wallTime += simDt;
   updateMusic(dt);              // music fades/ducking run in every phase, even menus
 
   if (G.over && G.phase === 'playing') G.phase = 'over';
@@ -220,12 +225,12 @@ function frame(now, manual) {
 
   if (camera.aspect !== vw() / vh()) fitViewport();
 
-  tickShaders(G.time, dt);
-  updateCombatFX(dt);
-  updateVFX(dt);
-  updateComms(dt);
-  updateWeather(dt);
-  rtsCamera.update(dt);
+  tickShaders(G.time, simDt);
+  updateCombatFX(simDt);
+  updateVFX(simDt);
+  updateComms(simDt);
+  updateWeather(simDt);
+  rtsCamera.update(dt);          // the camera stays live so you can look around
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
     hudAccum += dt;

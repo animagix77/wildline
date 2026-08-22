@@ -69,7 +69,8 @@ export const DEFS = {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
-    blurb: 'Gnaws through structures, and dams the intakes: every beaver on a pump slows the drain.'
+    mend: 14, mendRange: 7,
+    blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
   /* ---- MACHINE (enemy) ---- */
