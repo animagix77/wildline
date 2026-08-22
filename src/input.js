@@ -195,7 +195,7 @@ function onUp(e) {
     if (G.mode === 'attack') { issueAt(e.clientX, e.clientY, true); setMode('normal'); return; }
     if (G.mode === 'spell') { castAt(e.clientX, e.clientY); setMode('normal'); return; }
     if (dragging) { boxSelect(d.x, d.y, e.clientX, e.clientY, e.shiftKey); dragging = false; return; }
-    clickSelect(e.clientX, e.clientY, e.shiftKey);
+    clickSelect(e.clientX, e.clientY, e.shiftKey, e.ctrlKey || e.metaKey);
     return;
   }
   if (d.button === 2) {
@@ -211,14 +211,17 @@ function setSelection(list) {
   for (const e of G.selection) e.selected = true;
 }
 
-function clickSelect(x, y, additive) {
+function clickSelect(x, y, additive, screenOnly) {
   const ent = entityUnder(x, y);
   const now = performance.now();
   if (!ent) { if (!additive) setSelection([]); return; }
 
-  // double-click: grab every visible unit of the same species
+  /* Double-click grabs the whole species, not just what is on screen —
+     on-screen-only silently left half the pack behind at 96 pop. Ctrl+double
+     restores the narrow behaviour when you do want just what you can see. */
   if (ent === lastClickEnt && now - lastClickAt < 340 && !ent.isBuilding) {
-    const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD && o.type === ent.type && onScreen(o));
+    const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
+      && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
     SFX.select();
     lastClickEnt = null;
@@ -383,6 +386,11 @@ function onKey(e) {
     return;
   }
   if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
+  if (e.code === 'Backquote') {          // ` — the whole swarm, wherever it is
+    e.preventDefault();
+    setSelection(G.entities.filter(o => o.alive && o.team === TEAM.WILD && !o.isBuilding));
+    return;
+  }
   if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }   // works even once the round is over
   if (G.over) return;
   if (pausedByPlayer) return;    // no orders, no production, no spell while paused
@@ -411,6 +419,12 @@ function onKey(e) {
     if (e.ctrlKey || e.metaKey) {
       G.groups[k] = commandable().slice();
       toast(`Group ${k} set — ${G.groups[k].length} beasts`);
+    } else if (e.shiftKey) {
+      /* Grow a group instead of rebuilding it. Without append you cannot
+         reinforce a control group, which at 96 pop is most of army handling. */
+      const cur = (G.groups[k] || []).filter(u => u.alive);
+      G.groups[k] = [...new Set([...cur, ...commandable()])];
+      toast(`Group ${k} — ${G.groups[k].length} beasts`);
     } else {
       const g = (G.groups[k] || []).filter(u => u.alive);
       if (!g.length) return;
@@ -500,10 +514,18 @@ function initCards() {
     const el = document.createElement('div');
     el.className = 'card';
     el.dataset.type = type;
+    /* Population is the constraint that decides the late game — a Bear is four
+       Wolves you are not fielding — and it appeared nowhere in the UI. */
     el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${d.icon}</span>
-      <span class="nm">${d.name}</span><span class="cost">🍃 ${d.cost}</span>`;
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.build}s`;
-    el.addEventListener('click', () => queueUnit(type));
+      <span class="nm">${d.name}</span>
+      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i></span>`;
+    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`;
+    /* Shift-click queues five. Filling a 96-pop army one press at a time is
+       not a decision, it is typing. */
+    el.addEventListener('click', ev => {
+      const n = ev.shiftKey ? 5 : 1;
+      for (let i = 0; i < n; i++) if (!queueUnit(type)) break;
+    });
     host.appendChild(el);
   }
   const sp = document.createElement('div');

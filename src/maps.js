@@ -28,7 +28,7 @@ export const MAPS = {
     depots: [[56, -76], [56, -27]],
     core: { x: 58, z: -50 },
     weather: 'clear',
-    water: [{ x: -12, z: 34, r: 22, drain: 0.0013 }],
+    water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
   },
 
@@ -45,7 +45,7 @@ export const MAPS = {
     depots: [[45, -46]],
     core: { x: 62, z: -46 },
     weather: 'mist',
-    water: [{ x: -20, z: 30, r: 18, drain: 0.0011 }],
+    water: [{ x: -20, z: 30, r: 18, drain: 0.0022 }],
     pumps: [[41, -36]],
   },
   'milltown': {
@@ -60,7 +60,7 @@ export const MAPS = {
     depots: [[52, -72], [52, -36]],
     core: { x: 52, z: -54 },
     weather: 'rain',
-    water: [{ x: -26, z: 38, r: 20, drain: 0.0015 }, { x: 24, z: 40, r: 14, drain: 0.0015 }],
+    water: [{ x: -26, z: 38, r: 20, drain: 0.0030 }, { x: 24, z: 40, r: 14, drain: 0.0030 }],
     pumps: [[26, -42], [70, -34]],
   },
 
@@ -80,8 +80,8 @@ export const MAPS = {
     weather: 'mist',
     /* the fen IS the map: three shallow meres, drained fast, and four pumps.
        Ignore the water here and the economy is gone before the fourth sweep. */
-    water: [{ x: -30, z: 28, r: 24, drain: 0.0028 }, { x: 10, z: 52, r: 18, drain: 0.0028 },
-            { x: -58, z: -30, r: 20, drain: 0.0028 }],
+    water: [{ x: -30, z: 28, r: 24, drain: 0.0050 }, { x: 10, z: 52, r: 18, drain: 0.0050 },
+            { x: -58, z: -30, r: 20, drain: 0.0050 }],
     pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
   },
   'substation-gary': {
@@ -97,7 +97,7 @@ export const MAPS = {
     depots: [[58, -70], [62, -32]],
     core: { x: 58, z: -50 },
     weather: 'snow',
-    water: [{ x: -34, z: 40, r: 16, drain: 0.0010 }],
+    water: [{ x: -34, z: 40, r: 16, drain: 0.0020 }],
     pumps: [[44, -28]],
   },
 
@@ -115,7 +115,7 @@ export const MAPS = {
     depots: [[42, -74], [62, -74], [52, -24]],
     core: { x: 52, z: -48 },
     weather: 'storm',
-    water: [{ x: -30, z: 34, r: 22, drain: 0.0021 }],
+    water: [{ x: -30, z: 34, r: 22, drain: 0.0040 }],
     pumps: [[16, -24], [86, -24], [52, -76]],
   },
 
@@ -133,7 +133,7 @@ export const MAPS = {
     depots: [[34, -76], [66, -76], [50, -18]],
     core: { x: 50, z: -44 },
     weather: 'storm',
-    water: [{ x: -36, z: 36, r: 20, drain: 0.0018 }, { x: -70, z: -40, r: 16, drain: 0.0018 }],
+    water: [{ x: -36, z: 36, r: 20, drain: 0.0035 }, { x: -70, z: -40, r: 16, drain: 0.0035 }],
     pumps: [[8, -16], [94, -16], [48, -74]],
   },
 };
@@ -155,7 +155,7 @@ MAPS['groundbreak'] = {
   depots: [[54, -68]],
   core: { x: 54, z: -48 },
   weather: 'rain',
-  water: [{ x: -22, z: 34, r: 20, drain: 0.0013 }],
+  water: [{ x: -22, z: 34, r: 20, drain: 0.0026 }],
   pumps: [[36, -26]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
@@ -173,7 +173,7 @@ MAPS['pourhouse'] = {
   depots: [[50, -64], [32, -32]],
   core: { x: 56, z: -46 },
   weather: 'storm',
-  water: [{ x: -28, z: 36, r: 26, drain: 0.0024 }, { x: 20, z: -70, r: 16, drain: 0.0024 }],
+  water: [{ x: -28, z: 36, r: 26, drain: 0.0045 }, { x: 20, z: -70, r: 16, drain: 0.0045 }],
   pumps: [[32, -22], [80, -22]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };

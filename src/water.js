@@ -181,14 +181,14 @@ export function groveWaterFactor(x, z) {
   let best = 0, lvl = 1;
   for (const L of lakes) {
     const d = Math.hypot(x - L.x, z - L.z);
-    const reach = L.r * 2.6;                     // catchment
+    const reach = L.r * 4.0;                     // catchment
     if (d > reach) continue;
     const share = 1 - smoothstep(L.r * 0.9, reach, d);
     // the level that matters is THIS lake's, not the map average
     if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  return 1 - best * (1 - (0.5 + 0.5 * lvl));     // full lake = 1.0, dry = 0.5 at the centre
+  return 1 - best * (1 - (0.25 + 0.75 * lvl));   // full lake = 1.0, dry = 0.25 at the centre
 }
 
 

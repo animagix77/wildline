@@ -35,6 +35,18 @@ export function updateHUD() {
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
 
+  /* The single most plannable number in the game, and until now the AI was the
+     only thing that could see it. A game that asks the player to think ahead
+     has to tell them how long they have. */
+  const sw = el('sweepres');
+  if (sw) {
+    const left = Math.max(0, (G.nextWave || 0) - G.time);
+    el('sweeptime').textContent = fmt(left);
+    el('sweepsub').textContent = `sweep ${(G.waveNum || 0) + 1} · ${G.machinePop || 0} out`;   // machines standing, so the countdown has a size next to it
+    sw.classList.toggle('low', left < 30);
+    sw.classList.toggle('dry', left < 10);
+  }
+
   /* Water. The pumps have always drained the lakes and quietly cut grove yield;
      until this readout existed the player had no way to see it happening, let
      alone plan around it. Now it also gates how long a drink lasts. */
@@ -88,7 +100,7 @@ export function updateHUD() {
     q.innerHTML = (G.queue.length
       ? G.queue.map((i, n) => `<div class="qitem${n < lanes ? ' q-live' : ''}" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
       : '<span class="qhint">nothing growing — pick a card above</span>')
-      + `<span class="qlanes" title="Growing lanes — one per bloomed grove, up to four">×${lanes}</span>`;
+      + `<span class="qlanes" title="Growing lanes — one per two bloomed groves, up to three">×${lanes}</span>`;
   }
   if (G.queue.length) {
     const items = q.children;
@@ -247,6 +259,18 @@ function drawMinimap() {
 
   drawFogOverlay(c, 200);   // veil the terrain backdrop; blips draw on top
 
+  /* Anything of yours being hurt right now pulses. Losing the Heart Tree or a
+     grove used to be a single toast you were never looking at — and the comment
+     in world.js has promised this pulse since the day it was written. */
+  const alarm = 0.35 + 0.65 * Math.abs(Math.sin(G.time * 4));
+  const pulseAt = (pos, r) => {
+    const [px, py] = MM(pos.x, pos.z);
+    c.save(); c.globalAlpha = alarm; c.strokeStyle = '#ff6a3d'; c.lineWidth = 2;
+    c.beginPath(); c.arc(px, py, r, 0, 6.2832); c.stroke(); c.restore();
+  };
+  if (G.heart && G.heart.alive && G.time - (G.heart.lastHitAt || -99) < 4) pulseAt(G.heart.pos, 9);
+  for (const g of (G.groves || [])) if (g.losing) pulseAt(g.pos, 6);
+
   // groves
   for (const g of G.groves) {
     // landmarks: always plotted, dimmed until you have actually been there
@@ -273,9 +297,15 @@ function drawMinimap() {
       c.fillStyle = e.team === TEAM.WILD ? '#9bff6a'
         : e.def.critical ? '#39d7ea' : e.type === 'core' ? (G.coreExposed ? '#ff6a3d' : '#5d7f88') : '#7f8b95';
       c.fillRect(x - s / 2, y - s / 2, s, s);
+    } else if (e.team === TEAM.WILD) {
+      c.fillStyle = '#7fd44a';
+      c.fillRect(x - 1.4, y - 1.4, 2.8, 2.8);      // yours: squares
     } else {
-      c.fillStyle = e.team === TEAM.WILD ? '#7fd44a' : '#ff6a3d';
-      c.fillRect(x - 1.4, y - 1.4, 2.8, 2.8);
+      /* theirs: diamonds. Distinguishable without colour vision at all. */
+      c.fillStyle = '#ff6a3d';
+      c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
+      c.fillRect(-1.7, -1.7, 3.4, 3.4);
+      c.restore();
     }
     c.globalAlpha = 1;
   }

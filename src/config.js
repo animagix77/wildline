@@ -119,11 +119,11 @@ export const DEFS = {
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
-    hp: 950, radius: 4.6, armor: 2, building: true, critical: true,
+    hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
   },
   core: {
     name: 'Server Core', team: TEAM.MACHINE, icon: '🧊',
-    hp: 2400, radius: 9, armor: 8, building: true,
+    hp: 3000, radius: 9, armor: 8, building: true,
   },
   wall: {
     name: 'Perimeter Wall', team: TEAM.MACHINE, icon: '🧱',
@@ -151,8 +151,8 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   200,
-  baseIncome:     1.1,      // per second from the Heart Tree
-  grovIncome:     2.6,      // per second per bloomed grove
+  baseIncome:     0.7,      // per second from the Heart Tree
+  grovIncome:     3.2,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
   popCap:         96,
   machinePopCap:  16,

@@ -803,3 +803,8 @@
 .pz-hint{ margin-top:14px; font-size:9.5px; letter-spacing:1.6px; color:#63715f; text-transform:uppercase; }
 #pausebtn.on{ color:var(--leaf); border-color:rgba(127,212,74,.55); }
 body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
+#sweepres.low #sweeptime{ color:#ffc46a; }
+#sweepres.dry #sweeptime{ color:#ff6a3d; animation:sweep-urgent .9s ease-in-out infinite; }
+@keyframes sweep-urgent{ 0%,100%{opacity:1} 50%{opacity:.45} }
+#sweepres .sub{ white-space:nowrap; }
+#sweepres{ min-width:92px; }

@@ -109,7 +109,7 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card:hover{border-color:var(--leaf);background:linear-gradient(160deg,rgba(127,212,74,.2),rgba(255,255,255,.03));transform:translateY(-2px)}
 .card.locked{opacity:.4;cursor:not-allowed;transform:none}
 .card.gated{opacity:.25;filter:grayscale(1)}
-.card.gated::after{content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
+.card.gated::after{font-size:10px !important;content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
 .card .ico{font-size:28px}
 .card .nm{font-size:10px;letter-spacing:.3px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
@@ -137,12 +137,13 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
   border:1px solid rgba(255,255,255,.07)}
 
 /* ---------- help ---------- */
-#help{position:absolute;inset:0;margin:auto;width:min(760px,92vw);height:max-content;max-height:80vh;overflow:auto;
+#help{position:absolute;inset:0;margin:auto;width:min(1120px,95vw);height:max-content;max-height:86vh;overflow:auto;
   background:rgba(6,11,8,.96);border:1px solid var(--edge);border-radius:6px;padding:26px 30px;z-index:30;
   box-shadow:0 30px 80px rgba(0,0,0,.7)}
 #help h2{font-size:26px;letter-spacing:5px;color:var(--leaf)}
 #help .tagline{color:var(--dim);font-size:13px;margin:4px 0 18px;font-style:italic}
-#help .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+#help .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+@media (max-width:900px){#help .cols{grid-template-columns:1fr 1fr}}
 #help h3{font-size:11px;letter-spacing:2px;color:var(--machine);margin:12px 0 7px}
 #help h3:first-child{margin-top:0}
 #help ul{list-style:none;font-size:13px;line-height:1.85;color:#c3d3c4}
@@ -198,7 +199,7 @@ body.menu #hovertip{ display:none !important; }
   transform:translateX(330px);opacity:0;transition:transform .4s cubic-bezier(.2,.9,.25,1),opacity .35s;
   pointer-events:none}
 #comms.on{transform:none;opacity:1}
-.comms-tag{font-size:8.5px;letter-spacing:1.8px;color:#5c6672;font-weight:600;margin-bottom:4px}
+.comms-tag{font-size:10px;letter-spacing:1.8px;color:#5c6672;font-weight:600;margin-bottom:4px}
 .comms-line{font-size:12px;line-height:1.5;font-style:italic}
 body.menu #comms{display:none!important}
 
@@ -1009,6 +1010,11 @@ body.menu #comms{display:none!important}
 .pz-hint{ margin-top:14px; font-size:9.5px; letter-spacing:1.6px; color:#63715f; text-transform:uppercase; }
 #pausebtn.on{ color:var(--leaf); border-color:rgba(127,212,74,.55); }
 body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
+#sweepres.low #sweeptime{ color:#ffc46a; }
+#sweepres.dry #sweeptime{ color:#ff6a3d; animation:sweep-urgent .9s ease-in-out infinite; }
+@keyframes sweep-urgent{ 0%,100%{opacity:1} 50%{opacity:.45} }
+#sweepres .sub{ white-space:nowrap; }
+#sweepres{ min-width:92px; }
 
 </style>
 </head>
@@ -1039,6 +1045,11 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
       <span class="glyph">💧</span>
       <span id="waterlvl">100<span class="slash">%</span></span>
       <span class="sub" id="watersub">water</span>
+    </div>
+    <div class="res" id="sweepres">
+      <span class="glyph">⚠</span>
+      <span id="sweeptime">--</span>
+      <span class="sub" id="sweepsub">next sweep</span>
     </div>
     <div id="objective">
       <div class="obj-title">OBJECTIVE</div>
@@ -1103,6 +1114,9 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
           <li><b>P</b> / <b>Esc</b> — pause</li>
+          <li><b>`</b> — select your whole swarm</li>
+          <li><b>Shift</b>+click a card — queue five</li>
+          <li><b>Shift</b>+<b>1..5</b> — add to a group</li>
           <li><b>Z R X C V G N B</b> — wolf / capybara / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
@@ -1121,8 +1135,8 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
         <h3>How to win</h3>
         <ul>
           <li>Walk any beast onto a <b>Grove</b> to bloom it (biomass).</li>
-          <li>Every grove also adds a <b>growing lane</b> &mdash; more groves, more
-              animals at once, up to four.</li>
+          <li>Every <b>two</b> groves adds a <b>growing lane</b> &mdash; more groves,
+              more animals at once, up to three.</li>
           <li>Spend biomass at the <b>Heart Tree</b> to grow wildlife.</li>
           <li>Break the <b>3 Coolant Towers</b>, then kill the <b>Server Core</b>.</li>
         </ul>
@@ -1140,6 +1154,27 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
               guns would rather shoot them, and they can take it.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Water</h3>
+        <ul>
+          <li>Intake pumps inside the compound drain the lakes. Groves in a dry
+              catchment pay far less.</li>
+          <li>An animal that stops at a shore drinks and leaves <b>Watered</b>:
+              +20% attack speed, +15% damage, +10% move, and it heals at full
+              Green rate <em>anywhere</em>. Fuller lake, longer buff.</li>
+          <li><b>Beavers</b> standing on a pump dam it and slow the drain. Break
+              the pump outright and the lake refills.</li>
+          <li>Watch the <b>water %</b> and the <b>−%</b> on your income: that is
+              what the pumps are costing you.</li>
+        </ul>
+        <h3>Reading the top bar</h3>
+        <ul>
+          <li>The <b>⚠ countdown</b> is the next security sweep, and how many
+              machines are already out.</li>
+          <li>The <b>×N</b> by the queue is your growing lanes — one per two
+              bloomed groves, up to three.</li>
         </ul>
       </div>
     </div>
@@ -1701,11 +1736,11 @@ const DEFS = {
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
-    hp: 950, radius: 4.6, armor: 2, building: true, critical: true,
+    hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
   },
   core: {
     name: 'Server Core', team: TEAM.MACHINE, icon: '🧊',
-    hp: 2400, radius: 9, armor: 8, building: true,
+    hp: 3000, radius: 9, armor: 8, building: true,
   },
   wall: {
     name: 'Perimeter Wall', team: TEAM.MACHINE, icon: '🧱',
@@ -1733,8 +1768,8 @@ const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 const RULES = {
   startBiomass:   200,
-  baseIncome:     1.1,      // per second from the Heart Tree
-  grovIncome:     2.6,      // per second per bloomed grove
+  baseIncome:     0.7,      // per second from the Heart Tree
+  grovIncome:     3.2,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
   popCap:         96,
   machinePopCap:  16,
@@ -1956,7 +1991,7 @@ const MAPS = {
     depots: [[56, -76], [56, -27]],
     core: { x: 58, z: -50 },
     weather: 'clear',
-    water: [{ x: -12, z: 34, r: 22, drain: 0.0013 }],
+    water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
   },
 
@@ -1973,7 +2008,7 @@ const MAPS = {
     depots: [[45, -46]],
     core: { x: 62, z: -46 },
     weather: 'mist',
-    water: [{ x: -20, z: 30, r: 18, drain: 0.0011 }],
+    water: [{ x: -20, z: 30, r: 18, drain: 0.0022 }],
     pumps: [[41, -36]],
   },
   'milltown': {
@@ -1988,7 +2023,7 @@ const MAPS = {
     depots: [[52, -72], [52, -36]],
     core: { x: 52, z: -54 },
     weather: 'rain',
-    water: [{ x: -26, z: 38, r: 20, drain: 0.0015 }, { x: 24, z: 40, r: 14, drain: 0.0015 }],
+    water: [{ x: -26, z: 38, r: 20, drain: 0.0030 }, { x: 24, z: 40, r: 14, drain: 0.0030 }],
     pumps: [[26, -42], [70, -34]],
   },
 
@@ -2008,8 +2043,8 @@ const MAPS = {
     weather: 'mist',
     /* the fen IS the map: three shallow meres, drained fast, and four pumps.
        Ignore the water here and the economy is gone before the fourth sweep. */
-    water: [{ x: -30, z: 28, r: 24, drain: 0.0028 }, { x: 10, z: 52, r: 18, drain: 0.0028 },
-            { x: -58, z: -30, r: 20, drain: 0.0028 }],
+    water: [{ x: -30, z: 28, r: 24, drain: 0.0050 }, { x: 10, z: 52, r: 18, drain: 0.0050 },
+            { x: -58, z: -30, r: 20, drain: 0.0050 }],
     pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
   },
   'substation-gary': {
@@ -2025,7 +2060,7 @@ const MAPS = {
     depots: [[58, -70], [62, -32]],
     core: { x: 58, z: -50 },
     weather: 'snow',
-    water: [{ x: -34, z: 40, r: 16, drain: 0.0010 }],
+    water: [{ x: -34, z: 40, r: 16, drain: 0.0020 }],
     pumps: [[44, -28]],
   },
 
@@ -2043,7 +2078,7 @@ const MAPS = {
     depots: [[42, -74], [62, -74], [52, -24]],
     core: { x: 52, z: -48 },
     weather: 'storm',
-    water: [{ x: -30, z: 34, r: 22, drain: 0.0021 }],
+    water: [{ x: -30, z: 34, r: 22, drain: 0.0040 }],
     pumps: [[16, -24], [86, -24], [52, -76]],
   },
 
@@ -2061,7 +2096,7 @@ const MAPS = {
     depots: [[34, -76], [66, -76], [50, -18]],
     core: { x: 50, z: -44 },
     weather: 'storm',
-    water: [{ x: -36, z: 36, r: 20, drain: 0.0018 }, { x: -70, z: -40, r: 16, drain: 0.0018 }],
+    water: [{ x: -36, z: 36, r: 20, drain: 0.0035 }, { x: -70, z: -40, r: 16, drain: 0.0035 }],
     pumps: [[8, -16], [94, -16], [48, -74]],
   },
 };
@@ -2083,7 +2118,7 @@ MAPS['groundbreak'] = {
   depots: [[54, -68]],
   core: { x: 54, z: -48 },
   weather: 'rain',
-  water: [{ x: -22, z: 34, r: 20, drain: 0.0013 }],
+  water: [{ x: -22, z: 34, r: 20, drain: 0.0026 }],
   pumps: [[36, -26]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
@@ -2101,7 +2136,7 @@ MAPS['pourhouse'] = {
   depots: [[50, -64], [32, -32]],
   core: { x: 56, z: -46 },
   weather: 'storm',
-  water: [{ x: -28, z: 36, r: 26, drain: 0.0024 }, { x: 20, z: -70, r: 16, drain: 0.0024 }],
+  water: [{ x: -28, z: 36, r: 26, drain: 0.0045 }, { x: 20, z: -70, r: 16, drain: 0.0045 }],
   pumps: [[32, -22], [80, -22]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
@@ -3448,14 +3483,14 @@ function groveWaterFactor(x, z) {
   let best = 0, lvl = 1;
   for (const L of lakes) {
     const d = Math.hypot(x - L.x, z - L.z);
-    const reach = L.r * 2.6;                     // catchment
+    const reach = L.r * 4.0;                     // catchment
     if (d > reach) continue;
     const share = 1 - smoothstep(L.r * 0.9, reach, d);
     // the level that matters is THIS lake's, not the map average
     if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  return 1 - best * (1 - (0.5 + 0.5 * lvl));     // full lake = 1.0, dry = 0.5 at the centre
+  return 1 - best * (1 - (0.25 + 0.75 * lvl));   // full lake = 1.0, dry = 0.25 at the centre
 }
 
 
@@ -7029,7 +7064,15 @@ function applyDamage(target, amount, attacker) {
     target.hitDirX = dx / d; target.hitDirZ = dz / d;
   }
   /* The one attack the player must never miss: the Heart Tree itself. */
-  if (target === G.heart) SFX.heartAlarm();
+  if (target === G.heart) {
+    SFX.heartAlarm();
+    /* A sound alone is not feedback: press M and the base can die in silence
+       while you are across the map at the compound. */
+    if (G.time - (G._heartToast || -99) > 8) {
+      G._heartToast = G.time;
+      toast('THE HEART TREE IS UNDER ATTACK', 'warn');
+    }
+  }
 
   /* Fight back. The old rule only fired when the victim was already idle AND had
      no target — i.e. almost never — so animals walked through rifle fire without
@@ -9591,7 +9634,8 @@ function updateWorld(dt) {
   /* A new lane is a real step up in throughput, so it gets its own chime --
      otherwise the only feedback for the most important economic decision in the
      game is a number quietly changing in the build panel. */
-  if (bloomed > (G.bloomed || 0) && G.lanes !== undefined && Math.min(4, 1 + bloomed) > Math.min(4, 1 + (G.bloomed || 0))) SFX.lane();
+  if (bloomed > (G.bloomed || 0) && G.lanes !== undefined
+      && Math.min(3, 1 + Math.floor(bloomed / 2)) > Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2))) SFX.lane();
   G.bloomed = bloomed;
 
   /* --- core shield tracks the coolant towers --- */
@@ -9663,7 +9707,11 @@ function updateWorld(dt) {
      next to ten units on the field. Lanes turn map control into *throughput*
      rather than just money, which is the reason to go take a grove at all. */
   if (G.queue.length && G.heart.alive) {
-    const lanes = Math.min(4, 1 + (G.bloomed || 0));
+    /* One lane per TWO groves, capped at three. Four lanes was a promise the
+       economy could not keep: saturating one lane costs ~8.2 biomass/s and
+       maximum income is ~19.9/s, so lanes 3 and 4 sat idle all game. Raising
+       income to feed four instead flooded the player to the pop cap by 1:30. */
+    const lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
     G.lanes = lanes;
     for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
       const item = G.queue[i];
@@ -9677,7 +9725,7 @@ function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  } else G.lanes = Math.min(4, 1 + (G.bloomed || 0));
+  } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -9717,7 +9765,7 @@ function queueUnit(type) {
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
-  if (G.queue.length >= 12) { SFX.deny(); return false; }
+  if (G.queue.length >= 24) { SFX.deny(); return false; }
   G.biomass -= def.cost;
   /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
      the lanes are the real lever, and stacking both at the old 7% made a maxed
@@ -10389,23 +10437,23 @@ const DIFFICULTIES = [
     glyph: '🌱',
     tagline: 'Room to learn the ground',
     blurb: 'Sweeps come late and thin. Enough biomass to make a mistake and still recover.',
-    waveEvery: 1.35,
-    machinePopCap: 0.75,
-    startBiomass: 1.45,
-    spawnEveryMult: 1.40,
-    enemyDamageMult: 0.75,
+    waveEvery: 1.30,
+    machinePopCap: 0.80,
+    startBiomass: 1.35,
+    spawnEveryMult: 1.30,
+    enemyDamageMult: 0.80,
   },
   {
     id: 'grove',
     name: 'GROVE',
     glyph: '🌳',
     tagline: 'The valley as written',
-    blurb: 'Balanced. Three security sweeps of grace, then you are on the clock.',
-    waveEvery: 1.00,
-    machinePopCap: 1.00,
-    startBiomass: 1.00,
-    spawnEveryMult: 1.00,
-    enemyDamageMult: 1.00,
+    blurb: 'Balanced, and it means it. The sweeps keep coming and they keep growing.',
+    waveEvery: 0.82,
+    machinePopCap: 1.20,
+    startBiomass: 0.88,
+    spawnEveryMult: 0.82,
+    enemyDamageMult: 1.10,
   },
   {
     id: 'oldgrowth',
@@ -10413,11 +10461,11 @@ const DIFFICULTIES = [
     glyph: '🌲',
     tagline: 'The campus fights back',
     blurb: 'Faster sweeps, a bigger garrison, harder guns and a lean opening. Kill depots early.',
-    waveEvery: 0.75,
-    machinePopCap: 1.35,
-    startBiomass: 0.80,
-    spawnEveryMult: 0.72,
-    enemyDamageMult: 1.30,
+    waveEvery: 0.66,
+    machinePopCap: 1.55,
+    startBiomass: 0.72,
+    spawnEveryMult: 0.64,
+    enemyDamageMult: 1.45,
   },
 ];
 
@@ -11383,7 +11431,7 @@ function onUp(e) {
     if (G.mode === 'attack') { issueAt(e.clientX, e.clientY, true); setMode('normal'); return; }
     if (G.mode === 'spell') { castAt(e.clientX, e.clientY); setMode('normal'); return; }
     if (dragging) { boxSelect(d.x, d.y, e.clientX, e.clientY, e.shiftKey); dragging = false; return; }
-    clickSelect(e.clientX, e.clientY, e.shiftKey);
+    clickSelect(e.clientX, e.clientY, e.shiftKey, e.ctrlKey || e.metaKey);
     return;
   }
   if (d.button === 2) {
@@ -11399,14 +11447,17 @@ function setSelection(list) {
   for (const e of G.selection) e.selected = true;
 }
 
-function clickSelect(x, y, additive) {
+function clickSelect(x, y, additive, screenOnly) {
   const ent = entityUnder(x, y);
   const now = performance.now();
   if (!ent) { if (!additive) setSelection([]); return; }
 
-  // double-click: grab every visible unit of the same species
+  /* Double-click grabs the whole species, not just what is on screen —
+     on-screen-only silently left half the pack behind at 96 pop. Ctrl+double
+     restores the narrow behaviour when you do want just what you can see. */
   if (ent === lastClickEnt && now - lastClickAt < 340 && !ent.isBuilding) {
-    const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD && o.type === ent.type && onScreen(o));
+    const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
+      && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
     SFX.select();
     lastClickEnt = null;
@@ -11571,6 +11622,11 @@ function onKey(e) {
     return;
   }
   if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
+  if (e.code === 'Backquote') {          // ` — the whole swarm, wherever it is
+    e.preventDefault();
+    setSelection(G.entities.filter(o => o.alive && o.team === TEAM.WILD && !o.isBuilding));
+    return;
+  }
   if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }   // works even once the round is over
   if (G.over) return;
   if (pausedByPlayer) return;    // no orders, no production, no spell while paused
@@ -11599,6 +11655,12 @@ function onKey(e) {
     if (e.ctrlKey || e.metaKey) {
       G.groups[k] = commandable().slice();
       toast(`Group ${k} set — ${G.groups[k].length} beasts`);
+    } else if (e.shiftKey) {
+      /* Grow a group instead of rebuilding it. Without append you cannot
+         reinforce a control group, which at 96 pop is most of army handling. */
+      const cur = (G.groups[k] || []).filter(u => u.alive);
+      G.groups[k] = [...new Set([...cur, ...commandable()])];
+      toast(`Group ${k} — ${G.groups[k].length} beasts`);
     } else {
       const g = (G.groups[k] || []).filter(u => u.alive);
       if (!g.length) return;
@@ -11688,10 +11750,18 @@ function initCards() {
     const el = document.createElement('div');
     el.className = 'card';
     el.dataset.type = type;
+    /* Population is the constraint that decides the late game — a Bear is four
+       Wolves you are not fielding — and it appeared nowhere in the UI. */
     el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${d.icon}</span>
-      <span class="nm">${d.name}</span><span class="cost">🍃 ${d.cost}</span>`;
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.build}s`;
-    el.addEventListener('click', () => queueUnit(type));
+      <span class="nm">${d.name}</span>
+      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i></span>`;
+    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`;
+    /* Shift-click queues five. Filling a 96-pop army one press at a time is
+       not a decision, it is typing. */
+    el.addEventListener('click', ev => {
+      const n = ev.shiftKey ? 5 : 1;
+      for (let i = 0; i < n; i++) if (!queueUnit(type)) break;
+    });
     host.appendChild(el);
   }
   const sp = document.createElement('div');
@@ -11752,6 +11822,18 @@ function updateHUD() {
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
 
+  /* The single most plannable number in the game, and until now the AI was the
+     only thing that could see it. A game that asks the player to think ahead
+     has to tell them how long they have. */
+  const sw = el('sweepres');
+  if (sw) {
+    const left = Math.max(0, (G.nextWave || 0) - G.time);
+    el('sweeptime').textContent = fmt(left);
+    el('sweepsub').textContent = `sweep ${(G.waveNum || 0) + 1} · ${G.machinePop || 0} out`;   // machines standing, so the countdown has a size next to it
+    sw.classList.toggle('low', left < 30);
+    sw.classList.toggle('dry', left < 10);
+  }
+
   /* Water. The pumps have always drained the lakes and quietly cut grove yield;
      until this readout existed the player had no way to see it happening, let
      alone plan around it. Now it also gates how long a drink lasts. */
@@ -11805,7 +11887,7 @@ function updateHUD() {
     q.innerHTML = (G.queue.length
       ? G.queue.map((i, n) => `<div class="qitem${n < lanes ? ' q-live' : ''}" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
       : '<span class="qhint">nothing growing — pick a card above</span>')
-      + `<span class="qlanes" title="Growing lanes — one per bloomed grove, up to four">×${lanes}</span>`;
+      + `<span class="qlanes" title="Growing lanes — one per two bloomed groves, up to three">×${lanes}</span>`;
   }
   if (G.queue.length) {
     const items = q.children;
@@ -11964,6 +12046,18 @@ function drawMinimap() {
 
   drawFogOverlay(c, 200);   // veil the terrain backdrop; blips draw on top
 
+  /* Anything of yours being hurt right now pulses. Losing the Heart Tree or a
+     grove used to be a single toast you were never looking at — and the comment
+     in world.js has promised this pulse since the day it was written. */
+  const alarm = 0.35 + 0.65 * Math.abs(Math.sin(G.time * 4));
+  const pulseAt = (pos, r) => {
+    const [px, py] = MM(pos.x, pos.z);
+    c.save(); c.globalAlpha = alarm; c.strokeStyle = '#ff6a3d'; c.lineWidth = 2;
+    c.beginPath(); c.arc(px, py, r, 0, 6.2832); c.stroke(); c.restore();
+  };
+  if (G.heart && G.heart.alive && G.time - (G.heart.lastHitAt || -99) < 4) pulseAt(G.heart.pos, 9);
+  for (const g of (G.groves || [])) if (g.losing) pulseAt(g.pos, 6);
+
   // groves
   for (const g of G.groves) {
     // landmarks: always plotted, dimmed until you have actually been there
@@ -11990,9 +12084,15 @@ function drawMinimap() {
       c.fillStyle = e.team === TEAM.WILD ? '#9bff6a'
         : e.def.critical ? '#39d7ea' : e.type === 'core' ? (G.coreExposed ? '#ff6a3d' : '#5d7f88') : '#7f8b95';
       c.fillRect(x - s / 2, y - s / 2, s, s);
+    } else if (e.team === TEAM.WILD) {
+      c.fillStyle = '#7fd44a';
+      c.fillRect(x - 1.4, y - 1.4, 2.8, 2.8);      // yours: squares
     } else {
-      c.fillStyle = e.team === TEAM.WILD ? '#7fd44a' : '#ff6a3d';
-      c.fillRect(x - 1.4, y - 1.4, 2.8, 2.8);
+      /* theirs: diamonds. Distinguishable without colour vision at all. */
+      c.fillStyle = '#ff6a3d';
+      c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
+      c.fillRect(-1.7, -1.7, 3.4, 3.4);
+      c.restore();
     }
     c.globalAlpha = 1;
   }

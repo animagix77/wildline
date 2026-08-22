@@ -100,7 +100,7 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card:hover{border-color:var(--leaf);background:linear-gradient(160deg,rgba(127,212,74,.2),rgba(255,255,255,.03));transform:translateY(-2px)}
 .card.locked{opacity:.4;cursor:not-allowed;transform:none}
 .card.gated{opacity:.25;filter:grayscale(1)}
-.card.gated::after{content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
+.card.gated::after{font-size:10px !important;content:'LIBERATE MILLTOWN';position:absolute;bottom:5px;left:0;right:0;font-size:7px;letter-spacing:1px;color:var(--alarm);text-align:center}
 .card .ico{font-size:28px}
 .card .nm{font-size:10px;letter-spacing:.3px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
@@ -128,12 +128,13 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
   border:1px solid rgba(255,255,255,.07)}
 
 /* ---------- help ---------- */
-#help{position:absolute;inset:0;margin:auto;width:min(760px,92vw);height:max-content;max-height:80vh;overflow:auto;
+#help{position:absolute;inset:0;margin:auto;width:min(1120px,95vw);height:max-content;max-height:86vh;overflow:auto;
   background:rgba(6,11,8,.96);border:1px solid var(--edge);border-radius:6px;padding:26px 30px;z-index:30;
   box-shadow:0 30px 80px rgba(0,0,0,.7)}
 #help h2{font-size:26px;letter-spacing:5px;color:var(--leaf)}
 #help .tagline{color:var(--dim);font-size:13px;margin:4px 0 18px;font-style:italic}
-#help .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+#help .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+@media (max-width:900px){#help .cols{grid-template-columns:1fr 1fr}}
 #help h3{font-size:11px;letter-spacing:2px;color:var(--machine);margin:12px 0 7px}
 #help h3:first-child{margin-top:0}
 #help ul{list-style:none;font-size:13px;line-height:1.85;color:#c3d3c4}
@@ -189,6 +190,6 @@ body.menu #hovertip{ display:none !important; }
   transform:translateX(330px);opacity:0;transition:transform .4s cubic-bezier(.2,.9,.25,1),opacity .35s;
   pointer-events:none}
 #comms.on{transform:none;opacity:1}
-.comms-tag{font-size:8.5px;letter-spacing:1.8px;color:#5c6672;font-weight:600;margin-bottom:4px}
+.comms-tag{font-size:10px;letter-spacing:1.8px;color:#5c6672;font-weight:600;margin-bottom:4px}
 .comms-line{font-size:12px;line-height:1.5;font-style:italic}
 body.menu #comms{display:none!important}

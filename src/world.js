@@ -465,7 +465,8 @@ export function updateWorld(dt) {
   /* A new lane is a real step up in throughput, so it gets its own chime --
      otherwise the only feedback for the most important economic decision in the
      game is a number quietly changing in the build panel. */
-  if (bloomed > (G.bloomed || 0) && G.lanes !== undefined && Math.min(4, 1 + bloomed) > Math.min(4, 1 + (G.bloomed || 0))) SFX.lane();
+  if (bloomed > (G.bloomed || 0) && G.lanes !== undefined
+      && Math.min(3, 1 + Math.floor(bloomed / 2)) > Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2))) SFX.lane();
   G.bloomed = bloomed;
 
   /* --- core shield tracks the coolant towers --- */
@@ -537,7 +538,11 @@ export function updateWorld(dt) {
      next to ten units on the field. Lanes turn map control into *throughput*
      rather than just money, which is the reason to go take a grove at all. */
   if (G.queue.length && G.heart.alive) {
-    const lanes = Math.min(4, 1 + (G.bloomed || 0));
+    /* One lane per TWO groves, capped at three. Four lanes was a promise the
+       economy could not keep: saturating one lane costs ~8.2 biomass/s and
+       maximum income is ~19.9/s, so lanes 3 and 4 sat idle all game. Raising
+       income to feed four instead flooded the player to the pop cap by 1:30. */
+    const lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
     G.lanes = lanes;
     for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
       const item = G.queue[i];
@@ -551,7 +556,7 @@ export function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  } else G.lanes = Math.min(4, 1 + (G.bloomed || 0));
+  } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -591,7 +596,7 @@ export function queueUnit(type) {
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
   if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
-  if (G.queue.length >= 12) { SFX.deny(); return false; }
+  if (G.queue.length >= 24) { SFX.deny(); return false; }
   G.biomass -= def.cost;
   /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
      the lanes are the real lever, and stacking both at the old 7% made a maxed

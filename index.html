@@ -42,6 +42,11 @@
       <span id="waterlvl">100<span class="slash">%</span></span>
       <span class="sub" id="watersub">water</span>
     </div>
+    <div class="res" id="sweepres">
+      <span class="glyph">⚠</span>
+      <span id="sweeptime">--</span>
+      <span class="sub" id="sweepsub">next sweep</span>
+    </div>
     <div id="objective">
       <div class="obj-title">OBJECTIVE</div>
       <div class="obj-text" id="objtext">Destroy the Coolant Towers</div>
@@ -105,6 +110,9 @@
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
           <li><b>P</b> / <b>Esc</b> — pause</li>
+          <li><b>`</b> — select your whole swarm</li>
+          <li><b>Shift</b>+click a card — queue five</li>
+          <li><b>Shift</b>+<b>1..5</b> — add to a group</li>
           <li><b>Z R X C V G N B</b> — wolf / capybara / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
@@ -123,8 +131,8 @@
         <h3>How to win</h3>
         <ul>
           <li>Walk any beast onto a <b>Grove</b> to bloom it (biomass).</li>
-          <li>Every grove also adds a <b>growing lane</b> &mdash; more groves, more
-              animals at once, up to four.</li>
+          <li>Every <b>two</b> groves adds a <b>growing lane</b> &mdash; more groves,
+              more animals at once, up to three.</li>
           <li>Spend biomass at the <b>Heart Tree</b> to grow wildlife.</li>
           <li>Break the <b>3 Coolant Towers</b>, then kill the <b>Server Core</b>.</li>
         </ul>
@@ -142,6 +150,27 @@
               guns would rather shoot them, and they can take it.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Water</h3>
+        <ul>
+          <li>Intake pumps inside the compound drain the lakes. Groves in a dry
+              catchment pay far less.</li>
+          <li>An animal that stops at a shore drinks and leaves <b>Watered</b>:
+              +20% attack speed, +15% damage, +10% move, and it heals at full
+              Green rate <em>anywhere</em>. Fuller lake, longer buff.</li>
+          <li><b>Beavers</b> standing on a pump dam it and slow the drain. Break
+              the pump outright and the lake refills.</li>
+          <li>Watch the <b>water %</b> and the <b>−%</b> on your income: that is
+              what the pumps are costing you.</li>
+        </ul>
+        <h3>Reading the top bar</h3>
+        <ul>
+          <li>The <b>⚠ countdown</b> is the next security sweep, and how many
+              machines are already out.</li>
+          <li>The <b>×N</b> by the queue is your growing lanes — one per two
+              bloomed groves, up to three.</li>
         </ul>
       </div>
     </div>

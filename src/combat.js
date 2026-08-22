@@ -5,6 +5,7 @@ import { rand, terrainHeight, dist2D } from './utils.js';
 import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
+import { toast } from './ui.js';
 import { explode, chainExplosion, spiritWisp } from './vfx.js';
 import { commsEvent } from './comms.js';
 
@@ -193,7 +194,15 @@ export function applyDamage(target, amount, attacker) {
     target.hitDirX = dx / d; target.hitDirZ = dz / d;
   }
   /* The one attack the player must never miss: the Heart Tree itself. */
-  if (target === G.heart) SFX.heartAlarm();
+  if (target === G.heart) {
+    SFX.heartAlarm();
+    /* A sound alone is not feedback: press M and the base can die in silence
+       while you are across the map at the compound. */
+    if (G.time - (G._heartToast || -99) > 8) {
+      G._heartToast = G.time;
+      toast('THE HEART TREE IS UNDER ATTACK', 'warn');
+    }
+  }
 
   /* Fight back. The old rule only fired when the victim was already idle AND had
      no target — i.e. almost never — so animals walked through rifle fire without
