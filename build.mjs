@@ -35,7 +35,7 @@ const MODULES = [
   'src/maps.js',
   'src/campaign.js',
   'src/comms.js',
-  'src/splash-art.js',
+  'src/intro-art.js',
   'src/splash.js',
   'src/post.js',
   'src/weather.js',

@@ -666,40 +666,75 @@
 .camp-pack .pk-r{ font-size:8px; color:#ffe27a; letter-spacing:1px; font-style:normal; }
 
 
-/* ================= SPLASH ================= */
+/* ================= SPLASH / PARALLAX INTRO ================= */
 #splash{ position:absolute; inset:0; z-index:90; overflow:hidden;
   display:flex; align-items:flex-end; justify-content:center;
-  animation:sp-in .45s ease-out; }
+  background:#0a1420; animation:sp-in .45s ease-out; }
 @keyframes sp-in{ from{opacity:0} to{opacity:1} }
 #splash.sp-out{ opacity:0; transform:scale(1.02); transition:opacity .4s ease, transform .4s ease; }
-.sp-art{ position:absolute; inset:0; background-size:cover; background-position:center;
-  transform:scale(1.04); animation:sp-drift 26s ease-in-out infinite alternate; }
-@keyframes sp-drift{ from{transform:scale(1.04) translate3d(-8px,0,0)} to{transform:scale(1.1) translate3d(8px,-8px,0)} }
-.sp-scrim{ position:absolute; inset:0;
-  background:linear-gradient(180deg, rgba(4,8,6,.15) 0%, rgba(4,8,6,.05) 38%,
-    rgba(4,8,6,.72) 72%, rgba(4,8,6,.95) 100%); }
-.sp-body{ position:relative; text-align:center; padding:0 24px 46px; max-width:760px; width:100%; }
-.sp-sub{ font-size:13px; letter-spacing:2.6px; text-transform:uppercase; color:#cfe3c9;
-  text-shadow:0 2px 10px rgba(0,0,0,.85); margin-bottom:22px; }
+
+/* Depth layers. Overscanned 6% so parallax travel never exposes an edge, and
+   anchored to the bottom because that is where the composition lives. */
+.sp-layer{ position:absolute; inset:-6%; background-size:cover;
+  background-position:center bottom; will-change:transform; }
+.sp-sky{ background-position:center; }
+.sp-vig{ position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(120% 90% at 50% 30%, transparent 55%, rgba(4,8,10,.38) 100%),
+    linear-gradient(180deg, rgba(4,8,6,.10) 0%, transparent 30%,
+      transparent 58%, rgba(4,8,6,.78) 86%, rgba(3,6,5,.96) 100%); }
+
+.sp-title{ position:absolute; left:50%; top:5.5%; width:min(44vw, 620px);
+  min-width:320px; transform:translate(-50%,0); will-change:transform;
+  filter:drop-shadow(0 14px 34px rgba(0,0,0,.6)) drop-shadow(0 2px 8px rgba(0,0,0,.5));
+  animation:sp-title-in .8s cubic-bezier(.2,1.4,.4,1) both .15s; }
+@keyframes sp-title-in{ from{opacity:0; margin-top:-26px} to{opacity:1; margin-top:0} }
+
+.sp-body{ position:relative; text-align:center; padding:0 24px 42px; max-width:760px; width:100%; }
+.sp-sub{ font-size:13px; letter-spacing:2.6px; text-transform:uppercase; color:#e6f0dc;
+  text-shadow:0 2px 12px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.8); margin-bottom:20px; }
 .sp-load{ transition:opacity .3s; }
 #splash.sp-ready .sp-load{ opacity:0; height:0; overflow:hidden; margin:0; }
 .sp-barwrap{ width:min(420px,80vw); height:3px; margin:0 auto 10px; border-radius:2px;
-  background:rgba(255,255,255,.14); overflow:hidden; }
+  background:rgba(255,255,255,.16); overflow:hidden; }
 .sp-bar{ display:block; height:100%; width:4%; border-radius:2px;
   background:linear-gradient(90deg,var(--leaf),#d6ff9b);
   box-shadow:0 0 14px rgba(127,212,74,.75); transition:width .12s linear; }
-.sp-note{ font-size:10.5px; letter-spacing:2px; text-transform:uppercase; color:#9db096;
+.sp-note{ font-size:10.5px; letter-spacing:2px; text-transform:uppercase; color:#b7c8ae;
   text-shadow:0 1px 6px #000; }
+
+/* The button borrows the logo's material language: carved wood plank, leaf-green
+   rim light, and on hover the circuit blue that runs through COMPUTE. */
 .sp-btn{ opacity:0; transform:translateY(10px); pointer-events:none;
-  padding:14px 46px; border-radius:999px; cursor:pointer;
-  border:1px solid rgba(127,212,74,.55); background:rgba(10,20,12,.72);
-  color:var(--leaf); font-family:var(--font); font-size:13px; font-weight:600;
-  letter-spacing:4px; text-transform:uppercase; backdrop-filter:blur(6px);
-  transition:opacity .45s ease, transform .45s ease, background .15s, box-shadow .15s; }
+  position:relative; padding:15px 52px; border-radius:14px; cursor:pointer;
+  border:2px solid #3a2410;
+  background:
+    repeating-linear-gradient(94deg, rgba(60,34,10,.16) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #d9a25c 0%, #b97f3c 42%, #96601f 100%);
+  color:#fdf2d0; font-family:var(--font); font-size:14px; font-weight:800;
+  letter-spacing:4px; text-transform:uppercase;
+  text-shadow:0 -1px 0 rgba(46,24,4,.85), 0 1px 1px rgba(255,236,180,.3);
+  box-shadow:
+    inset 0 2px 0 rgba(255,220,150,.5), inset 0 -3px 6px rgba(56,30,6,.55),
+    0 4px 0 #4a2c10, 0 8px 18px rgba(0,0,0,.55), 0 0 26px rgba(127,212,74,.28);
+  transition:opacity .45s ease, transform .45s ease, box-shadow .2s, filter .2s; }
 #splash.sp-ready .sp-btn{ opacity:1; transform:none; pointer-events:auto;
-  animation:sp-pulse 2.4s ease-in-out infinite; }
-.sp-btn:hover{ background:var(--leaf); color:#06110a; box-shadow:0 0 30px rgba(127,212,74,.5); }
+  animation:sp-pulse 2.6s ease-in-out infinite; }
+.sp-btn:hover{ filter:brightness(1.12);
+  box-shadow:
+    inset 0 2px 0 rgba(255,220,150,.55), inset 0 -3px 6px rgba(56,30,6,.5),
+    0 4px 0 #4a2c10, 0 8px 22px rgba(0,0,0,.55),
+    0 0 30px rgba(127,212,74,.45), 0 6px 34px rgba(89,229,255,.4); }
+.sp-btn:active{ transform:translateY(3px);
+  box-shadow:inset 0 2px 0 rgba(255,220,150,.4), inset 0 -2px 5px rgba(56,30,6,.6),
+    0 1px 0 #4a2c10, 0 4px 10px rgba(0,0,0,.5), 0 0 22px rgba(127,212,74,.35); }
 .sp-btn:focus-visible{ outline:2px solid #fff; outline-offset:3px; }
-@keyframes sp-pulse{ 0%,100%{box-shadow:0 0 0 rgba(127,212,74,0)} 50%{box-shadow:0 0 26px rgba(127,212,74,.35)} }
-.sp-foot{ margin-top:18px; font-size:10px; letter-spacing:.6px; color:#6f7d6c; font-style:italic; }
-@media (max-height:620px){ .sp-body{ padding-bottom:26px } .sp-sub{ margin-bottom:14px } }
+@keyframes sp-pulse{ 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.07)} }
+.sp-foot{ margin-top:16px; font-size:10px; letter-spacing:.6px; color:#8a967f;
+  text-shadow:0 1px 4px #000; font-style:italic; }
+
+@media (max-height:680px){
+  .sp-title{ width:min(38vw, 480px); top:4%; }
+  .sp-body{ padding-bottom:24px } .sp-sub{ margin-bottom:12px } }
+@media (prefers-reduced-motion:reduce){
+  .sp-title{ animation:none } #splash.sp-ready .sp-btn{ animation:none } }

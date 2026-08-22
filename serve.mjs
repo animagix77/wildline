@@ -13,6 +13,22 @@ const TYPES = {
 };
 
 http.createServer((req, res) => {
+  /* Dev-only asset pipeline: the browser is the only webp encoder this machine
+     has, so tools/pack-intro drives a page that draws each PNG to a canvas and
+     POSTs the encoded result back here. Writes are jailed to images/build. */
+  if (req.method === 'POST' && req.url.startsWith('/__save/')) {
+    const name = req.url.slice('/__save/'.length);
+    if (!/^[\w.-]+\.webp$/.test(name)) { res.writeHead(400).end('bad name'); return; }
+    const dir = path.join(ROOT, 'images', 'build');
+    fs.mkdirSync(dir, { recursive: true });
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      fs.writeFileSync(path.join(dir, name), Buffer.concat(chunks));
+      res.writeHead(200).end('ok');
+    });
+    return;
+  }
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p === '/') p = '/index.html';
   const file = path.join(ROOT, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));

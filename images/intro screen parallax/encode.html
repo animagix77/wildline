@@ -1,0 +1,29 @@
+<!doctype html><meta charset="utf-8"><title>encoder</title>
+<pre id="log">encoding…</pre>
+<script>
+const JOBS = [
+  ['01_foreground.png', '01_foreground.webp', 1600, 0.80],
+  ['02_middle.png',     '02_middle.webp',     1600, 0.78],
+  ['03_background.png', '03_background.webp', 1600, 0.78],
+  ['04_sky.png',        '04_sky.webp',        1600, 0.62],
+  ['title.png',         'title.webp',         1400, 0.82],
+];
+const log = m => document.getElementById('log').textContent += '\n' + m;
+(async () => {
+  for (const [src, out, w, q] of JOBS) {
+    const img = new Image();
+    img.src = encodeURIComponent(src);
+    await img.decode();
+    const scale = Math.min(1, w / img.naturalWidth);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/webp', q));
+    await fetch('/__save/' + out, { method: 'POST', body: blob });
+    log(`${out}  ${c.width}x${c.height}  ${(blob.size/1024)|0} KB`);
+  }
+  log('DONE');
+  window.__done = true;
+})().catch(e => { log('ERR ' + e.message); window.__done = 'error'; });
+</script>

@@ -154,6 +154,8 @@ src/
   state.js      the shared game-state object (also exposed as window.G)
   utils.js      terrain height field, noise, spatial hash, viewport helpers
   score.js      scoring, chain multiplier, floating popups, rank
+  splash.js     parallax intro: 5 depth layers, mouse + drift, Get Started
+  intro-art.js  those layers as inlined webp (tools/pack-intro.mjs regenerates)
   audio.js      Web Audio synth: 32 positional voices, reverb bus, ambience
   shaders.js    GLSL suite: terrain, sky, water, core shield, energy field
   meshes.js     every model, procedural; part merging for draw-call control
