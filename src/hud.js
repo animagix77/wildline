@@ -3,6 +3,7 @@ import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
 import { fmt, queuedPop } from './world.js';
 import { waterLevel, lakeCount } from './water.js';
+import { isPouring } from './weather.js';
 import { setSelection, syncHoverTip } from './input.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
@@ -61,9 +62,15 @@ export function updateHUD() {
       wres.classList.toggle('dry', lv < 0.15);
       let n = 0;
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
+      /* These used to share one slot and hide each other. Show whichever the
+         player can act on, and say when the sky is helping. */
       const dammed = Math.round((G.dammed || 0) * 10) / 10;
-      el('watersub').textContent = dammed >= 0.5 ? `${dammed} pumps dammed`
-                                 : n ? `${n} watered` : 'water';
+      const bits = [];
+      if (isPouring()) bits.push('raining');
+      if (n) bits.push(`${n} watered`);
+      if (dammed >= 0.5) bits.push(`${dammed} dammed`);
+      el('watersub').textContent = bits.length ? bits.join(' · ') : 'water';
+      wres.classList.toggle('rain', isPouring());
     }
   }
 
@@ -131,7 +138,9 @@ function updateSelectionPanel() {
       const d = e.def;
       const stats = d.building
         ? `${d.dmg ? `<b>${d.dmg}</b> dmg · <b>${d.range}</b>m range · ` : ''}<b>${d.armor || 0}</b> armour`
-        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.speed}</b> spd`;
+        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.pop || 1}</b> pop`
+          + (e.watered > 0 ? ` · <b class="wet">Watered ${Math.ceil(e.watered)}s</b>` : '')
+          + (e.vet ? ` · <b class="vet">Rank ${e.vet}</b>` : '');
       body.innerHTML = `<div class="solo">
         <div class="big">${d.icon}</div>
         <div class="meta">

@@ -104,6 +104,23 @@ function stripModuleSyntax(src, file) {
   return out;
 }
 
+/* `import { a as b }` is a runtime landmine here: the flat build drops the
+   import statement, so `b` is never defined and the parse check still passes.
+   Fail the build rather than ship a ReferenceError. */
+function aliasGuard() {
+  const bad = [];
+  for (const f of MODULES) {
+    if (!exists(f)) continue;
+    for (const m of read(f).matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+      for (const part of m[1].split(',')) {
+        const a = part.match(/(\S+)\s+as\s+(\S+)/);
+        if (a) bad.push(`  ${f}: "${a[1]} as ${a[2]}" -- use ${a[1]} directly`);
+      }
+    }
+  }
+  if (bad.length) throw new Error('aliased imports do not survive the flat build:\n' + bad.join('\n'));
+}
+
 function collisionGuard(sources) {
   const owner = new Map();
   const clashes = [];
@@ -170,6 +187,7 @@ ${safeJs}
 
 /* ------------------------------------------------------------------ main -- */
 const sources = MODULES.map(file => ({ file, src: stripModuleSyntax(read(file), file) }));
+aliasGuard();
 const bindings = collisionGuard(sources);
 
 /* The regex guard below is a fast, friendly first pass, but regexes cannot reliably

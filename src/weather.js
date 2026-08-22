@@ -162,6 +162,36 @@ function buildMist(scene, strength) {
   scene.add(mist);
 }
 
+
+/* ---------------------------------------------------------- rainfall -- */
+/* Weather has been pure decoration until now — it picked a music track and
+   nothing else. Rain feeding the lakes gives it a job, and it turns five of
+   the nine maps into a genuinely different economic problem: the intakes are
+   still draining, but the sky is fighting them.
+
+   Rates are fractions of a lake's own drain rate, so a wetter map does not
+   also have to be a slower one. Deliberately below 1.0 even for a storm: rain
+   should SLOW the loss, not cancel it, so killing pumps still matters. Break
+   the intakes during a downpour and the lake actually climbs — which is the
+   combination worth playing for. */
+const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.12, mist: 0.06, clear: 0 };
+
+/** 0..1-ish multiplier of a lake's drain rate, currently falling as water. */
+export function rainfall() {
+  const w = G.weather;
+  if (!w) return 0;
+  const base = RAINFALL[w.name] || 0;
+  if (base <= 0) return 0;
+  /* Bands, not a constant. A downpour that comes and goes gives the water a
+     rhythm the player can read off the top bar and time a push against. */
+  const t = G.wallTime || 0;
+  const band = 0.6 + 0.4 * Math.sin(t * 0.055) + 0.18 * Math.sin(t * 0.21);
+  return base * Math.max(0, band);
+}
+
+/** True while it is coming down hard enough to be worth telling the player. */
+export function isPouring() { return rainfall() > 0.42; }
+
 export function updateWeather(dt) {
   const cam = G.camera;
   if (precip && uni) {

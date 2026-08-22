@@ -1015,6 +1015,9 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 @keyframes sweep-urgent{ 0%,100%{opacity:1} 50%{opacity:.45} }
 #sweepres .sub{ white-space:nowrap; }
 #sweepres{ min-width:92px; }
+.st .wet{ color:#8fe8ff; }
+.st .vet{ color:#ffe27a; }
+#waterres.rain #waterlvl{ color:#8fe8ff; }
 
 </style>
 </head>
@@ -1113,6 +1116,7 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li><b>Right click</b> — move / attack target</li>
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
+          <li><b>W</b> — send to water (drink for the <b>Watered</b> buff)</li>
           <li><b>P</b> / <b>Esc</b> — pause</li>
           <li><b>`</b> — select your whole swarm</li>
           <li><b>Shift</b>+click a card — queue five</li>
@@ -1168,6 +1172,8 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
               the pump outright and the lake refills.</li>
           <li>Watch the <b>water %</b> and the <b>−%</b> on your income: that is
               what the pumps are costing you.</li>
+          <li><b>Rain and storms refill the lakes.</b> Break the intakes during a
+              downpour and the water actually climbs.</li>
         </ul>
         <h3>Reading the top bar</h3>
         <ul>
@@ -3279,6 +3285,36 @@ function buildMist(scene, strength) {
   scene.add(mist);
 }
 
+
+/* ---------------------------------------------------------- rainfall -- */
+/* Weather has been pure decoration until now — it picked a music track and
+   nothing else. Rain feeding the lakes gives it a job, and it turns five of
+   the nine maps into a genuinely different economic problem: the intakes are
+   still draining, but the sky is fighting them.
+
+   Rates are fractions of a lake's own drain rate, so a wetter map does not
+   also have to be a slower one. Deliberately below 1.0 even for a storm: rain
+   should SLOW the loss, not cancel it, so killing pumps still matters. Break
+   the intakes during a downpour and the lake actually climbs — which is the
+   combination worth playing for. */
+const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.12, mist: 0.06, clear: 0 };
+
+/** 0..1-ish multiplier of a lake's drain rate, currently falling as water. */
+function rainfall() {
+  const w = G.weather;
+  if (!w) return 0;
+  const base = RAINFALL[w.name] || 0;
+  if (base <= 0) return 0;
+  /* Bands, not a constant. A downpour that comes and goes gives the water a
+     rhythm the player can read off the top bar and time a push against. */
+  const t = G.wallTime || 0;
+  const band = 0.6 + 0.4 * Math.sin(t * 0.055) + 0.18 * Math.sin(t * 0.21);
+  return base * Math.max(0, band);
+}
+
+/** True while it is coming down hard enough to be worth telling the player. */
+function isPouring() { return rainfall() > 0.42; }
+
 function updateWeather(dt) {
   const cam = G.camera;
   if (precip && uni) {
@@ -3455,7 +3491,10 @@ function updateWater(dt) {
        was dead, so killing three of four changed nothing the player could see.
        Now each pump you break (or dam) shifts the balance, and at roughly half
        the intakes down the lake holds steady — a visible, earnable stalemate. */
-    const flow = L.baseDrain * (draw - REFILL * (1 - draw));
+    /* Three forces on one number: the intakes pulling it down, the water table
+       pushing it back when they are broken or dammed, and the sky. */
+    const rain = rainfall();
+    const flow = L.baseDrain * (draw - REFILL * (1 - draw) - rain);
     if (flow !== 0) {
       L.level = clamp(L.level - flow * dt, 0, 1);
       L.uni.uLevel.value = L.level;
@@ -11246,6 +11285,11 @@ function showBriefing(site, mods, onBegin) {
 
 
 /* =================== src/input.js =================== */
+const _wv = new THREE.Vector3();   // scratch for the send-to-water order
+
+
+
+
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const _p = new THREE.Vector3();
@@ -11635,6 +11679,22 @@ function onKey(e) {
     case 'KeyA': if (commandable().length) setMode('attack'); return;
     case 'KeyF': enterSpellMode(); return;
     case 'KeyS': for (const u of commandable()) u.setOrder('stop'); return;
+    case 'KeyW': {
+      /* Send to water. Drinking was acquired entirely by accident -- a unit
+         that happened to wander near a shore for 1.8s got a ~38% combat swing.
+         That is weather, not a decision. This makes staging before a push
+         something the player actually does. */
+      const sel = commandable();
+      if (!sel.length) { SFX.deny(); return; }
+      let sent = 0;
+      for (const u of sel) {
+        const p = shorePoint(u.pos.x, u.pos.z, _wv);
+        if (p) { u.setOrder('move', p.clone()); sent++; }
+      }
+      if (sent) { SFX.order(); toast(`${sent} sent to drink`); }
+      else { SFX.deny(); toast('No water left to drink', 'warn'); }
+      return;
+    }
     case 'KeyH': for (const u of commandable()) u.setOrder('hold'); return;
     case 'Space': e.preventDefault(); if (G.heart) rts.focus(G.heart.pos); return;
     case 'KeyZ': queueUnit('wolf'); return;
@@ -11848,9 +11908,15 @@ function updateHUD() {
       wres.classList.toggle('dry', lv < 0.15);
       let n = 0;
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
+      /* These used to share one slot and hide each other. Show whichever the
+         player can act on, and say when the sky is helping. */
       const dammed = Math.round((G.dammed || 0) * 10) / 10;
-      el('watersub').textContent = dammed >= 0.5 ? `${dammed} pumps dammed`
-                                 : n ? `${n} watered` : 'water';
+      const bits = [];
+      if (isPouring()) bits.push('raining');
+      if (n) bits.push(`${n} watered`);
+      if (dammed >= 0.5) bits.push(`${dammed} dammed`);
+      el('watersub').textContent = bits.length ? bits.join(' · ') : 'water';
+      wres.classList.toggle('rain', isPouring());
     }
   }
 
@@ -11918,7 +11984,9 @@ function updateSelectionPanel() {
       const d = e.def;
       const stats = d.building
         ? `${d.dmg ? `<b>${d.dmg}</b> dmg · <b>${d.range}</b>m range · ` : ''}<b>${d.armor || 0}</b> armour`
-        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.speed}</b> spd`;
+        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.pop || 1}</b> pop`
+          + (e.watered > 0 ? ` · <b class="wet">Watered ${Math.ceil(e.watered)}s</b>` : '')
+          + (e.vet ? ` · <b class="vet">Rank ${e.vet}</b>` : '');
       body.innerHTML = `<div class="solo">
         <div class="big">${d.icon}</div>
         <div class="meta">

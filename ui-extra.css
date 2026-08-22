@@ -808,3 +808,6 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 @keyframes sweep-urgent{ 0%,100%{opacity:1} 50%{opacity:.45} }
 #sweepres .sub{ white-space:nowrap; }
 #sweepres{ min-width:92px; }
+.st .wet{ color:#8fe8ff; }
+.st .vet{ color:#ffe27a; }
+#waterres.rain #waterlvl{ color:#8fe8ff; }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state.js';
+import { rainfall } from './weather.js';
 import { rand, terrainHeight, clamp, smoothstep } from './utils.js';
 import { toast } from './ui.js';
 import { commsEvent } from './comms.js';
@@ -153,7 +154,10 @@ export function updateWater(dt) {
        was dead, so killing three of four changed nothing the player could see.
        Now each pump you break (or dam) shifts the balance, and at roughly half
        the intakes down the lake holds steady — a visible, earnable stalemate. */
-    const flow = L.baseDrain * (draw - REFILL * (1 - draw));
+    /* Three forces on one number: the intakes pulling it down, the water table
+       pushing it back when they are broken or dammed, and the sky. */
+    const rain = rainfall();
+    const flow = L.baseDrain * (draw - REFILL * (1 - draw) - rain);
     if (flow !== 0) {
       L.level = clamp(L.level - flow * dt, 0, 1);
       L.uni.uLevel.value = L.level;

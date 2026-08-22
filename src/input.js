@@ -6,6 +6,9 @@ import { castOvergrowth } from './ai.js';
 import { ring, burst } from './combat.js';
 import { toast } from './ui.js';
 import { SFX, initAudio, resumeAudio, toggleMute, isMuted } from './audio.js';
+import { shorePoint } from './water.js';
+
+const _wv = new THREE.Vector3();   // scratch for the send-to-water order
 import { musicUnlock, musicSetMuted } from './music.js';
 import { WORLD, HALF } from './config.js';
 import { dist2D, vw, vh } from './utils.js';
@@ -399,6 +402,22 @@ function onKey(e) {
     case 'KeyA': if (commandable().length) setMode('attack'); return;
     case 'KeyF': enterSpellMode(); return;
     case 'KeyS': for (const u of commandable()) u.setOrder('stop'); return;
+    case 'KeyW': {
+      /* Send to water. Drinking was acquired entirely by accident -- a unit
+         that happened to wander near a shore for 1.8s got a ~38% combat swing.
+         That is weather, not a decision. This makes staging before a push
+         something the player actually does. */
+      const sel = commandable();
+      if (!sel.length) { SFX.deny(); return; }
+      let sent = 0;
+      for (const u of sel) {
+        const p = shorePoint(u.pos.x, u.pos.z, _wv);
+        if (p) { u.setOrder('move', p.clone()); sent++; }
+      }
+      if (sent) { SFX.order(); toast(`${sent} sent to drink`); }
+      else { SFX.deny(); toast('No water left to drink', 'warn'); }
+      return;
+    }
     case 'KeyH': for (const u of commandable()) u.setOrder('hold'); return;
     case 'Space': e.preventDefault(); if (G.heart) rts.focus(G.heart.pos); return;
     case 'KeyZ': queueUnit('wolf'); return;
