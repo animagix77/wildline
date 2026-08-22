@@ -5,7 +5,7 @@ import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
 import { fireProjectile, applyDamage, burst } from './combat.js';
 import { lakeAt } from './water.js';
-import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip } from './vfx.js';
+import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip, threatMark } from './vfx.js';
 import { HALF } from './config.js';
 import { SFX } from './audio.js';
 
@@ -589,6 +589,13 @@ export class Entity {
   /* Which gun is firing is tactical information, so give each one its own
      voice rather than a shared click. */
   shotSfx() {
+    /* Machines shooting at the player wear a marker for half a second. Only
+       machines, and only while firing: this is here so an ambush in the trees
+       is answerable, not to strip cover from the whole map. */
+    if (this.team === TEAM.MACHINE && this.target && this.target.team === TEAM.WILD) {
+      this._markT = (this._markT || 0) - 1;
+      if (this._markT <= 0) { this._markT = 3; threatMark(this.pos); }   // every 3rd shot
+    }
     const t = this.type;
     if (t === 'turret') SFX.turretShot(this.pos);
     else if (t === 'drone') SFX.droneShot(this.pos);

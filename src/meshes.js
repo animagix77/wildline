@@ -787,7 +787,85 @@ export function makeForest(count, placeFn) {
   trunks.count = leaves.count = n;
   trunks.instanceMatrix.needsUpdate = leaves.instanceMatrix.needsUpdate = true;
   if (leaves.instanceColor) leaves.instanceColor.needsUpdate = true;
+
+  /* Canopies have to be able to get out of the way. Measured on a real map,
+     26% of forest positions put a 6.2-unit cone between the fixed isometric
+     camera and a unit standing there — one position in four hides whatever is
+     on it, which is how you end up being shot by something you cannot see or
+     click. Each instance carries its own fade, driven from the CPU. */
+  const fade = new Float32Array(n).fill(1);
+  leaves.geometry.setAttribute('aFade', new THREE.InstancedBufferAttribute(fade, 1));
+  leaves.userData.fade = fade;
+  leaves.userData.pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    leaves.getMatrixAt(i, dummy.matrix);
+    dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+    leaves.userData.pos[i * 3] = dummy.position.x;
+    leaves.userData.pos[i * 3 + 1] = dummy.position.y;
+    leaves.userData.pos[i * 3 + 2] = dummy.position.z;
+  }
   return [trunks, leaves];
+}
+
+/* Installed by the caller AFTER it has finished swapping materials around --
+   world.js clones every scenic material through applyFogMask(), which would
+   silently drop an onBeforeCompile set at construction time. Composes with
+   whatever hook is already on the material rather than replacing it. */
+export function enableCanopyFade(leaves) {
+  const mat = leaves.material;
+  if (!mat || mat.userData.canopyFade) return;
+  mat.userData.canopyFade = true;
+  mat.transparent = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = function (sh, renderer) {
+    if (prev) prev.call(this, sh, renderer);
+    sh.vertexShader = 'attribute float aFade;\nvarying float vFade;\n' +
+      sh.vertexShader.replace('void main() {', 'void main() {\n  vFade = aFade;');
+    sh.fragmentShader = 'varying float vFade;\n' +
+      sh.fragmentShader.replace('#include <dithering_fragment>',
+        '#include <dithering_fragment>\n  gl_FragColor.a *= vFade;');
+  };
+  mat.needsUpdate = true;
+}
+
+/* Fade any canopy standing between the camera and something the player needs
+   to see. Runs off precomputed instance positions (trees never move), so the
+   per-frame cost is units x a handful of nearby trees, not 820 x everything. */
+const _cf = new THREE.Vector3(), _cu = new THREE.Vector3();
+export function updateCanopyFade(leaves, camera, watchers, dt) {
+  if (!leaves || !leaves.userData.fade) return;
+  const fade = leaves.userData.fade, pos = leaves.userData.pos;
+  const n = leaves.count;
+  const camX = camera.position.x, camY = camera.position.y, camZ = camera.position.z;
+
+  /* Everything drifts back to opaque; anything occluding is pulled down. */
+  const want = new Float32Array(n).fill(1);
+  for (const w of watchers) {
+    const wx = w.pos.x, wy = w.pos.y + 1.0, wz = w.pos.z;
+    _cu.set(wx - camX, wy - camY, wz - camZ);
+    const wDist = _cu.length();
+    if (wDist < 0.01) continue;
+    _cu.divideScalar(wDist);
+    for (let i = 0; i < n; i++) {
+      if (want[i] < 0.35) continue;                     // already fully faded
+      const tx = pos[i * 3], ty = pos[i * 3 + 1] + 6.7, tz = pos[i * 3 + 2];
+      _cf.set(tx - camX, ty - camY, tz - camZ);
+      const along = _cf.dot(_cu);
+      if (along <= 0 || along >= wDist) continue;       // behind camera, or behind the unit
+      /* perpendicular distance from the camera->unit ray */
+      const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
+      if (perp < 3.2) want[i] = Math.min(want[i], 0.3);
+      else if (perp < 4.6) want[i] = Math.min(want[i], 0.62);
+    }
+  }
+  /* Ease, so canopies dissolve rather than blink as units walk under them. */
+  const k = Math.min(1, dt * 7);
+  let dirty = false;
+  for (let i = 0; i < n; i++) {
+    const d = want[i] - fade[i];
+    if (Math.abs(d) > 0.002) { fade[i] += d * k; dirty = true; }
+  }
+  if (dirty) leaves.geometry.getAttribute('aFade').needsUpdate = true;
 }
 
 export function makeScatter(geo, material, count, placeFn, scaleRange = [0.6, 1.6]) {

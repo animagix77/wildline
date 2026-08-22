@@ -6438,7 +6438,85 @@ function makeForest(count, placeFn) {
   trunks.count = leaves.count = n;
   trunks.instanceMatrix.needsUpdate = leaves.instanceMatrix.needsUpdate = true;
   if (leaves.instanceColor) leaves.instanceColor.needsUpdate = true;
+
+  /* Canopies have to be able to get out of the way. Measured on a real map,
+     26% of forest positions put a 6.2-unit cone between the fixed isometric
+     camera and a unit standing there — one position in four hides whatever is
+     on it, which is how you end up being shot by something you cannot see or
+     click. Each instance carries its own fade, driven from the CPU. */
+  const fade = new Float32Array(n).fill(1);
+  leaves.geometry.setAttribute('aFade', new THREE.InstancedBufferAttribute(fade, 1));
+  leaves.userData.fade = fade;
+  leaves.userData.pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    leaves.getMatrixAt(i, dummy.matrix);
+    dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+    leaves.userData.pos[i * 3] = dummy.position.x;
+    leaves.userData.pos[i * 3 + 1] = dummy.position.y;
+    leaves.userData.pos[i * 3 + 2] = dummy.position.z;
+  }
   return [trunks, leaves];
+}
+
+/* Installed by the caller AFTER it has finished swapping materials around --
+   world.js clones every scenic material through applyFogMask(), which would
+   silently drop an onBeforeCompile set at construction time. Composes with
+   whatever hook is already on the material rather than replacing it. */
+function enableCanopyFade(leaves) {
+  const mat = leaves.material;
+  if (!mat || mat.userData.canopyFade) return;
+  mat.userData.canopyFade = true;
+  mat.transparent = true;
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = function (sh, renderer) {
+    if (prev) prev.call(this, sh, renderer);
+    sh.vertexShader = 'attribute float aFade;\nvarying float vFade;\n' +
+      sh.vertexShader.replace('void main() {', 'void main() {\n  vFade = aFade;');
+    sh.fragmentShader = 'varying float vFade;\n' +
+      sh.fragmentShader.replace('#include <dithering_fragment>',
+        '#include <dithering_fragment>\n  gl_FragColor.a *= vFade;');
+  };
+  mat.needsUpdate = true;
+}
+
+/* Fade any canopy standing between the camera and something the player needs
+   to see. Runs off precomputed instance positions (trees never move), so the
+   per-frame cost is units x a handful of nearby trees, not 820 x everything. */
+const _cf = new THREE.Vector3(), _cu = new THREE.Vector3();
+function updateCanopyFade(leaves, camera, watchers, dt) {
+  if (!leaves || !leaves.userData.fade) return;
+  const fade = leaves.userData.fade, pos = leaves.userData.pos;
+  const n = leaves.count;
+  const camX = camera.position.x, camY = camera.position.y, camZ = camera.position.z;
+
+  /* Everything drifts back to opaque; anything occluding is pulled down. */
+  const want = new Float32Array(n).fill(1);
+  for (const w of watchers) {
+    const wx = w.pos.x, wy = w.pos.y + 1.0, wz = w.pos.z;
+    _cu.set(wx - camX, wy - camY, wz - camZ);
+    const wDist = _cu.length();
+    if (wDist < 0.01) continue;
+    _cu.divideScalar(wDist);
+    for (let i = 0; i < n; i++) {
+      if (want[i] < 0.35) continue;                     // already fully faded
+      const tx = pos[i * 3], ty = pos[i * 3 + 1] + 6.7, tz = pos[i * 3 + 2];
+      _cf.set(tx - camX, ty - camY, tz - camZ);
+      const along = _cf.dot(_cu);
+      if (along <= 0 || along >= wDist) continue;       // behind camera, or behind the unit
+      /* perpendicular distance from the camera->unit ray */
+      const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
+      if (perp < 3.2) want[i] = Math.min(want[i], 0.3);
+      else if (perp < 4.6) want[i] = Math.min(want[i], 0.62);
+    }
+  }
+  /* Ease, so canopies dissolve rather than blink as units walk under them. */
+  const k = Math.min(1, dt * 7);
+  let dirty = false;
+  for (let i = 0; i < n; i++) {
+    const d = want[i] - fade[i];
+    if (Math.abs(d) > 0.002) { fade[i] += d * k; dirty = true; }
+  }
+  if (dirty) leaves.geometry.getAttribute('aFade').needsUpdate = true;
 }
 
 function makeScatter(geo, material, count, placeFn, scaleRange = [0.6, 1.6]) {
@@ -6896,17 +6974,40 @@ function chainExplosion(pos, radius, count, power, opts) {
 }
 
 /* Quick two-blade cross at a gun muzzle. Cheap enough for every shot. */
+/* Muzzle flashes draw THROUGH the world, and this is a gameplay decision, not
+   a stylistic one. The maps carry 820 trees whose canopies are 6.2 units tall,
+   and from a fixed isometric camera a guard standing under one is rendered but
+   completely hidden — the player gets shot by something they cannot see or
+   click. Gunfire is the one signal that says "here I am", so it is the one
+   thing allowed to ignore depth. Also lengthened from 0.07s, which was short
+   enough to miss even in the open. */
 function muzzleFlash(pos, color = 0xffc85c) {
   flashLight(pos, color, 1.6, 0.07, 14);
   for (let i = 0; i < 2; i++) {
-    const m = alloc('muzzle', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
+    const m = alloc('muzzle', quadGeo,
+      { blending: THREE.AdditiveBlending, toneMapped: false, depthTest: false });
+    m.renderOrder = 8;
     m.material.color.set(color);
     m.material.opacity = 0.9;
     m.position.copy(pos);
     m.rotation.set(rand(0, 3.14), rand(0, 3.14), rand(0, 3.14));
-    m.scale.set(rand(0.8, 1.4), rand(0.2, 0.35), 1);
-    push({ kind: 'muzzle', m, life: 0.07 });
+    m.scale.set(rand(0.9, 1.5), rand(0.22, 0.38), 1);
+    push({ kind: 'muzzle', m, life: 0.12 });
   }
+}
+
+/* A shooter you cannot see is a shooter you cannot answer. Anything that has
+   fired recently wears a small caret that ignores depth, so a guard in the
+   trees is locatable even when the canopy hides the guard itself. */
+function threatMark(pos) {
+  const m = alloc('threat', quadGeo,
+    { blending: THREE.AdditiveBlending, toneMapped: false, depthTest: false });
+  m.renderOrder = 9;
+  m.material.color.setHex(0xff6a3d).multiplyScalar(2.2);
+  m.material.opacity = 0.9;
+  m.position.set(pos.x, pos.y + 3.4, pos.z);
+  m.scale.setScalar(0.85);
+  push({ kind: 'threat', m, life: 0.5 });
 }
 
 /* ------------------------------------------------- burning structures --- */
@@ -7043,6 +7144,13 @@ function updateVFX(dt) {
       case 'muzzle':
         m.material.opacity = 0.9 * k;
         break;
+      case 'threat': {
+        /* bobs and faces the camera so it reads as a marker, not scenery */
+        m.position.y += dt * 0.6;
+        m.material.opacity = 0.85 * Math.min(1, k * 2.2);
+        if (cam) m.quaternion.copy(cam.quaternion);
+        break;
+      }
     }
   }
 }
@@ -7911,6 +8019,13 @@ class Entity {
   /* Which gun is firing is tactical information, so give each one its own
      voice rather than a shared click. */
   shotSfx() {
+    /* Machines shooting at the player wear a marker for half a second. Only
+       machines, and only while firing: this is here so an ambush in the trees
+       is answerable, not to strip cover from the whole map. */
+    if (this.team === TEAM.MACHINE && this.target && this.target.team === TEAM.WILD) {
+      this._markT = (this._markT || 0) - 1;
+      if (this._markT <= 0) { this._markT = 3; threatMark(this.pos); }   // every 3rd shot
+    }
     const t = this.type;
     if (t === 'turret') SFX.turretShot(this.pos);
     else if (t === 'drone') SFX.droneShot(this.pos);
@@ -9551,6 +9666,8 @@ function buildProps(scene) {
   const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
+  enableCanopyFade(leaves);          // must follow the material swap, not precede it
+  G.canopy = leaves;
   scene.add(trunks); scene.add(leaves);
 
   // rocks
@@ -12602,6 +12719,20 @@ function frame(now, manual) {
   updateWeather(simDt);
   rtsCamera.update(dt);          // the camera stays live so you can look around
 
+  /* Canopies get out of the way of anything that matters: your own units, and
+     any machine currently shooting at them. Machines only qualify while they
+     fire, so the forest keeps its concealment value right up until something
+     in it gives itself away. */
+  if (G.canopy && G.phase === 'playing') {
+    _watch.length = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding) continue;
+      if (e.team === TEAM.WILD) _watch.push(e);
+      else if (e.team === TEAM.MACHINE && G.wallTime - (e.lastFiredAt || -99) < 2.5) _watch.push(e);
+    }
+    updateCanopyFade(G.canopy, camera, _watch, dt);
+  }
+
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
     hudAccum += dt;
     if (hudAccum > 0.08) { hudAccum = 0; updateHUD(); }
@@ -12614,6 +12745,7 @@ function frame(now, manual) {
 
   if (!framesPresented++) splashReady();   // the world is up and a frame is on screen
 }
+const _watch = [];      // scratch list for canopy fade
 let framesPresented = 0;
 schedule();
 

@@ -362,17 +362,40 @@ export function chainExplosion(pos, radius, count, power, opts) {
 }
 
 /* Quick two-blade cross at a gun muzzle. Cheap enough for every shot. */
+/* Muzzle flashes draw THROUGH the world, and this is a gameplay decision, not
+   a stylistic one. The maps carry 820 trees whose canopies are 6.2 units tall,
+   and from a fixed isometric camera a guard standing under one is rendered but
+   completely hidden — the player gets shot by something they cannot see or
+   click. Gunfire is the one signal that says "here I am", so it is the one
+   thing allowed to ignore depth. Also lengthened from 0.07s, which was short
+   enough to miss even in the open. */
 export function muzzleFlash(pos, color = 0xffc85c) {
   flashLight(pos, color, 1.6, 0.07, 14);
   for (let i = 0; i < 2; i++) {
-    const m = alloc('muzzle', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
+    const m = alloc('muzzle', quadGeo,
+      { blending: THREE.AdditiveBlending, toneMapped: false, depthTest: false });
+    m.renderOrder = 8;
     m.material.color.set(color);
     m.material.opacity = 0.9;
     m.position.copy(pos);
     m.rotation.set(rand(0, 3.14), rand(0, 3.14), rand(0, 3.14));
-    m.scale.set(rand(0.8, 1.4), rand(0.2, 0.35), 1);
-    push({ kind: 'muzzle', m, life: 0.07 });
+    m.scale.set(rand(0.9, 1.5), rand(0.22, 0.38), 1);
+    push({ kind: 'muzzle', m, life: 0.12 });
   }
+}
+
+/* A shooter you cannot see is a shooter you cannot answer. Anything that has
+   fired recently wears a small caret that ignores depth, so a guard in the
+   trees is locatable even when the canopy hides the guard itself. */
+export function threatMark(pos) {
+  const m = alloc('threat', quadGeo,
+    { blending: THREE.AdditiveBlending, toneMapped: false, depthTest: false });
+  m.renderOrder = 9;
+  m.material.color.setHex(0xff6a3d).multiplyScalar(2.2);
+  m.material.opacity = 0.9;
+  m.position.set(pos.x, pos.y + 3.4, pos.z);
+  m.scale.setScalar(0.85);
+  push({ kind: 'threat', m, life: 0.5 });
 }
 
 /* ------------------------------------------------- burning structures --- */
@@ -509,6 +532,13 @@ export function updateVFX(dt) {
       case 'muzzle':
         m.material.opacity = 0.9 * k;
         break;
+      case 'threat': {
+        /* bobs and faces the camera so it reads as a marker, not scenery */
+        m.position.y += dt * 0.6;
+        m.material.opacity = 0.85 * Math.min(1, k * 2.2);
+        if (cam) m.quaternion.copy(cam.quaternion);
+        break;
+      }
     }
   }
 }

@@ -232,6 +232,20 @@ function frame(now, manual) {
   updateWeather(simDt);
   rtsCamera.update(dt);          // the camera stays live so you can look around
 
+  /* Canopies get out of the way of anything that matters: your own units, and
+     any machine currently shooting at them. Machines only qualify while they
+     fire, so the forest keeps its concealment value right up until something
+     in it gives itself away. */
+  if (G.canopy && G.phase === 'playing') {
+    _watch.length = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding) continue;
+      if (e.team === TEAM.WILD) _watch.push(e);
+      else if (e.team === TEAM.MACHINE && G.wallTime - (e.lastFiredAt || -99) < 2.5) _watch.push(e);
+    }
+    updateCanopyFade(G.canopy, camera, _watch, dt);
+  }
+
   if (G.phase === 'playing') {          // the end card owns the screen once it's over
     hudAccum += dt;
     if (hudAccum > 0.08) { hudAccum = 0; updateHUD(); }
@@ -244,5 +258,6 @@ function frame(now, manual) {
 
   if (!framesPresented++) splashReady();   // the world is up and a frame is on screen
 }
+const _watch = [];      // scratch list for canopy fade
 let framesPresented = 0;
 schedule();

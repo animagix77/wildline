@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD, HALF, BASE, COMPOUND, DEFS, RULES, TEAM } from './config.js';
 import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fbm, Grid } from './utils.js';
-import { M, GLOW, makeForest, makeScatter, buildWall, box, cyl } from './meshes.js';
+import { enableCanopyFade, M, GLOW, makeForest, makeScatter, buildWall, box, cyl } from './meshes.js';
 import { applyFogMask } from './fog.js';
 import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial } from './shaders.js';
 import { initWeather } from './weather.js';
@@ -155,6 +155,8 @@ function buildProps(scene) {
   const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
+  enableCanopyFade(leaves);          // must follow the material swap, not precede it
+  G.canopy = leaves;
   scene.add(trunks); scene.add(leaves);
 
   // rocks
