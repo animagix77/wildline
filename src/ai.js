@@ -6,6 +6,7 @@ import { spawn } from './entity.js';
 import { assignPatrol } from './world.js';
 import { toast } from './ui.js';
 import { SFX } from './audio.js';
+import { musicStinger } from './music.js';
 import { makeEnergyFieldMaterial } from './shaders.js';
 import { commsEvent } from './comms.js';
 import { terrainHeight } from './utils.js';
@@ -130,6 +131,7 @@ function launchWave() {
     if (t) e.setOrder('attackmove', t);
   }
   SFX.alarm();
+  musicStinger('attack');   // 30s of panic strings over the ducked bed
   commsEvent('sweep', 0.5);
   toast(`SECURITY SWEEP ${n} — ${guards} guards, ${drones} drones inbound`, 'warn');
 }

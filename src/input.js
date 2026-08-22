@@ -6,6 +6,7 @@ import { castOvergrowth } from './ai.js';
 import { ring, burst } from './combat.js';
 import { toast } from './ui.js';
 import { SFX, initAudio, resumeAudio, toggleMute, isMuted } from './audio.js';
+import { musicUnlock, musicSetMuted } from './music.js';
 import { WORLD, HALF } from './config.js';
 import { dist2D, vw, vh } from './utils.js';
 
@@ -30,7 +31,7 @@ export function initInput(canvasEl, rtsCam) {
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', e => G.keys.delete(e.code));
   window.addEventListener('blur', () => G.keys.clear());
-  window.addEventListener('pointerdown', () => { initAudio(); resumeAudio(); }, { once: true });
+  window.addEventListener('pointerdown', () => { initAudio(); resumeAudio(); musicUnlock(); }, { once: true });
 
   document.addEventListener('mouseleave', () => { rts.mouse.inside = false; });
   document.addEventListener('mouseenter', () => { rts.mouse.inside = true; });
@@ -413,6 +414,7 @@ function onKey(e) {
 }
 
 function syncMuteButton(off) {
+  musicSetMuted(off);           // one M key silences the synth and the score alike
   const mb = document.getElementById('mutebtn');
   if (mb) { mb.classList.toggle('off', off); mb.title = off ? 'Unmute audio (M)' : 'Mute audio (M)'; }
 }

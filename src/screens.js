@@ -8,6 +8,7 @@
 import { RULES, DEFS } from './config.js';
 import { G } from './state.js';
 import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete, packSummary } from './campaign.js';
+import { musicPlay } from './music.js';
 import { rankFor } from './score.js';
 
 /* ======================================================== difficulties == */
@@ -618,6 +619,7 @@ export function hideEndScreen() {
 let campEl = null;
 
 export function showCampaignMap() {
+  musicPlay('campaign');
   if (campEl) campEl.remove();
   const st = campState();
   const root = sxEl('div', 'sx-screen camp-screen');

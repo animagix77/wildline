@@ -4,9 +4,11 @@ A browser 3D RTS in the spirit of Command & Conquer and Warcraft. You command a 
 wildlife against a fortified hyperscale data centre.
 
 **Ships as one file.** `wildline.html` is ~940 KB and completely self-contained: three.js
-r169 is vendored and inlined, and every mesh, texture, material, particle and sound is
-generated in code. Verified in the browser network panel: the document is the only
-request — no scripts, stylesheets, fonts, images or audio are fetched at runtime.
+r169 is vendored and inlined, and every mesh, texture, material, particle and sound
+effect is generated in code. The one exception is the score: twelve music tracks
+(~40 MB — see [MUSIC.md](MUSIC.md)) stream lazily from `music/`, and the game runs
+silent-but-complete without them. Everything else — scripts, styles, fonts, images,
+SFX — ships inside the single file.
 
 
 If you enjoy it: [buy me a coffee](https://buymeacoffee.com/wfhpapa) ☕
@@ -157,6 +159,7 @@ src/
   splash.js     parallax intro: 5 depth layers, mouse + drift, Get Started
   intro-art.js  those layers as inlined webp (tools/pack-intro.mjs regenerates)
   audio.js      Web Audio synth: 32 positional voices, reverb bus, ambience
+  music.js      score: per-map track choice, crossfades, sweep stinger, ducking
   shaders.js    GLSL suite: terrain, sky, water, core shield, energy field
   meshes.js     every model, procedural; part merging for draw-call control
   combat.js     projectiles, damage, particle + ring pools, death
@@ -207,9 +210,13 @@ information*: a turret is not a rifle is not a drone is not a quill volley.
 The technician's arc welder is audible for the same reason -- it is the tell
 that your damage is being undone.
 
-Music prompts for a generative tool live in [MUSIC.md](MUSIC.md). No music
-ships yet; the notes there explain what adding it would cost the single-file
-build.
+The score is real now: twelve generated tracks (prompts in [MUSIC.md](MUSIC.md))
+stream lazily from `music/` — the one runtime asset the project has. Each map
+picks its bed from its own atmosphere (wetlands override weather; the finale
+gets the night track), a security sweep drops a 30-second stinger over the
+ducked bed, combat ducks the score under the informative sounds, and victory
+and defeat get their own non-looping outros. Missing files fail silent — the
+game never waits on music.
 
 ## Two species, on purpose
 

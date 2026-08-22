@@ -43,6 +43,7 @@ const MODULES = [
   'src/ui.js',
   'src/score.js',
   'src/audio.js',
+  'src/music.js',
   'src/shaders.js',
   'src/meshes.js',
   'src/vfx.js',

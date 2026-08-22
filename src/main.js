@@ -122,10 +122,12 @@ function launchMission() {
   rtsCamera.focus(BASE, true, 95);   // the orbit leaves dist at 150; reset to default
   rtsCamera.update(0.016);
   G.phase = 'playing';
+  musicPlay(trackForMap(G.map));
   toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
 }
 
 function openTitle() {
+  musicPlay('title');
   if (pendingSite) {
     /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
        perks earned from liberated ground. Order matters: applyDifficulty first. */
@@ -167,7 +169,7 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, SFX, order(units, type, pos, target) {
+  window.__api = { queueUnit, SFX, musicState, order(units, type, pos, target) {
     for (const u of units) u.setOrder(type, pos, target);
   } };
 }
@@ -182,6 +184,7 @@ function frame(now, manual) {
   else if (dt > 0.1) dt = 0.1;
   G.dt = dt;
   G.wallTime += dt;             // never pauses: FX and corpse decay run off this
+  updateMusic(dt);              // music fades/ducking run in every phase, even menus
 
   if (G.over && G.phase === 'playing') G.phase = 'over';
 

@@ -14,6 +14,7 @@ import { addScore, getStats } from './score.js';
 import { commsEvent } from './comms.js';
 import { recordResult, setPending, campState, bankSurvivors } from './campaign.js';
 import { SFX } from './audio.js';
+import { musicStop, musicStinger } from './music.js';
 import { ring, burst } from './combat.js';
 
 /* =========================================================================
@@ -346,6 +347,8 @@ export function populate() {
 /* Mission resolution: in a campaign, bank the result and route the end-screen
    button back to the territory map; in a quick battle, just offer a rerun. */
 function endMission(win) {
+  musicStop(1.2);
+  musicStinger(win ? 'victory' : 'defeat');
   const stats = getStats(win);
   if (G.campaignSite) {
     /* Clear the strike HERE, not in the end-screen button. Leaving it set meant a
