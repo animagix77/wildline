@@ -246,7 +246,7 @@ export function showStartScreen(onStart) {
       </ul>
       <h3>Grow &amp; cast</h3>
       <ul>
-        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
+        <li><span>${sxKey('Z')}${sxKey('R')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · capybara · boar · bear · raven · porcupine · beaver · local</em></li>
         <li><span>${sxKey('F')} + click</span><em>Overgrowth — root every machine in a circle</em></li>
         <li><span>${sxKey('F1')} · ${sxKey('F3')}</span><em>in-game reference · performance overlay</em></li>
       </ul>

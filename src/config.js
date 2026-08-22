@@ -42,6 +42,17 @@ export const DEFS = {
     armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
     blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
+  capybara: {
+    name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
+    hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
+    armor: 3, vision: 22, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    /* Taunt biases enemy target selection toward this unit (see acquire()).
+       Without it the capybara is merely tanky and the swarm still gets shot
+       out from behind it; with it, putting capybaras in front is a real and
+       discoverable answer to turret splash. */
+    taunt: 20,
+    blurb: 'A wall that walks. Barely fights, soaks punishment, and the guns would rather shoot it than your wolves.'
+  },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
@@ -182,4 +193,4 @@ export const RULES = {
   wateredSpeed:   1.10,     // movement while Watered
 };
 
-export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
+export const BUILDABLE = ['wolf', 'capybara', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];

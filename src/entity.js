@@ -1026,6 +1026,11 @@ export function acquire(e) {
     let score = d + (o.def.wall ? 40 : 0) + (o.isBuilding ? 12 : 0);
     if (o === e.lastAttacker) score -= 14;
     else if (o.def.ranged && !o.isBuilding) score -= 6;
+    /* Taunt. A capybara is only a shield if the guns actually take the bait --
+       tanky-but-ignored just means the swarm gets shot out from behind it.
+       Weighted above "shot me last" so a wall of capybaras holds aggro even
+       once the wolves behind them start biting. */
+    if (o.def.taunt) score -= o.def.taunt;
     if (score < bd) { bd = score; best = o; }
   }
   return best;

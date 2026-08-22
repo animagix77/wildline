@@ -1103,7 +1103,7 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li><b>A</b> + click — attack-move (engage on the way)</li>
           <li><b>S</b> — stop · <b>H</b> — hold position</li>
           <li><b>P</b> / <b>Esc</b> — pause</li>
-          <li><b>Z X C V G N B</b> — wolf / boar / bear / raven / porcupine / beaver / local</li>
+          <li><b>Z R X C V G N B</b> — wolf / capybara / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
           <li><b>F1</b> help · <b>F3</b> performance · <b>M</b> mute</li>
@@ -1136,6 +1136,8 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li>Ravens fly over walls. Bears and boars break armour. Wolves are cheap
               enough to lose. <b>Beavers rebuild</b> the Heart Tree and your groves
               whenever they are not fighting.</li>
+          <li>Turrets shred massed wolves. Put <b>Capybaras</b> in front &mdash; the
+              guns would rather shoot them, and they can take it.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
         </ul>
@@ -1622,6 +1624,17 @@ const DEFS = {
     armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
     blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
+  capybara: {
+    name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
+    hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
+    armor: 3, vision: 22, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    /* Taunt biases enemy target selection toward this unit (see acquire()).
+       Without it the capybara is merely tanky and the swarm still gets shot
+       out from behind it; with it, putting capybaras in front is a real and
+       discoverable answer to turret splash. */
+    taunt: 20,
+    blurb: 'A wall that walks. Barely fights, soaks punishment, and the guns would rather shoot it than your wolves.'
+  },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
@@ -1762,7 +1775,7 @@ const RULES = {
   wateredSpeed:   1.10,     // movement while Watered
 };
 
-const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
+const BUILDABLE = ['wolf', 'capybara', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
 
 
 /* =================== src/state.js =================== */
@@ -5865,6 +5878,25 @@ const buildBeaver = () => quadruped({
   },
 });
 
+/* The capybara reads as a wall on legs: long, wide, low to the ground, with a
+   blunt squared-off snout and almost no neck. Deliberately the broadest
+   silhouette on the wild side, because at RTS zoom the player identifies its
+   job before they read its name. */
+const buildCapybara = () => quadruped({
+  fur: 0x7a5433, belly: 0x8d6a45, bodyL: 2.45, bodyW: 1.5, bodyH: 1.2,
+  legH: 0.42, headS: 0.82, snout: 0.5, tail: 0, ears: true,
+  extras: {
+    head: [
+      pBox(0x3a2a1c, 0.5, 0.2, 0.2, 0, -0.2, 0.68),        // blunt dark muzzle
+      pBox(0x2a1d13, 0.14, 0.1, 0.08, -0.14, -0.12, 0.76), // nostrils
+      pBox(0x2a1d13, 0.14, 0.1, 0.08, 0.14, -0.12, 0.76),
+    ],
+    body: [
+      pBox(0x6b4829, 1.55, 0.22, 1.1, 0, 0.58, 0.1),       // heavy shoulder ridge
+    ],
+  },
+});
+
 /* ============================= MACHINE ================================== */
 
 const buildGuard = () => {
@@ -6376,6 +6408,7 @@ const BUILDERS = {
   depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
   porcupine: () => cached('porcupine', buildPorcupine),
   beaver: () => cached('beaver', buildBeaver),
+  capybara: () => cached('capybara', buildCapybara),
   wall: buildWall, hearttree: buildHeartTree, grove: buildGrove,
 };
 
@@ -8081,6 +8114,11 @@ function acquire(e) {
     let score = d + (o.def.wall ? 40 : 0) + (o.isBuilding ? 12 : 0);
     if (o === e.lastAttacker) score -= 14;
     else if (o.def.ranged && !o.isBuilding) score -= 6;
+    /* Taunt. A capybara is only a shield if the guns actually take the bait --
+       tanky-but-ignored just means the swarm gets shot out from behind it.
+       Weighted above "shot me last" so a wall of capybaras holds aggro even
+       once the wolves behind them start biting. */
+    if (o.def.taunt) score -= o.def.taunt;
     if (score < bd) { bd = score; best = o; }
   }
   return best;
@@ -10567,7 +10605,7 @@ function showStartScreen(onStart) {
       </ul>
       <h3>Grow &amp; cast</h3>
       <ul>
-        <li><span>${sxKey('Z')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · boar · bear · raven · porcupine · beaver · local</em></li>
+        <li><span>${sxKey('Z')}${sxKey('R')}${sxKey('X')}${sxKey('C')}${sxKey('V')}${sxKey('G')}${sxKey('N')}${sxKey('B')}</span><em>wolf · capybara · boar · bear · raven · porcupine · beaver · local</em></li>
         <li><span>${sxKey('F')} + click</span><em>Overgrowth — root every machine in a circle</em></li>
         <li><span>${sxKey('F1')} · ${sxKey('F3')}</span><em>in-game reference · performance overlay</em></li>
       </ul>
@@ -11548,6 +11586,7 @@ function onKey(e) {
     case 'KeyC': queueUnit('bear'); return;
     case 'KeyV': queueUnit('raven'); return;
     case 'KeyG': queueUnit('porcupine'); return;
+    case 'KeyR': queueUnit('capybara'); return;
     case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
   }

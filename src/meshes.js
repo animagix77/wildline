@@ -350,6 +350,25 @@ export const buildBeaver = () => quadruped({
   },
 });
 
+/* The capybara reads as a wall on legs: long, wide, low to the ground, with a
+   blunt squared-off snout and almost no neck. Deliberately the broadest
+   silhouette on the wild side, because at RTS zoom the player identifies its
+   job before they read its name. */
+export const buildCapybara = () => quadruped({
+  fur: 0x7a5433, belly: 0x8d6a45, bodyL: 2.45, bodyW: 1.5, bodyH: 1.2,
+  legH: 0.42, headS: 0.82, snout: 0.5, tail: 0, ears: true,
+  extras: {
+    head: [
+      pBox(0x3a2a1c, 0.5, 0.2, 0.2, 0, -0.2, 0.68),        // blunt dark muzzle
+      pBox(0x2a1d13, 0.14, 0.1, 0.08, -0.14, -0.12, 0.76), // nostrils
+      pBox(0x2a1d13, 0.14, 0.1, 0.08, 0.14, -0.12, 0.76),
+    ],
+    body: [
+      pBox(0x6b4829, 1.55, 0.22, 1.1, 0, 0.58, 0.1),       // heavy shoulder ridge
+    ],
+  },
+});
+
 /* ============================= MACHINE ================================== */
 
 export const buildGuard = () => {
@@ -861,5 +880,6 @@ export const BUILDERS = {
   depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
   porcupine: () => cached('porcupine', buildPorcupine),
   beaver: () => cached('beaver', buildBeaver),
+  capybara: () => cached('capybara', buildCapybara),
   wall: buildWall, hearttree: buildHeartTree, grove: buildGrove,
 };
