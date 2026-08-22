@@ -4,7 +4,8 @@ import { DEFS, TEAM, RULES } from './config.js';
 import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
 import { fireProjectile, applyDamage, burst } from './combat.js';
-import { muzzleFlash, burnTick, dustPuff, deathTrail, explode } from './vfx.js';
+import { lakeAt } from './water.js';
+import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple } from './vfx.js';
 import { HALF } from './config.js';
 import { SFX } from './audio.js';
 
@@ -66,6 +67,8 @@ export class Entity {
     this.hitDirX = 0; this.hitDirZ = 1;
     this.kills = 0;
     this.vet = 0;                 // veterancy rank, 0..3
+    this.watered = 0;             // seconds of Watered left (see drink())
+    this.sip = 0;                 // seconds spent at the shore this visit
     this.provokedBy = null;
     this.provokeUntil = 0;
     this.chargeT = 0;
@@ -560,9 +563,10 @@ export class Entity {
   }
 
   attack(tgt) {
-    this.cooldown = this.def.rate;
+    this.cooldown = this.def.rate / (this.watered > 0 ? RULES.wateredRate : 1);
     // siege units hit structures far harder than they hit flesh
-    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1);
+    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1)
+              * (this.watered > 0 ? RULES.wateredDmg : 1);
     if (this.def.ranged) {
       this.muzzlePoint(_v2);
       muzzleFlash(_v2, this.def.projectile.color);
@@ -626,9 +630,47 @@ export class Entity {
   /* Movement multiplier from standing on the Green. Machines get nothing from
      it -- the living ground is not theirs. */
   greenMult() {
-    if (this.team !== TEAM.WILD || this.flying || !G.verdant) return 1;
+    if (this.team !== TEAM.WILD) return 1;
+    let m = this.watered > 0 ? RULES.wateredSpeed : 1;
+    if (this.flying || !G.verdant) return m;
     const v = G.verdant.at(this.pos.x, this.pos.z);
-    return 1 + (RULES.greenHaste - 1) * v;
+    return m * (1 + (RULES.greenHaste - 1) * v);
+  }
+
+  /* Drinking. A unit that is not fighting and is stood at a shore fills up over
+     drinkTime and carries the buff away. The lake's fullness sets the duration,
+     so every pump TerraByte keeps running shortens your next push. */
+  drink(dt) {
+    if (this.team !== TEAM.WILD || this.isBuilding || this.flying) return;
+    if (this.watered > 0) { this.watered -= dt; if (this.watered <= 0) this.showWatered(false); }
+    if (this.target || G.time - this.lastHitAt < 2) { this.sip = 0; return; }
+    /* already well-watered: don't burn the animation topping up from 90% */
+    if (this.watered > 4) { this.sip = 0; return; }
+    const L = lakeAt(this.pos.x, this.pos.z);
+    if (!L) { this.sip = 0; return; }
+    this.sip = (this.sip || 0) + dt;
+    if (this.sip < RULES.drinkTime) return;
+    this.sip = 0;
+    this.watered = RULES.drinkMin + (RULES.drinkMax - RULES.drinkMin) * L.level;
+    this.showWatered(true);
+    SFX.drink(this.pos);
+    ripple(this.pos, 1.6, 0x8fe8ff);
+  }
+
+  /* A blue sheen so a watered swarm is readable at a glance, without adding a
+     per-unit sprite: tint the existing body material's emissive. */
+  showWatered(on) {
+    const m = this.mesh;
+    if (!m) return;
+    m.traverse(o => {
+      if (!o.material || !o.material.emissive) return;
+      if (on) {
+        if (o.userData._em === undefined) o.userData._em = o.material.emissive.getHex();
+        o.material.emissive.setHex(0x1b4a63);
+      } else if (o.userData._em !== undefined) {
+        o.material.emissive.setHex(o.userData._em);
+      }
+    });
   }
 
   /* Out-of-combat regeneration. Deliberately does NOT tick during a fight, so
@@ -639,13 +681,16 @@ export class Entity {
     if (this.team !== TEAM.WILD) return;
     if (this.hp >= this.maxHp) return;
     if (G.time - this.lastHitAt < RULES.regenDelay) return;
-    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
+    /* Watered animals regenerate at the full Green rate ANYWHERE — that is the
+       whole point of the buff, and the reason a push detours past a lake. */
+    const v = this.watered > 0 ? 1 : (G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0);
     const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }
 
   postUpdate(dt, speedNow) {
     this.regen(dt);
+    this.drink(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {

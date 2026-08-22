@@ -167,6 +167,46 @@ export function groveWaterFactor(x, z) {
   return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
 }
 
+
+/* ------------------------------------------------------------- drinking -- */
+/* A lake's wetted radius shrinks as it drains, so the shoreline animals have to
+   reach recedes with the water — a nearly-dry lake is a longer walk for a worse
+   drink, which is how the pumps are meant to hurt. */
+export function lakeAt(x, z, reach = 4) {
+  for (const L of lakes) {
+    if (L.level <= 0.05) continue;
+    const d = Math.hypot(x - L.x, z - L.z);
+    const wet = L.r * (0.35 + 0.65 * L.level);      // matches the shader's edge
+    if (d <= wet + reach) return L;
+  }
+  return null;
+}
+
+/** Nearest drinkable point on the shore, for pathing a unit to the water. */
+export function shorePoint(x, z, out) {
+  let best = null, bd = 1e9;
+  for (const L of lakes) {
+    if (L.level <= 0.05) continue;
+    const d = Math.hypot(x - L.x, z - L.z);
+    if (d < bd) { bd = d; best = L; }
+  }
+  if (!best) return null;
+  const wet = best.r * (0.35 + 0.65 * best.level);
+  const dx = x - best.x, dz = z - best.z;
+  const len = Math.hypot(dx, dz) || 1;
+  out.set(best.x + (dx / len) * wet * 0.92, 0, best.z + (dz / len) * wet * 0.92);
+  return out;
+}
+
+/** 0..1 fullness of the fullest lake — what the HUD reports. */
+export function waterLevel() {
+  let best = 0;
+  for (const L of lakes) if (L.level > best) best = L.level;
+  return lakes.length ? best : 1;
+}
+
+export function lakeCount() { return lakes.length; }
+
 /* ------------------------------------------------------------ reflection -- */
 /* Mirror the scene through the water plane once a frame at low resolution. */
 let reflFlip = false;

@@ -252,6 +252,17 @@ export function spiritWisp(pos) {
   push({ kind: 'wisp', m, life: 1.6, phase: rand(0, 6.28) });
 }
 
+/* Expanding water ring — a drink, or anything that disturbs a surface. */
+export function ripple(pos, r = 1.6, color = 0x8fe8ff) {
+  const m = alloc('ring', vfxRingGeo, { blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+  m.material.color.set(color).multiplyScalar(1.6);
+  m.material.opacity = 0.5;
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.3, pos.z);
+  m.scale.setScalar(r * 0.3);
+  push({ kind: 'ring', m, life: 0.7, r });
+}
+
 /* ------------------------------------------------------------ headline --- */
 
 /**

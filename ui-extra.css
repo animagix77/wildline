@@ -744,3 +744,10 @@
   border-radius:9px; font-size:11px; font-weight:700; letter-spacing:1px;
   color:var(--leaf); border:1px solid rgba(127,212,74,.4); background:rgba(20,36,18,.5); }
 .qitem.q-live{ outline:1px solid rgba(127,212,74,.55); box-shadow:0 0 8px rgba(127,212,74,.25); }
+
+/* ---- compact loader (between missions; the intro is first-visit only) ---- */
+#splash.sp-compact{ background:#0a1410; align-items:center; }
+#splash.sp-compact .sp-body{ padding:0 24px; }
+.sp-cmark{ font-size:15px; letter-spacing:7px; font-weight:700; color:#cfe3c9;
+  margin-bottom:26px; text-shadow:0 2px 12px rgba(0,0,0,.8); }
+.sp-cmark i{ font-style:normal; color:var(--leaf); opacity:.8; }

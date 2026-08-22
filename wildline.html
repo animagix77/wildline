@@ -951,6 +951,13 @@ body.menu #comms{display:none!important}
   color:var(--leaf); border:1px solid rgba(127,212,74,.4); background:rgba(20,36,18,.5); }
 .qitem.q-live{ outline:1px solid rgba(127,212,74,.55); box-shadow:0 0 8px rgba(127,212,74,.25); }
 
+/* ---- compact loader (between missions; the intro is first-visit only) ---- */
+#splash.sp-compact{ background:#0a1410; align-items:center; }
+#splash.sp-compact .sp-body{ padding:0 24px; }
+.sp-cmark{ font-size:15px; letter-spacing:7px; font-weight:700; color:#cfe3c9;
+  margin-bottom:26px; text-shadow:0 2px 12px rgba(0,0,0,.8); }
+.sp-cmark i{ font-style:normal; color:var(--leaf); opacity:.8; }
+
 </style>
 </head>
 <body>
@@ -975,6 +982,11 @@ body.menu #comms{display:none!important}
       <span class="glyph">🌱</span>
       <span id="groves">0<span class="slash">/</span>0</span>
       <span class="sub">groves</span>
+    </div>
+    <div class="res" id="waterres">
+      <span class="glyph">💧</span>
+      <span id="waterlvl">100<span class="slash">%</span></span>
+      <span class="sub" id="watersub">water</span>
     </div>
     <div id="objective">
       <div class="obj-title">OBJECTIVE</div>
@@ -1663,6 +1675,22 @@ const RULES = {
   regenOnGreen:   0.040,    // fraction of max HP per second, on the Green
   regenOffGreen:  0.008,    // ...and out in the world, where you are alone
   greenHaste:     1.18,     // movement multiplier on the Green
+
+  /* --- Watered (drinking) --------------------------------------------------
+     The Green sustains you AT HOME; water sustains you AWAY from it. An animal
+     that stops at a shore carries off a short, potent buff, so lakes become
+     staging points on the route to the compound rather than scenery.
+
+     Deliberately short: this is a decision about WHEN to commit, not a chore to
+     keep topped up. Duration scales with how full the lake is, which is what
+     finally makes TerraByte's pumps something the player feels rather than
+     something that quietly edits their income. */
+  drinkTime:      1.8,      // seconds at the shore to drink
+  drinkMin:       12,       // buff seconds from a nearly-dry lake
+  drinkMax:       26,       // ...and from a full one
+  wateredRate:    1.20,     // attack speed while Watered
+  wateredDmg:     1.15,     // damage while Watered
+  wateredSpeed:   1.10,     // movement while Watered
 };
 
 const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
@@ -2477,7 +2505,21 @@ const INTRO_TITLE = 'data:image/webp;base64,UklGRnYAAwBXRUJQVlA4WAoAAAAwAAAAdwUA
    ========================================================================= */
 
 let spEl = null, bar = null, note = null, btn = null, onGo = null, ready = false;
-let raf = 0;
+let raf = 0, compact = false;
+
+/* The parallax intro is a first-impression, not a loading screen. Every mission
+   transition in this game is a real page reload (see world.js endMission), so
+   without this the player watches the full title sequence between every single
+   mission. sessionStorage is the right scope: it survives reloads inside a
+   visit and clears when the tab closes, so a genuinely new visit still gets
+   the intro. */
+const SEEN = 'cvc.introSeen';
+function introSeen() {
+  try { return sessionStorage.getItem(SEEN) === '1'; } catch { return false; }
+}
+function markIntroSeen() {
+  try { sessionStorage.setItem(SEEN, '1'); } catch {}
+}
 
 const STEPS = [
   'Waking the forest…',
@@ -2498,8 +2540,31 @@ const LAYERS = [
 function showSplash(onContinue) {
   onGo = onContinue;
   ready = false;
+  compact = introSeen();
   spEl = document.createElement('div');
   spEl.id = 'splash';
+
+  if (compact) {
+    /* Between missions: a plain progress bar that gets out of the way by
+       itself. No key art decode, no button, no ceremony. */
+    spEl.className = 'sp-compact';
+    spEl.innerHTML = `
+      <div class="sp-body">
+        <div class="sp-cmark">CRITTERS <i>VS</i> COMPUTE</div>
+        <div class="sp-load">
+          <div class="sp-barwrap"><i class="sp-bar"></i></div>
+          <div class="sp-note">Waking the forest…</div>
+        </div>
+      </div>`;
+    document.getElementById('app').appendChild(spEl);
+    bar = spEl.querySelector('.sp-bar');
+    note = spEl.querySelector('.sp-note');
+    btn = null;
+    window.addEventListener('keydown', spKey);
+    runProgress();
+    return spEl;
+  }
+
   spEl.innerHTML = `
     ${LAYERS.map(([cls, src]) =>
       `<div class="sp-layer ${cls}" style="background-image:url('${src}')"></div>`).join('')}
@@ -2523,17 +2588,30 @@ function showSplash(onContinue) {
   window.addEventListener('keydown', spKey);
   startParallax();
 
-  /* Safety net. Readiness is normally signalled by the first presented frame, but
-     rAF is suspended in a background tab — without this a player who tabs away
-     during load comes back to a splash whose button never lights. */
+  runProgress();
+  return spEl;
+}
+
+function runProgress() {
+  /* Safety net, and it belongs HERE so both the intro and the compact loader
+     get it. Readiness is normally signalled by the first presented frame, but
+     rAF is suspended in a background tab — without this, tabbing away during a
+     mission transition leaves you staring at a bar that never finishes. */
   setTimeout(() => splashReady(), 6000);
 
   /* Progress is driven by real boot milestones via splashProgress(); this only
      animates between them so the bar never sits frozen. */
+  /* The compact loader exists to get out of the way, so it ramps roughly three
+     times faster than the first-run reveal, which is paced to be looked at. */
+  const climb = compact ? 0.035 : 0.012;
+  const ease  = compact ? 0.40  : 0.18;
   let shown = 0, target = 0.06, step = 0;
   spEl._tick = setInterval(() => {
-    target = Math.min(ready ? 1 : 0.92, target + 0.012);
-    shown += (target - shown) * 0.18;
+    target = Math.min(ready ? 1 : 0.92, target + climb);
+    /* Once the world is genuinely up, converge in a couple of ticks whatever the
+       tick rate. Background tabs throttle setInterval to ~1Hz, and a bar paced
+       purely by tick count sat on screen for 25s with the game ready behind it. */
+    shown += ready ? Math.max((target - shown) * ease, 0.34) : (target - shown) * ease;
     bar.style.width = (shown * 100).toFixed(1) + '%';
     const s = Math.min(STEPS.length - 1, Math.floor(shown * STEPS.length));
     if (s !== step) { step = s; note.textContent = STEPS[s]; }
@@ -2542,6 +2620,9 @@ function showSplash(onContinue) {
       bar.style.width = '100%';
       note.textContent = 'Ready.';
       spEl.classList.add('sp-ready');
+      /* Compact mode has nothing to press — it is a loading bar, so it simply
+         hands over as soon as the world is up. */
+      if (compact) { dismiss(); return; }
       btn.disabled = false;
       /* Reveal inline rather than through a class transition. A transition that
          was armed while the tab was backgrounded can latch at its start value and
@@ -2552,11 +2633,11 @@ function showSplash(onContinue) {
       btn.focus();
     }
   }, 40);
-  return spEl;
 }
 
 /* ------------------------------------------------------------- parallax -- */
 function startParallax() {
+  if (compact) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const els = LAYERS.map(([cls]) => spEl.querySelector('.' + cls));
@@ -2605,6 +2686,7 @@ function spKey(e) {
 
 function dismiss() {
   if (!spEl || !ready) return;
+  markIntroSeen();
   window.removeEventListener('keydown', spKey);
   if (spEl._tick) clearInterval(spEl._tick);
   if (spEl._unMove) spEl._unMove();
@@ -3187,6 +3269,46 @@ function groveWaterFactor(x, z) {
   if (best <= 0) return 1;                       // outside any catchment: unaffected
   return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
 }
+
+
+/* ------------------------------------------------------------- drinking -- */
+/* A lake's wetted radius shrinks as it drains, so the shoreline animals have to
+   reach recedes with the water — a nearly-dry lake is a longer walk for a worse
+   drink, which is how the pumps are meant to hurt. */
+function lakeAt(x, z, reach = 4) {
+  for (const L of lakes) {
+    if (L.level <= 0.05) continue;
+    const d = Math.hypot(x - L.x, z - L.z);
+    const wet = L.r * (0.35 + 0.65 * L.level);      // matches the shader's edge
+    if (d <= wet + reach) return L;
+  }
+  return null;
+}
+
+/** Nearest drinkable point on the shore, for pathing a unit to the water. */
+function shorePoint(x, z, out) {
+  let best = null, bd = 1e9;
+  for (const L of lakes) {
+    if (L.level <= 0.05) continue;
+    const d = Math.hypot(x - L.x, z - L.z);
+    if (d < bd) { bd = d; best = L; }
+  }
+  if (!best) return null;
+  const wet = best.r * (0.35 + 0.65 * best.level);
+  const dx = x - best.x, dz = z - best.z;
+  const len = Math.hypot(dx, dz) || 1;
+  out.set(best.x + (dx / len) * wet * 0.92, 0, best.z + (dz / len) * wet * 0.92);
+  return out;
+}
+
+/** 0..1 fullness of the fullest lake — what the HUD reports. */
+function waterLevel() {
+  let best = 0;
+  for (const L of lakes) if (L.level > best) best = L.level;
+  return lakes.length ? best : 1;
+}
+
+function lakeCount() { return lakes.length; }
 
 /* ------------------------------------------------------------ reflection -- */
 /* Mirror the scene through the water plane once a frame at low resolution. */
@@ -3805,9 +3927,16 @@ function updateListener() {
 
 const AUDIBLE = 150;      // beyond this a sound is simply not played
 
-/* Returns {gain, pan} for a world position, or null if it is out of earshot. */
+/* Returns {gain, pan} for a world position, or null if it is out of earshot.
+
+   Sight gates sound. Audio reaches 150 units but a wolf sees 26, so without
+   this the player hears guards firing, drones humming and things dying deep
+   inside unexplored fog — an enemy you can hear, cannot see, and cannot kill.
+   Your own units always sit in visible ground, so this only ever silences
+   things you have no business hearing. */
 function place(pos) {
   if (!pos) return { gain: 1, pan: 0 };
+  if (G.fogVisible && !G.fogVisible(pos.x, pos.z)) return null;
   const dx = pos.x - listenX, dz = pos.z - listenZ;
   const d = Math.hypot(dx, dz);
   if (d > AUDIBLE) return null;
@@ -4062,6 +4191,12 @@ const SFX = {
     noise({ d: 0.5, peak: 0.14, hp: 120, lp: 1200, wet: 0.8 });
     later(200, () => noise({ d: 0.8, peak: 0.08, hp: 400, lp: 3000, wet: 0.9 }));
   },
+
+  /* an animal drinking: soft, wet, and short — this fires a lot */
+  drink: sited('drk', 220, (g, pan) => {
+    noise({ d: 0.16, peak: 0.05 * g, hp: 900, lp: 4200, q: 2.5, pan, wet: 0.35 });
+    tone(rnd(420, 620), { type: 'sine', d: 0.13, peak: 0.035 * g, slide: 180, pan, wet: 0.4 });
+  }),
 
   /* ---- water: the drain is a slow clock the player should be able to hear -- */
   drain: () => gate('drn', 7000) && (() => {
@@ -6320,6 +6455,17 @@ function spiritWisp(pos) {
   push({ kind: 'wisp', m, life: 1.6, phase: rand(0, 6.28) });
 }
 
+/* Expanding water ring — a drink, or anything that disturbs a surface. */
+function ripple(pos, r = 1.6, color = 0x8fe8ff) {
+  const m = alloc('ring', vfxRingGeo, { blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+  m.material.color.set(color).multiplyScalar(1.6);
+  m.material.opacity = 0.5;
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.3, pos.z);
+  m.scale.setScalar(r * 0.3);
+  push({ kind: 'ring', m, life: 0.7, r });
+}
+
 /* ------------------------------------------------------------ headline --- */
 
 /**
@@ -6801,6 +6947,8 @@ class Entity {
     this.hitDirX = 0; this.hitDirZ = 1;
     this.kills = 0;
     this.vet = 0;                 // veterancy rank, 0..3
+    this.watered = 0;             // seconds of Watered left (see drink())
+    this.sip = 0;                 // seconds spent at the shore this visit
     this.provokedBy = null;
     this.provokeUntil = 0;
     this.chargeT = 0;
@@ -7295,9 +7443,10 @@ class Entity {
   }
 
   attack(tgt) {
-    this.cooldown = this.def.rate;
+    this.cooldown = this.def.rate / (this.watered > 0 ? RULES.wateredRate : 1);
     // siege units hit structures far harder than they hit flesh
-    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1);
+    const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1)
+              * (this.watered > 0 ? RULES.wateredDmg : 1);
     if (this.def.ranged) {
       this.muzzlePoint(_v2);
       muzzleFlash(_v2, this.def.projectile.color);
@@ -7361,9 +7510,47 @@ class Entity {
   /* Movement multiplier from standing on the Green. Machines get nothing from
      it -- the living ground is not theirs. */
   greenMult() {
-    if (this.team !== TEAM.WILD || this.flying || !G.verdant) return 1;
+    if (this.team !== TEAM.WILD) return 1;
+    let m = this.watered > 0 ? RULES.wateredSpeed : 1;
+    if (this.flying || !G.verdant) return m;
     const v = G.verdant.at(this.pos.x, this.pos.z);
-    return 1 + (RULES.greenHaste - 1) * v;
+    return m * (1 + (RULES.greenHaste - 1) * v);
+  }
+
+  /* Drinking. A unit that is not fighting and is stood at a shore fills up over
+     drinkTime and carries the buff away. The lake's fullness sets the duration,
+     so every pump TerraByte keeps running shortens your next push. */
+  drink(dt) {
+    if (this.team !== TEAM.WILD || this.isBuilding || this.flying) return;
+    if (this.watered > 0) { this.watered -= dt; if (this.watered <= 0) this.showWatered(false); }
+    if (this.target || G.time - this.lastHitAt < 2) { this.sip = 0; return; }
+    /* already well-watered: don't burn the animation topping up from 90% */
+    if (this.watered > 4) { this.sip = 0; return; }
+    const L = lakeAt(this.pos.x, this.pos.z);
+    if (!L) { this.sip = 0; return; }
+    this.sip = (this.sip || 0) + dt;
+    if (this.sip < RULES.drinkTime) return;
+    this.sip = 0;
+    this.watered = RULES.drinkMin + (RULES.drinkMax - RULES.drinkMin) * L.level;
+    this.showWatered(true);
+    SFX.drink(this.pos);
+    ripple(this.pos, 1.6, 0x8fe8ff);
+  }
+
+  /* A blue sheen so a watered swarm is readable at a glance, without adding a
+     per-unit sprite: tint the existing body material's emissive. */
+  showWatered(on) {
+    const m = this.mesh;
+    if (!m) return;
+    m.traverse(o => {
+      if (!o.material || !o.material.emissive) return;
+      if (on) {
+        if (o.userData._em === undefined) o.userData._em = o.material.emissive.getHex();
+        o.material.emissive.setHex(0x1b4a63);
+      } else if (o.userData._em !== undefined) {
+        o.material.emissive.setHex(o.userData._em);
+      }
+    });
   }
 
   /* Out-of-combat regeneration. Deliberately does NOT tick during a fight, so
@@ -7374,13 +7561,16 @@ class Entity {
     if (this.team !== TEAM.WILD) return;
     if (this.hp >= this.maxHp) return;
     if (G.time - this.lastHitAt < RULES.regenDelay) return;
-    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
+    /* Watered animals regenerate at the full Green rate ANYWHERE — that is the
+       whole point of the buff, and the reason a push detours past a lake. */
+    const v = this.watered > 0 ? 1 : (G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0);
     const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }
 
   postUpdate(dt, speedNow) {
     this.regen(dt);
+    this.drink(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {
@@ -7829,6 +8019,7 @@ function setTarget(i, v) {
 /* ============================================================== init ==== */
 
 function initFog() {
+  G.fogVisible = isVisible;      // audio and anything else that must respect sight
   if (inited) disposeFog();
 
   state    = new Uint8Array(NCELL);          // all UNSEEN
@@ -9117,6 +9308,14 @@ function updateWorld(dt) {
       if (e.team === TEAM.WILD) wild++; else if (e.team === TEAM.MACHINE) machine++;
     }
     const dir = wild > 0 && machine === 0 ? 1 : (machine > 0 && wild === 0 ? -1 : 0);
+    /* Being pushed off a grove is expensive and used to happen in near-silence.
+       Warn once per contest, and let the minimap pulse while it lasts. */
+    g.losing = dir < 0 && g.owned;
+    if (g.losing && !g._warned) {
+      g._warned = true;
+      SFX.heartAlarm();
+      toast('A grove is being trampled — send something', 'warn');
+    } else if (!g.losing && g._warned && dir >= 0) g._warned = false;
     if (dir !== 0) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
       if (!g.owned && g.prog >= RULES.captureTime) {
@@ -11174,6 +11373,24 @@ function updateHUD() {
   el('pop').innerHTML = `${G.pop}<span class="slash">/</span>${G.popCap}`;
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
+
+  /* Water. The pumps have always drained the lakes and quietly cut grove yield;
+     until this readout existed the player had no way to see it happening, let
+     alone plan around it. Now it also gates how long a drink lasts. */
+  const wres = el('waterres');
+  if (wres) {
+    if (!lakeCount()) wres.style.display = 'none';
+    else {
+      wres.style.display = '';
+      const lv = waterLevel();
+      el('waterlvl').innerHTML = `${Math.round(lv * 100)}<span class="slash">%</span>`;
+      wres.classList.toggle('low', lv < 0.45);
+      wres.classList.toggle('dry', lv < 0.15);
+      let n = 0;
+      for (const e of G.entities) if (e.alive && e.watered > 0) n++;
+      el('watersub').textContent = n ? `${n} watered` : 'water';
+    }
+  }
 
   /* objective */
   const left = G.coolants.filter(c => c.alive).length;

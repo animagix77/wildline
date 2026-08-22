@@ -430,6 +430,14 @@ export function updateWorld(dt) {
       if (e.team === TEAM.WILD) wild++; else if (e.team === TEAM.MACHINE) machine++;
     }
     const dir = wild > 0 && machine === 0 ? 1 : (machine > 0 && wild === 0 ? -1 : 0);
+    /* Being pushed off a grove is expensive and used to happen in near-silence.
+       Warn once per contest, and let the minimap pulse while it lasts. */
+    g.losing = dir < 0 && g.owned;
+    if (g.losing && !g._warned) {
+      g._warned = true;
+      SFX.heartAlarm();
+      toast('A grove is being trampled — send something', 'warn');
+    } else if (!g.losing && g._warned && dir >= 0) g._warned = false;
     if (dir !== 0) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
       if (!g.owned && g.prog >= RULES.captureTime) {

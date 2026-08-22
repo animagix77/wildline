@@ -95,9 +95,16 @@ export function updateListener() {
 
 const AUDIBLE = 150;      // beyond this a sound is simply not played
 
-/* Returns {gain, pan} for a world position, or null if it is out of earshot. */
+/* Returns {gain, pan} for a world position, or null if it is out of earshot.
+
+   Sight gates sound. Audio reaches 150 units but a wolf sees 26, so without
+   this the player hears guards firing, drones humming and things dying deep
+   inside unexplored fog — an enemy you can hear, cannot see, and cannot kill.
+   Your own units always sit in visible ground, so this only ever silences
+   things you have no business hearing. */
 function place(pos) {
   if (!pos) return { gain: 1, pan: 0 };
+  if (G.fogVisible && !G.fogVisible(pos.x, pos.z)) return null;
   const dx = pos.x - listenX, dz = pos.z - listenZ;
   const d = Math.hypot(dx, dz);
   if (d > AUDIBLE) return null;
@@ -352,6 +359,12 @@ export const SFX = {
     noise({ d: 0.5, peak: 0.14, hp: 120, lp: 1200, wet: 0.8 });
     later(200, () => noise({ d: 0.8, peak: 0.08, hp: 400, lp: 3000, wet: 0.9 }));
   },
+
+  /* an animal drinking: soft, wet, and short — this fires a lot */
+  drink: sited('drk', 220, (g, pan) => {
+    noise({ d: 0.16, peak: 0.05 * g, hp: 900, lp: 4200, q: 2.5, pan, wet: 0.35 });
+    tone(rnd(420, 620), { type: 'sine', d: 0.13, peak: 0.035 * g, slide: 180, pan, wet: 0.4 });
+  }),
 
   /* ---- water: the drain is a slow clock the player should be able to hear -- */
   drain: () => gate('drn', 7000) && (() => {

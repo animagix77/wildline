@@ -140,6 +140,7 @@ function setTarget(i, v) {
 /* ============================================================== init ==== */
 
 export function initFog() {
+  G.fogVisible = isVisible;      // audio and anything else that must respect sight
   if (inited) disposeFog();
 
   state    = new Uint8Array(NCELL);          // all UNSEEN

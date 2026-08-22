@@ -163,6 +163,22 @@ export const RULES = {
   regenOnGreen:   0.040,    // fraction of max HP per second, on the Green
   regenOffGreen:  0.008,    // ...and out in the world, where you are alone
   greenHaste:     1.18,     // movement multiplier on the Green
+
+  /* --- Watered (drinking) --------------------------------------------------
+     The Green sustains you AT HOME; water sustains you AWAY from it. An animal
+     that stops at a shore carries off a short, potent buff, so lakes become
+     staging points on the route to the compound rather than scenery.
+
+     Deliberately short: this is a decision about WHEN to commit, not a chore to
+     keep topped up. Duration scales with how full the lake is, which is what
+     finally makes TerraByte's pumps something the player feels rather than
+     something that quietly edits their income. */
+  drinkTime:      1.8,      // seconds at the shore to drink
+  drinkMin:       12,       // buff seconds from a nearly-dry lake
+  drinkMax:       26,       // ...and from a full one
+  wateredRate:    1.20,     // attack speed while Watered
+  wateredDmg:     1.15,     // damage while Watered
+  wateredSpeed:   1.10,     // movement while Watered
 };
 
 export const BUILDABLE = ['wolf', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];

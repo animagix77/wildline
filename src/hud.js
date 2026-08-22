@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
 import { fmt, queuedPop } from './world.js';
+import { waterLevel, lakeCount } from './water.js';
 import { setSelection, syncHoverTip } from './input.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
@@ -28,6 +29,24 @@ export function updateHUD() {
   el('pop').innerHTML = `${G.pop}<span class="slash">/</span>${G.popCap}`;
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
+
+  /* Water. The pumps have always drained the lakes and quietly cut grove yield;
+     until this readout existed the player had no way to see it happening, let
+     alone plan around it. Now it also gates how long a drink lasts. */
+  const wres = el('waterres');
+  if (wres) {
+    if (!lakeCount()) wres.style.display = 'none';
+    else {
+      wres.style.display = '';
+      const lv = waterLevel();
+      el('waterlvl').innerHTML = `${Math.round(lv * 100)}<span class="slash">%</span>`;
+      wres.classList.toggle('low', lv < 0.45);
+      wres.classList.toggle('dry', lv < 0.15);
+      let n = 0;
+      for (const e of G.entities) if (e.alive && e.watered > 0) n++;
+      el('watersub').textContent = n ? `${n} watered` : 'water';
+    }
+  }
 
   /* objective */
   const left = G.coolants.filter(c => c.alive).length;
