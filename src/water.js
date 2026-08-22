@@ -24,6 +24,7 @@ import { commsEvent } from './comms.js';
    what actually sells water at this camera angle.
    ========================================================================= */
 
+const REFILL = 0.9;      // recovery rate as a fraction of the drain rate
 const REFLECT_SIZE = 512;
 
 let lakes = [];
@@ -107,7 +108,7 @@ export function initWater(scene, defs) {
     return {
       x: d.x, z: d.z, r: d.r, y: mesh.position.y,
       level: 1, mesh, uni,
-      baseDrain: d.drain !== undefined ? d.drain : 0.006,   // level units per second
+      baseDrain: d.drain !== undefined ? d.drain : 0.0016,  // level units per second
       warned: {},
     };
   });
@@ -115,11 +116,30 @@ export function initWater(scene, defs) {
   return lakes;
 }
 
-/* Intake pumps still standing decide how fast the water goes. */
+/* Intake pumps still standing decide how fast the water goes — and beavers
+   sitting on them decide how well those pumps work. The Beaver's card has
+   always promised "every beaver on a pump slows the drain"; until now that was
+   a blurb with no code behind it. */
+const DAM_RADIUS = 9;
+const DAM_PER_BEAVER = 0.18;
+const DAM_FLOOR = 0.15;          // a dammed pump still trickles
+
 function activeDraw() {
   if (!G.pumps || !G.pumps.length) return 1;
-  const alive = G.pumps.filter(p => p.alive).length;
-  return alive / G.pumps.length;
+  let total = 0, live = 0;
+  for (const p of G.pumps) {
+    total++;
+    if (!p.alive) continue;
+    let dams = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.type !== 'beaver') continue;
+      const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z;
+      if (dx * dx + dz * dz < DAM_RADIUS * DAM_RADIUS) dams++;
+    }
+    live += Math.max(DAM_FLOOR, 1 - dams * DAM_PER_BEAVER);
+  }
+  G.dammed = total - live;                     // for the HUD
+  return total ? live / total : 1;
 }
 
 export function updateWater(dt) {
@@ -129,13 +149,17 @@ export function updateWater(dt) {
 
   for (const L of lakes) {
     L.uni.uTime.value += dt;
-    if (draw > 0 && L.level > 0) {
-      L.level = clamp(L.level - L.baseDrain * draw * dt, 0, 1);
+    /* Net flow, not an either/or. The old rule only refilled when EVERY pump
+       was dead, so killing three of four changed nothing the player could see.
+       Now each pump you break (or dam) shifts the balance, and at roughly half
+       the intakes down the lake holds steady — a visible, earnable stalemate. */
+    const flow = L.baseDrain * (draw - REFILL * (1 - draw));
+    if (flow !== 0) {
+      L.level = clamp(L.level - flow * dt, 0, 1);
       L.uni.uLevel.value = L.level;
-    } else if (draw === 0 && L.level < 1) {
-      // pumps gone: the water table recovers, slowly
-      L.level = clamp(L.level + L.baseDrain * 0.35 * dt, 0, 1);
-      L.uni.uLevel.value = L.level;
+      /* let the warnings re-arm on the way back up, so a lake you fought for
+         and then lost again still tells you about it */
+      if (flow < 0) for (const k in L.warned) if (L.level > +k + 0.08) L.warned[k] = false;
     }
     for (const [mark, msg] of [[0.6, 'is dropping'], [0.3, 'is nearly gone'], [0.02, 'has run dry']]) {
       if (L.level <= mark && !L.warned[mark]) {
@@ -164,7 +188,7 @@ export function groveWaterFactor(x, z) {
     if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
+  return 1 - best * (1 - (0.5 + 0.5 * lvl));     // full lake = 1.0, dry = 0.5 at the centre
 }
 
 

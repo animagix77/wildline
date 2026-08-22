@@ -480,14 +480,18 @@ export function updateWorld(dt) {
   /* --- income --- */
   /* Each bloomed grove pays according to the water table beneath it, so letting
      the lakes drain is a slow, visible, entirely non-random economic defeat. */
-  let groveYield = 0;
+  let groveYield = 0, groveFull = 0;
   for (const g of G.groves) if (g.owned) {
     /* A fresh grove pays out as it wakes: 30% at bloom, full after 25s. Instant
        full yield made three fast uncontested captures a 15x income spike in the
        first minute, and the whole early game collapsed into a scripted rush. */
     const ramp = 0.3 + 0.7 * Math.min(1, (G.time - (g.bloomAt || 0)) / 25);
+    groveFull  += RULES.grovIncome * ramp;
     groveYield += RULES.grovIncome * ramp * groveWaterFactor(g.pos.x, g.pos.z);
   }
+  /* What the groves WOULD pay with a full water table, so the HUD can show the
+     player what the pumps are costing them instead of silently editing income. */
+  G.waterTax = groveFull > 0.01 ? 1 - groveYield / groveFull : 0;
   G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
 

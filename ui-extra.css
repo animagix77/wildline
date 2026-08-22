@@ -751,3 +751,6 @@
 .sp-cmark{ font-size:15px; letter-spacing:7px; font-weight:700; color:#cfe3c9;
   margin-bottom:26px; text-shadow:0 2px 12px rgba(0,0,0,.8); }
 .sp-cmark i{ font-style:normal; color:var(--leaf); opacity:.8; }
+.sub .drag, #biorate .drag{ color:#ff9a6a; font-weight:700; margin-left:3px; }
+#waterres.low #waterlvl{ color:#ffc46a; }
+#waterres.dry #waterlvl{ color:#ff7a5c; }

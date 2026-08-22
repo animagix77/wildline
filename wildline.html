@@ -957,6 +957,9 @@ body.menu #comms{display:none!important}
 .sp-cmark{ font-size:15px; letter-spacing:7px; font-weight:700; color:#cfe3c9;
   margin-bottom:26px; text-shadow:0 2px 12px rgba(0,0,0,.8); }
 .sp-cmark i{ font-style:normal; color:var(--leaf); opacity:.8; }
+.sub .drag, #biorate .drag{ color:#ff9a6a; font-weight:700; margin-left:3px; }
+#waterres.low #waterlvl{ color:#ffc46a; }
+#waterres.dry #waterlvl{ color:#ff7a5c; }
 
 </style>
 </head>
@@ -1874,7 +1877,7 @@ const MAPS = {
     depots: [[56, -76], [56, -27]],
     core: { x: 58, z: -50 },
     weather: 'clear',
-    water: [{ x: -12, z: 34, r: 22, drain: 0.0055 }],
+    water: [{ x: -12, z: 34, r: 22, drain: 0.0013 }],
     pumps: [[32, -23]],
   },
 
@@ -1891,7 +1894,7 @@ const MAPS = {
     depots: [[45, -46]],
     core: { x: 62, z: -46 },
     weather: 'mist',
-    water: [{ x: -20, z: 30, r: 18, drain: 0.004 }],
+    water: [{ x: -20, z: 30, r: 18, drain: 0.0011 }],
     pumps: [[41, -36]],
   },
   'milltown': {
@@ -1906,7 +1909,7 @@ const MAPS = {
     depots: [[52, -72], [52, -36]],
     core: { x: 52, z: -54 },
     weather: 'rain',
-    water: [{ x: -26, z: 38, r: 20, drain: 0.006 }, { x: 24, z: 40, r: 14, drain: 0.006 }],
+    water: [{ x: -26, z: 38, r: 20, drain: 0.0015 }, { x: 24, z: 40, r: 14, drain: 0.0015 }],
     pumps: [[26, -42], [70, -34]],
   },
 
@@ -1926,8 +1929,8 @@ const MAPS = {
     weather: 'mist',
     /* the fen IS the map: three shallow meres, drained fast, and four pumps.
        Ignore the water here and the economy is gone before the fourth sweep. */
-    water: [{ x: -30, z: 28, r: 24, drain: 0.010 }, { x: 10, z: 52, r: 18, drain: 0.010 },
-            { x: -58, z: -30, r: 20, drain: 0.010 }],
+    water: [{ x: -30, z: 28, r: 24, drain: 0.0028 }, { x: 10, z: 52, r: 18, drain: 0.0028 },
+            { x: -58, z: -30, r: 20, drain: 0.0028 }],
     pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
   },
   'substation-gary': {
@@ -1943,7 +1946,7 @@ const MAPS = {
     depots: [[58, -70], [62, -32]],
     core: { x: 58, z: -50 },
     weather: 'snow',
-    water: [{ x: -34, z: 40, r: 16, drain: 0.0035 }],
+    water: [{ x: -34, z: 40, r: 16, drain: 0.0010 }],
     pumps: [[44, -28]],
   },
 
@@ -1961,7 +1964,7 @@ const MAPS = {
     depots: [[42, -74], [62, -74], [52, -24]],
     core: { x: 52, z: -48 },
     weather: 'storm',
-    water: [{ x: -30, z: 34, r: 22, drain: 0.008 }],
+    water: [{ x: -30, z: 34, r: 22, drain: 0.0021 }],
     pumps: [[16, -24], [86, -24], [52, -76]],
   },
 
@@ -1979,7 +1982,7 @@ const MAPS = {
     depots: [[34, -76], [66, -76], [50, -18]],
     core: { x: 50, z: -44 },
     weather: 'storm',
-    water: [{ x: -36, z: 36, r: 20, drain: 0.007 }, { x: -70, z: -40, r: 16, drain: 0.007 }],
+    water: [{ x: -36, z: 36, r: 20, drain: 0.0018 }, { x: -70, z: -40, r: 16, drain: 0.0018 }],
     pumps: [[8, -16], [94, -16], [48, -74]],
   },
 };
@@ -2001,7 +2004,7 @@ MAPS['groundbreak'] = {
   depots: [[54, -68]],
   core: { x: 54, z: -48 },
   weather: 'rain',
-  water: [{ x: -22, z: 34, r: 20, drain: 0.005 }],
+  water: [{ x: -22, z: 34, r: 20, drain: 0.0013 }],
   pumps: [[36, -26]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
@@ -2019,7 +2022,7 @@ MAPS['pourhouse'] = {
   depots: [[50, -64], [32, -32]],
   core: { x: 56, z: -46 },
   weather: 'storm',
-  water: [{ x: -28, z: 36, r: 26, drain: 0.009 }, { x: 20, z: -70, r: 16, drain: 0.009 }],
+  water: [{ x: -28, z: 36, r: 26, drain: 0.0024 }, { x: 20, z: -70, r: 16, drain: 0.0024 }],
   pumps: [[32, -22], [80, -22]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
@@ -3127,6 +3130,7 @@ function disposeWeather() {
    what actually sells water at this camera angle.
    ========================================================================= */
 
+const REFILL = 0.9;      // recovery rate as a fraction of the drain rate
 const REFLECT_SIZE = 512;
 
 let lakes = [];
@@ -3210,7 +3214,7 @@ function initWater(scene, defs) {
     return {
       x: d.x, z: d.z, r: d.r, y: mesh.position.y,
       level: 1, mesh, uni,
-      baseDrain: d.drain !== undefined ? d.drain : 0.006,   // level units per second
+      baseDrain: d.drain !== undefined ? d.drain : 0.0016,  // level units per second
       warned: {},
     };
   });
@@ -3218,11 +3222,30 @@ function initWater(scene, defs) {
   return lakes;
 }
 
-/* Intake pumps still standing decide how fast the water goes. */
+/* Intake pumps still standing decide how fast the water goes — and beavers
+   sitting on them decide how well those pumps work. The Beaver's card has
+   always promised "every beaver on a pump slows the drain"; until now that was
+   a blurb with no code behind it. */
+const DAM_RADIUS = 9;
+const DAM_PER_BEAVER = 0.18;
+const DAM_FLOOR = 0.15;          // a dammed pump still trickles
+
 function activeDraw() {
   if (!G.pumps || !G.pumps.length) return 1;
-  const alive = G.pumps.filter(p => p.alive).length;
-  return alive / G.pumps.length;
+  let total = 0, live = 0;
+  for (const p of G.pumps) {
+    total++;
+    if (!p.alive) continue;
+    let dams = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.type !== 'beaver') continue;
+      const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z;
+      if (dx * dx + dz * dz < DAM_RADIUS * DAM_RADIUS) dams++;
+    }
+    live += Math.max(DAM_FLOOR, 1 - dams * DAM_PER_BEAVER);
+  }
+  G.dammed = total - live;                     // for the HUD
+  return total ? live / total : 1;
 }
 
 function updateWater(dt) {
@@ -3232,13 +3255,17 @@ function updateWater(dt) {
 
   for (const L of lakes) {
     L.uni.uTime.value += dt;
-    if (draw > 0 && L.level > 0) {
-      L.level = clamp(L.level - L.baseDrain * draw * dt, 0, 1);
+    /* Net flow, not an either/or. The old rule only refilled when EVERY pump
+       was dead, so killing three of four changed nothing the player could see.
+       Now each pump you break (or dam) shifts the balance, and at roughly half
+       the intakes down the lake holds steady — a visible, earnable stalemate. */
+    const flow = L.baseDrain * (draw - REFILL * (1 - draw));
+    if (flow !== 0) {
+      L.level = clamp(L.level - flow * dt, 0, 1);
       L.uni.uLevel.value = L.level;
-    } else if (draw === 0 && L.level < 1) {
-      // pumps gone: the water table recovers, slowly
-      L.level = clamp(L.level + L.baseDrain * 0.35 * dt, 0, 1);
-      L.uni.uLevel.value = L.level;
+      /* let the warnings re-arm on the way back up, so a lake you fought for
+         and then lost again still tells you about it */
+      if (flow < 0) for (const k in L.warned) if (L.level > +k + 0.08) L.warned[k] = false;
     }
     for (const [mark, msg] of [[0.6, 'is dropping'], [0.3, 'is nearly gone'], [0.02, 'has run dry']]) {
       if (L.level <= mark && !L.warned[mark]) {
@@ -3267,7 +3294,7 @@ function groveWaterFactor(x, z) {
     if (share > best) { best = share; lvl = L.level; }
   }
   if (best <= 0) return 1;                       // outside any catchment: unaffected
-  return 1 - best * (1 - (0.35 + 0.65 * lvl));   // full lake = 1.0, dry = 0.35 at the centre
+  return 1 - best * (1 - (0.5 + 0.5 * lvl));     // full lake = 1.0, dry = 0.5 at the centre
 }
 
 
@@ -9358,14 +9385,18 @@ function updateWorld(dt) {
   /* --- income --- */
   /* Each bloomed grove pays according to the water table beneath it, so letting
      the lakes drain is a slow, visible, entirely non-random economic defeat. */
-  let groveYield = 0;
+  let groveYield = 0, groveFull = 0;
   for (const g of G.groves) if (g.owned) {
     /* A fresh grove pays out as it wakes: 30% at bloom, full after 25s. Instant
        full yield made three fast uncontested captures a 15x income spike in the
        first minute, and the whole early game collapsed into a scripted rush. */
     const ramp = 0.3 + 0.7 * Math.min(1, (G.time - (g.bloomAt || 0)) / 25);
+    groveFull  += RULES.grovIncome * ramp;
     groveYield += RULES.grovIncome * ramp * groveWaterFactor(g.pos.x, g.pos.z);
   }
+  /* What the groves WOULD pay with a full water table, so the HUD can show the
+     player what the pumps are costing them instead of silently editing income. */
+  G.waterTax = groveFull > 0.01 ? 1 - groveYield / groveFull : 0;
   G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
 
@@ -11369,7 +11400,12 @@ function initHUD() {
 
 function updateHUD() {
   el('biomass').textContent = Math.floor(G.biomass);
-  el('biorate').textContent = `+${G.income.toFixed(1)}/s`;
+  /* Income alone never explained itself. If the pumps are costing you yield,
+     say so on the number they are costing. */
+  const tax = G.waterTax || 0;
+  el('biorate').innerHTML = tax > 0.02
+    ? `+${G.income.toFixed(1)}/s <b class="drag">-${Math.round(tax * 100)}%</b>`
+    : `+${G.income.toFixed(1)}/s`;
   el('pop').innerHTML = `${G.pop}<span class="slash">/</span>${G.popCap}`;
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
@@ -11388,7 +11424,9 @@ function updateHUD() {
       wres.classList.toggle('dry', lv < 0.15);
       let n = 0;
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
-      el('watersub').textContent = n ? `${n} watered` : 'water';
+      const dammed = Math.round((G.dammed || 0) * 10) / 10;
+      el('watersub').textContent = dammed >= 0.5 ? `${dammed} pumps dammed`
+                                 : n ? `${n} watered` : 'water';
     }
   }
 

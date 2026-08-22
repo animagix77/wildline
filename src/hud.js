@@ -25,7 +25,12 @@ export function initHUD() {
 
 export function updateHUD() {
   el('biomass').textContent = Math.floor(G.biomass);
-  el('biorate').textContent = `+${G.income.toFixed(1)}/s`;
+  /* Income alone never explained itself. If the pumps are costing you yield,
+     say so on the number they are costing. */
+  const tax = G.waterTax || 0;
+  el('biorate').innerHTML = tax > 0.02
+    ? `+${G.income.toFixed(1)}/s <b class="drag">-${Math.round(tax * 100)}%</b>`
+    : `+${G.income.toFixed(1)}/s`;
   el('pop').innerHTML = `${G.pop}<span class="slash">/</span>${G.popCap}`;
   el('groves').innerHTML = `${G.bloomed || 0}<span class="slash">/</span>${G.groves.length}`;
   el('clock').textContent = fmt(G.time);
@@ -44,7 +49,9 @@ export function updateHUD() {
       wres.classList.toggle('dry', lv < 0.15);
       let n = 0;
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
-      el('watersub').textContent = n ? `${n} watered` : 'water';
+      const dammed = Math.round((G.dammed || 0) * 10) / 10;
+      el('watersub').textContent = dammed >= 0.5 ? `${dammed} pumps dammed`
+                                 : n ? `${n} watered` : 'water';
     }
   }
 
