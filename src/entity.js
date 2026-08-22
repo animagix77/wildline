@@ -572,6 +572,7 @@ export class Entity {
       muzzleFlash(_v2, this.def.projectile.color);
       fireProjectile(_v2.clone(), tgt, dmg, this.def.projectile, this);
       this.recoil = 1;
+      this.lastFiredAt = G.wallTime;   // fog reads this: shooters reveal themselves
       this.shotSfx();
     } else {
       applyDamage(tgt, dmg, this);
@@ -618,6 +619,7 @@ export class Entity {
           this.muzzlePoint(_v2);
           muzzleFlash(_v2, def.projectile.color);
           fireProjectile(_v2.clone(), this.target, def.dmg, def.projectile, this);
+          this.lastFiredAt = G.wallTime;
           this.shotSfx();
         }
       }

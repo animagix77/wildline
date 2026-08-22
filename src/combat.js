@@ -6,7 +6,7 @@ import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
 import { toast } from './ui.js';
-import { explode, chainExplosion, spiritWisp } from './vfx.js';
+import { explode, chainExplosion, spiritWisp, ripple } from './vfx.js';
 import { commsEvent } from './comms.js';
 
 /* ============================ PARTICLES ================================= */
@@ -146,9 +146,20 @@ function updateShots(dt) {
          dents boars/bears — which is what finally makes mixed comps matter. */
       const spl = s.attacker && s.attacker.alive && s.attacker.def.splash;
       if (spl) {
+        /* This shell bursts, and until now it did so INVISIBLY: every unit
+           inside the radius lost health with nothing on screen to explain it,
+           which reads as being shot by something that isn't there. The blast
+           now draws at its true radius and every unit it catches sparks, so
+           the area effect is something the player can see and play around. */
+        const ip = s.target.aimPoint();
+        ripple(ip, spl * 1.9, 0xffb15a);
+        burst(ip, 0xff9a4a, 9, 9, 0.45, 0.55);
         for (const o of G.entities) {
           if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
-          if (dist2D(o.pos, s.target.pos) < spl) applyDamage(o, s.dmg * 0.5, s.attacker);
+          if (dist2D(o.pos, s.target.pos) < spl) {
+            applyDamage(o, s.dmg * 0.5, s.attacker);
+            if (o.alive) burst(o.aimPoint(), 0xffb15a, 3, 5, 0.25, 0.4);
+          }
         }
       }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);

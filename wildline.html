@@ -1656,19 +1656,19 @@ const DEFS = {
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 2, vision: 24, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
+    armor: 2, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
+    armor: 7, vision: 25, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
     blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
   capybara: {
     name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
     hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
-    armor: 3, vision: 22, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    armor: 3, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
     /* Taunt biases enemy target selection toward this unit (see acquire()).
        Without it the capybara is merely tanky and the swarm still gets shot
        out from behind it; with it, putting capybaras in front is a real and
@@ -1702,7 +1702,7 @@ const DEFS = {
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
+    armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
     blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
@@ -7055,9 +7055,20 @@ function updateShots(dt) {
          dents boars/bears — which is what finally makes mixed comps matter. */
       const spl = s.attacker && s.attacker.alive && s.attacker.def.splash;
       if (spl) {
+        /* This shell bursts, and until now it did so INVISIBLY: every unit
+           inside the radius lost health with nothing on screen to explain it,
+           which reads as being shot by something that isn't there. The blast
+           now draws at its true radius and every unit it catches sparks, so
+           the area effect is something the player can see and play around. */
+        const ip = s.target.aimPoint();
+        ripple(ip, spl * 1.9, 0xffb15a);
+        burst(ip, 0xff9a4a, 9, 9, 0.45, 0.55);
         for (const o of G.entities) {
           if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
-          if (dist2D(o.pos, s.target.pos) < spl) applyDamage(o, s.dmg * 0.5, s.attacker);
+          if (dist2D(o.pos, s.target.pos) < spl) {
+            applyDamage(o, s.dmg * 0.5, s.attacker);
+            if (o.alive) burst(o.aimPoint(), 0xffb15a, 3, 5, 0.25, 0.4);
+          }
         }
       }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);
@@ -7742,6 +7753,7 @@ class Entity {
       muzzleFlash(_v2, this.def.projectile.color);
       fireProjectile(_v2.clone(), tgt, dmg, this.def.projectile, this);
       this.recoil = 1;
+      this.lastFiredAt = G.wallTime;   // fog reads this: shooters reveal themselves
       this.shotSfx();
     } else {
       applyDamage(tgt, dmg, this);
@@ -7788,6 +7800,7 @@ class Entity {
           this.muzzlePoint(_v2);
           muzzleFlash(_v2, def.projectile.color);
           fireProjectile(_v2.clone(), this.target, def.dmg, def.projectile, this);
+          this.lastFiredAt = G.wallTime;
           this.shotSfx();
         }
       }
@@ -8260,6 +8273,10 @@ function spawn(type, x, z, opts) {
    ========================================================================= */
 
 /* ------------------------------------------------------------- tuning -- */
+/* A shooter reveals a small patch around itself, big enough to draw it and
+   read its silhouette without lifting the fog off the whole compound. */
+const FIRING_REVEAL = 7;
+
 const GRID  = 128;
 const CELL  = WORLD / GRID;                 // 1.875 world units per cell
 const NCELL = GRID * GRID;
@@ -8579,8 +8596,22 @@ function recompute() {
   for (let n = 0; n < ents.length; n++) {
     const e = ents[n];
     if (!e.alive) continue;
-    if (e.team !== TEAM.WILD && !(e.type === 'grove' && e.owned)) continue;
-    stamp(e.pos.x, e.pos.z, viewRadius(e));
+    if (e.team === TEAM.WILD || (e.type === 'grove' && e.owned)) {
+      stamp(e.pos.x, e.pos.z, viewRadius(e));
+      continue;
+    }
+    /* MUZZLE FLASHES GIVE YOU AWAY.
+
+       A turret holds fire out to range + target radius + 2 = up to 24.7 units,
+       while a capybara or beaver sees 22. That gap is a dead zone where the
+       player is shot by something genuinely invisible — no amount of squinting
+       finds it, because it was never drawn. Rather than chase the arithmetic
+       every time a stat changes, make the rule absolute: anything shooting at
+       you is visible to you. */
+    if (e.team === TEAM.MACHINE && e.target && e.target.alive
+        && e.target.team === TEAM.WILD && G.wallTime - (e.lastFiredAt || -99) < 1.6) {
+      stamp(e.pos.x, e.pos.z, FIRING_REVEAL);
+    }
   }
 
   /* 3. Cells that were visible and no longer are start fading to the veil. */

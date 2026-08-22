@@ -51,6 +51,10 @@ import { terrainHeight } from './utils.js';
    ========================================================================= */
 
 /* ------------------------------------------------------------- tuning -- */
+/* A shooter reveals a small patch around itself, big enough to draw it and
+   read its silhouette without lifting the fog off the whole compound. */
+const FIRING_REVEAL = 7;
+
 const GRID  = 128;
 const CELL  = WORLD / GRID;                 // 1.875 world units per cell
 const NCELL = GRID * GRID;
@@ -370,8 +374,22 @@ function recompute() {
   for (let n = 0; n < ents.length; n++) {
     const e = ents[n];
     if (!e.alive) continue;
-    if (e.team !== TEAM.WILD && !(e.type === 'grove' && e.owned)) continue;
-    stamp(e.pos.x, e.pos.z, viewRadius(e));
+    if (e.team === TEAM.WILD || (e.type === 'grove' && e.owned)) {
+      stamp(e.pos.x, e.pos.z, viewRadius(e));
+      continue;
+    }
+    /* MUZZLE FLASHES GIVE YOU AWAY.
+
+       A turret holds fire out to range + target radius + 2 = up to 24.7 units,
+       while a capybara or beaver sees 22. That gap is a dead zone where the
+       player is shot by something genuinely invisible — no amount of squinting
+       finds it, because it was never drawn. Rather than chase the arithmetic
+       every time a stat changes, make the rule absolute: anything shooting at
+       you is visible to you. */
+    if (e.team === TEAM.MACHINE && e.target && e.target.alive
+        && e.target.team === TEAM.WILD && G.wallTime - (e.lastFiredAt || -99) < 1.6) {
+      stamp(e.pos.x, e.pos.z, FIRING_REVEAL);
+    }
   }
 
   /* 3. Cells that were visible and no longer are start fading to the veil. */

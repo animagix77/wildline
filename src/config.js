@@ -33,19 +33,19 @@ export const DEFS = {
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 2, vision: 24, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
+    armor: 2, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
     name: 'Bear', team: TEAM.WILD, icon: '🐻', key: 'C',
     hp: 380, dmg: 46, rate: 1.7, range: 3.4, speed: 5.6, radius: 1.7,
-    armor: 7, vision: 24, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
+    armor: 7, vision: 25, cost: 80, build: 10, pop: 4, siege: 2.2, death: 'topple',
     blurb: 'Siege. Double damage to structures. Four pop \u2014 that is four wolves you are not fielding.'
   },
   capybara: {
     name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
     hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
-    armor: 3, vision: 22, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    armor: 3, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
     /* Taunt biases enemy target selection toward this unit (see acquire()).
        Without it the capybara is merely tanky and the swarm still gets shot
        out from behind it; with it, putting capybaras in front is a real and
@@ -79,7 +79,7 @@ export const DEFS = {
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 22, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
+    armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
     blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
