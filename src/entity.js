@@ -5,7 +5,7 @@ import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
 import { fireProjectile, applyDamage, burst } from './combat.js';
 import { lakeAt } from './water.js';
-import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple } from './vfx.js';
+import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip } from './vfx.js';
 import { HALF } from './config.js';
 import { SFX } from './audio.js';
 
@@ -629,6 +629,21 @@ export class Entity {
   }
 
   /* ------------------------------------------------------- presentation -- */
+  /* A badly hurt animal leaves a trail. This is the informational half of the
+     blood: at 96 pop the health bars are a thicket and nobody reads them mid
+     fight, but "that one is dripping" is legible at a glance and at any zoom.
+     Only below a third health, so it marks the ones actually worth pulling out. */
+  bleed(dt) {
+    if (this.isBuilding || this.def.mech || !this.alive) return;
+    if (this.hp > this.maxHp * 0.34) return;
+    this._dripT = (this._dripT || rand(0, 0.6)) - dt;
+    if (this._dripT > 0) return;
+    this._dripT = rand(0.35, 0.9);
+    _v1.copy(this.pos); _v1.y += this.radius * 0.55;
+    _v1.x += rand(-0.3, 0.3); _v1.z += rand(-0.3, 0.3);
+    bloodDrip(_v1);
+  }
+
   /* Movement multiplier from standing on the Green. Machines get nothing from
      it -- the living ground is not theirs. */
   greenMult() {
@@ -728,6 +743,7 @@ export class Entity {
     this.regen(dt);
     this.drink(dt);
     this.mend(dt);
+    this.bleed(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {

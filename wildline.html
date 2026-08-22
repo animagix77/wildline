@@ -1715,7 +1715,7 @@ const DEFS = {
     projectile: { color: 0xffc85c, speed: 90, size: 0.16 },
   },
   drone: {
-    name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸',
+    name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸', mech: true,
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
     armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
@@ -6748,6 +6748,64 @@ function ripple(pos, r = 1.6, color = 0x8fe8ff) {
   push({ kind: 'ring', m, life: 0.7, r });
 }
 
+
+/* ------------------------------------------------------------- blood ----- */
+/* Deliberately stylised, not gore: small dark droplets that arc, land, and
+   stain. The game's key art is cartoon animals with acorns, so this is here to
+   read as impact and as INFORMATION -- at 96 pop the health bars are a thicket,
+   but a unit trailing red is legibly hurt from across the map.
+
+   It also does the faction split a favour: flesh sprays, machines spark. You
+   can tell what you are hitting without reading a name. */
+const BLOOD = [0x9c1420, 0x7d0f18, 0xb01c22];
+
+function bloodSpray(pos, dirX = 0, dirZ = 0, amount = 1) {
+  const n = Math.min(9, Math.round(3 + amount * 4));
+  for (let i = 0; i < n; i++) {
+    const m = alloc('blood', quadGeo, { side: THREE.DoubleSide });
+    m.material.color.setHex(BLOOD[(Math.random() * BLOOD.length) | 0]);
+    m.material.opacity = 0.95;
+    m.position.copy(pos);
+    const sz = rand(0.10, 0.26) * (0.7 + amount * 0.4);
+    m.scale.set(sz, sz, sz);
+    /* thrown along the blow, with spread — the direction the hit came FROM is
+       already tracked on the victim for knockback, so the spray agrees with it */
+    const spread = 1.5;
+    push({
+      kind: 'blood', m, life: rand(0.5, 1.1), settled: false,
+      vel: new THREE.Vector3(
+        dirX * rand(2, 6) + rand(-spread, spread),
+        rand(2.5, 6),
+        dirZ * rand(2, 6) + rand(-spread, spread)),
+      spin: rand(-9, 9),
+    });
+  }
+}
+
+/* Where something died. Stains stay a while, so a battlefield remembers. */
+function bloodPool(pos, r = 1.4) {
+  const m = alloc('blood-pool', discGeo, {});
+  m.material.color.setHex(0x5e0d13);
+  m.material.opacity = 0;
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.16 + rand(0, 0.04), pos.z);
+  m.scale.setScalar(r * 0.35);
+  push({ kind: 'blood-pool', m, life: 22, r });
+}
+
+/* A single drip from a wounded animal — see Entity.bleed(). */
+function bloodDrip(pos) {
+  const m = alloc('blood', quadGeo, { side: THREE.DoubleSide });
+  m.material.color.setHex(BLOOD[0]);
+  m.material.opacity = 0.9;
+  m.position.copy(pos);
+  const sz = rand(0.08, 0.15);
+  m.scale.set(sz, sz, sz);
+  push({ kind: 'blood', m, life: rand(0.7, 1.3), settled: false,
+    vel: new THREE.Vector3(rand(-0.5, 0.5), rand(0.4, 1.4), rand(-0.5, 0.5)),
+    spin: rand(-4, 4) });
+}
+
 /* ------------------------------------------------------------ headline --- */
 
 /**
@@ -6899,6 +6957,30 @@ function updateVFX(dt) {
         m.scale.setScalar(0.32 * (1 + age * 0.6));
         m.material.opacity = 0.8 * k;
         break;
+      case 'blood': {
+        if (!it.settled) {
+          it.vel.y -= dt * 22;
+          m.position.addScaledVector(it.vel, dt);
+          m.rotation.x += it.spin * dt; m.rotation.z += it.spin * 0.6 * dt;
+          const gy = terrainHeight(m.position.x, m.position.z) + 0.12;
+          if (m.position.y <= gy) {
+            /* it lands and becomes a splat: flat, still, and slightly wider */
+            m.position.y = gy;
+            m.rotation.set(-Math.PI / 2, 0, rand(0, 6.28));
+            m.scale.x *= 1.7; m.scale.y *= 1.7;
+            it.settled = true;
+          }
+        }
+        m.material.opacity = it.settled ? 0.85 * Math.min(1, k * 2.4) : 0.95 * Math.min(1, k * 3);
+        break;
+      }
+      case 'blood-pool': {
+        /* spreads quickly, then sits and dries */
+        const grow = Math.min(1, age * 6);
+        m.scale.setScalar(it.r * (0.35 + 0.65 * grow));
+        m.material.opacity = 0.55 * Math.min(1, k * 3.5);
+        break;
+      }
       case 'ember': {
         it.vel.y -= dt * 3.2;                 // embers arc over and sink
         it.vel.x *= 1 - dt * 0.8; it.vel.z *= 1 - dt * 0.8;
@@ -7128,10 +7210,16 @@ function applyDamage(target, amount, attacker) {
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */
   if (attacker && target.team !== TEAM.NEUTRAL && target.provoke) target.provoke(attacker);
-  /* three materials, three answers: a wall does not ring like a drone, and a
-     wolf does not ring at all */
-  if (target.team !== TEAM.MACHINE) SFX.bite(target.pos);
-  else if (def.wall || def.building) SFX.hitStone(target.pos);
+  /* Three materials, three answers: a wall does not ring like a drone, and a
+     wolf does not ring at all. Guards, technicians and Locals are PEOPLE — only
+     the drone is metal among the things that walk — so flesh is the rule and
+     machinery the exception. */
+  const flesh = !target.isBuilding && !def.mech;
+  if (flesh) {
+    SFX.bite(target.pos);
+    bloodSpray(target.aimPoint(), target.hitDirX, target.hitDirZ,
+               Math.min(1.6, dealt / Math.max(12, target.maxHp * 0.2)));
+  } else if (def.wall || def.building) SFX.hitStone(target.pos);
   else SFX.hitMetal(target.pos);
   if (target.hp <= 0) kill(target, attacker);
 }
@@ -7161,6 +7249,10 @@ function kill(e, killer) {
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
     SFX.death(e.pos);
+    if (!e.def.mech) {
+      bloodSpray(e.aimPoint(), e.hitDirX, e.hitDirZ, 1.6);
+      bloodPool(e.pos, 0.9 + e.def.radius * 0.8);
+    }
     /* Nothing that walks on legs detonates. A drone is a machine falling out of
        the sky — its explosion happens when it hits the ground (see updateCorpse).
        A guard is a person in a hi-vis vest: sparks off the gear, then they go
@@ -7810,6 +7902,21 @@ class Entity {
   }
 
   /* ------------------------------------------------------- presentation -- */
+  /* A badly hurt animal leaves a trail. This is the informational half of the
+     blood: at 96 pop the health bars are a thicket and nobody reads them mid
+     fight, but "that one is dripping" is legible at a glance and at any zoom.
+     Only below a third health, so it marks the ones actually worth pulling out. */
+  bleed(dt) {
+    if (this.isBuilding || this.def.mech || !this.alive) return;
+    if (this.hp > this.maxHp * 0.34) return;
+    this._dripT = (this._dripT || rand(0, 0.6)) - dt;
+    if (this._dripT > 0) return;
+    this._dripT = rand(0.35, 0.9);
+    _v1.copy(this.pos); _v1.y += this.radius * 0.55;
+    _v1.x += rand(-0.3, 0.3); _v1.z += rand(-0.3, 0.3);
+    bloodDrip(_v1);
+  }
+
   /* Movement multiplier from standing on the Green. Machines get nothing from
      it -- the living ground is not theirs. */
   greenMult() {
@@ -7909,6 +8016,7 @@ class Entity {
     this.regen(dt);
     this.drink(dt);
     this.mend(dt);
+    this.bleed(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
     if (this.flying) {

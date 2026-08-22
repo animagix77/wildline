@@ -263,6 +263,64 @@ export function ripple(pos, r = 1.6, color = 0x8fe8ff) {
   push({ kind: 'ring', m, life: 0.7, r });
 }
 
+
+/* ------------------------------------------------------------- blood ----- */
+/* Deliberately stylised, not gore: small dark droplets that arc, land, and
+   stain. The game's key art is cartoon animals with acorns, so this is here to
+   read as impact and as INFORMATION -- at 96 pop the health bars are a thicket,
+   but a unit trailing red is legibly hurt from across the map.
+
+   It also does the faction split a favour: flesh sprays, machines spark. You
+   can tell what you are hitting without reading a name. */
+const BLOOD = [0x9c1420, 0x7d0f18, 0xb01c22];
+
+export function bloodSpray(pos, dirX = 0, dirZ = 0, amount = 1) {
+  const n = Math.min(9, Math.round(3 + amount * 4));
+  for (let i = 0; i < n; i++) {
+    const m = alloc('blood', quadGeo, { side: THREE.DoubleSide });
+    m.material.color.setHex(BLOOD[(Math.random() * BLOOD.length) | 0]);
+    m.material.opacity = 0.95;
+    m.position.copy(pos);
+    const sz = rand(0.10, 0.26) * (0.7 + amount * 0.4);
+    m.scale.set(sz, sz, sz);
+    /* thrown along the blow, with spread — the direction the hit came FROM is
+       already tracked on the victim for knockback, so the spray agrees with it */
+    const spread = 1.5;
+    push({
+      kind: 'blood', m, life: rand(0.5, 1.1), settled: false,
+      vel: new THREE.Vector3(
+        dirX * rand(2, 6) + rand(-spread, spread),
+        rand(2.5, 6),
+        dirZ * rand(2, 6) + rand(-spread, spread)),
+      spin: rand(-9, 9),
+    });
+  }
+}
+
+/* Where something died. Stains stay a while, so a battlefield remembers. */
+export function bloodPool(pos, r = 1.4) {
+  const m = alloc('blood-pool', discGeo, {});
+  m.material.color.setHex(0x5e0d13);
+  m.material.opacity = 0;
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.16 + rand(0, 0.04), pos.z);
+  m.scale.setScalar(r * 0.35);
+  push({ kind: 'blood-pool', m, life: 22, r });
+}
+
+/* A single drip from a wounded animal — see Entity.bleed(). */
+export function bloodDrip(pos) {
+  const m = alloc('blood', quadGeo, { side: THREE.DoubleSide });
+  m.material.color.setHex(BLOOD[0]);
+  m.material.opacity = 0.9;
+  m.position.copy(pos);
+  const sz = rand(0.08, 0.15);
+  m.scale.set(sz, sz, sz);
+  push({ kind: 'blood', m, life: rand(0.7, 1.3), settled: false,
+    vel: new THREE.Vector3(rand(-0.5, 0.5), rand(0.4, 1.4), rand(-0.5, 0.5)),
+    spin: rand(-4, 4) });
+}
+
 /* ------------------------------------------------------------ headline --- */
 
 /**
@@ -414,6 +472,30 @@ export function updateVFX(dt) {
         m.scale.setScalar(0.32 * (1 + age * 0.6));
         m.material.opacity = 0.8 * k;
         break;
+      case 'blood': {
+        if (!it.settled) {
+          it.vel.y -= dt * 22;
+          m.position.addScaledVector(it.vel, dt);
+          m.rotation.x += it.spin * dt; m.rotation.z += it.spin * 0.6 * dt;
+          const gy = terrainHeight(m.position.x, m.position.z) + 0.12;
+          if (m.position.y <= gy) {
+            /* it lands and becomes a splat: flat, still, and slightly wider */
+            m.position.y = gy;
+            m.rotation.set(-Math.PI / 2, 0, rand(0, 6.28));
+            m.scale.x *= 1.7; m.scale.y *= 1.7;
+            it.settled = true;
+          }
+        }
+        m.material.opacity = it.settled ? 0.85 * Math.min(1, k * 2.4) : 0.95 * Math.min(1, k * 3);
+        break;
+      }
+      case 'blood-pool': {
+        /* spreads quickly, then sits and dries */
+        const grow = Math.min(1, age * 6);
+        m.scale.setScalar(it.r * (0.35 + 0.65 * grow));
+        m.material.opacity = 0.55 * Math.min(1, k * 3.5);
+        break;
+      }
       case 'ember': {
         it.vel.y -= dt * 3.2;                 // embers arc over and sink
         it.vel.x *= 1 - dt * 0.8; it.vel.z *= 1 - dt * 0.8;

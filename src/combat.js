@@ -6,7 +6,7 @@ import { SFX } from './audio.js';
 import { TEAM } from './config.js';
 import { addScore } from './score.js';
 import { toast } from './ui.js';
-import { explode, chainExplosion, spiritWisp, ripple } from './vfx.js';
+import { explode, chainExplosion, spiritWisp, ripple, bloodSpray, bloodPool } from './vfx.js';
 import { commsEvent } from './comms.js';
 
 /* ============================ PARTICLES ================================= */
@@ -219,10 +219,16 @@ export function applyDamage(target, amount, attacker) {
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */
   if (attacker && target.team !== TEAM.NEUTRAL && target.provoke) target.provoke(attacker);
-  /* three materials, three answers: a wall does not ring like a drone, and a
-     wolf does not ring at all */
-  if (target.team !== TEAM.MACHINE) SFX.bite(target.pos);
-  else if (def.wall || def.building) SFX.hitStone(target.pos);
+  /* Three materials, three answers: a wall does not ring like a drone, and a
+     wolf does not ring at all. Guards, technicians and Locals are PEOPLE — only
+     the drone is metal among the things that walk — so flesh is the rule and
+     machinery the exception. */
+  const flesh = !target.isBuilding && !def.mech;
+  if (flesh) {
+    SFX.bite(target.pos);
+    bloodSpray(target.aimPoint(), target.hitDirX, target.hitDirZ,
+               Math.min(1.6, dealt / Math.max(12, target.maxHp * 0.2)));
+  } else if (def.wall || def.building) SFX.hitStone(target.pos);
   else SFX.hitMetal(target.pos);
   if (target.hp <= 0) kill(target, attacker);
 }
@@ -252,6 +258,10 @@ export function kill(e, killer) {
     if (e.type === 'hearttree') chainExplosion(e.pos, e.def.radius, 4, 1.1, { nature: true });
   } else {
     SFX.death(e.pos);
+    if (!e.def.mech) {
+      bloodSpray(e.aimPoint(), e.hitDirX, e.hitDirZ, 1.6);
+      bloodPool(e.pos, 0.9 + e.def.radius * 0.8);
+    }
     /* Nothing that walks on legs detonates. A drone is a machine falling out of
        the sky — its explosion happens when it hits the ground (see updateCorpse).
        A guard is a person in a hi-vis vest: sparks off the gear, then they go

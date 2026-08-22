@@ -92,7 +92,7 @@ export const DEFS = {
     projectile: { color: 0xffc85c, speed: 90, size: 0.16 },
   },
   drone: {
-    name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸',
+    name: 'Patrol Drone', team: TEAM.MACHINE, icon: '🛸', mech: true,
     hp: 75, dmg: 8, rate: 0.40, range: 15, speed: 12, radius: 0.85,
     armor: 0, vision: 32, ranged: true, flying: true, pop: 1, death: 'fall',
     projectile: { color: 0x59e5ff, speed: 95, size: 0.14 },
