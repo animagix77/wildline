@@ -76,16 +76,31 @@ export function updateAI(dt) {
   }
 }
 
-/* Raiders go for whatever hurts the player most: a bloomed grove, else the tree */
-function raidTarget() {
-  const owned = G.groves.filter(g => g.owned);
-  if (owned.length) {
-    let best = owned[0], bd = 1e9;
-    for (const g of owned) {
-      const d = dist2D(g.pos, { x: COMPOUND.x, z: COMPOUND.z });
-      if (d < bd) { bd = d; best = g; }
+/* Where a sweep goes, and it is the most important function in the file.
+
+   It used to send every raider to the owned grove NEAREST THE COMPOUND, and
+   only remember the Heart Tree when the player held zero groves. The effect,
+   measured: at wave 5 the nearest surviving raider was 115m from a base at full
+   health. Holding a single grove made you structurally invulnerable, so the
+   game had two states — untouchable, or already dead — and no middle. Every
+   promise the HUD makes (the countdown, the minimap pulse, "10 guards, 3 drones
+   inbound") was a lie, because they were walking to a grove and dying there.
+
+   A sweep now SPLITS: the outriders still take the nearest grove, and the main
+   body goes for the Heart Tree. That single change is what turns "when am I big
+   enough to attack" into "can I afford to leave", which is the decision this
+   whole design has been reaching for. */
+function raidTarget(forHome) {
+  if (!forHome) {
+    const owned = G.groves.filter(g => g.owned);
+    if (owned.length) {
+      let best = owned[0], bd = 1e9;
+      for (const g of owned) {
+        const d = dist2D(g.pos, { x: COMPOUND.x, z: COMPOUND.z });
+        if (d < bd) { bd = d; best = g; }
+      }
+      return best.pos;
     }
-    return best.pos;
   }
   if (G.heart.alive) return G.heart.pos;
   return null;
@@ -117,8 +132,11 @@ function launchWave() {
      wave 20 identical, and a 96-pop turtle measured ZERO heart damage across 20
      waves — the sweeps simply could not scale to the new swarm cap. Past wave 8
      the caps lift 2 guards + 1 drone per wave, forever. */
-  let guards = Math.min(20 + Math.max(0, n - 8) * 2, 3 + n + Math.max(0, n - 4) * 2);
-  let drones = Math.min(10 + Math.max(0, n - 8), 1 + Math.floor(n / 2) + Math.max(0, n - 5));
+  /* Pulled forward. The old curve (~4.5n-9) needed wave 11, t~1175s, to field
+     40 units — matches end at 6-11 minutes, so the escalation the comment above
+     promises arrived roughly twice as late as anyone actually plays. */
+  let guards = Math.min(24 + Math.max(0, n - 6) * 3, 5 + n * 2 + Math.max(0, n - 3) * 3);
+  let drones = Math.min(12 + Math.max(0, n - 6), 1 + n + Math.max(0, n - 4));
   if (guards + drones > surgeRoom) {
     const k = surgeRoom / (guards + drones);
     // floor the sweep at a real threat: the title screen promises escalation, and a
@@ -133,15 +151,34 @@ function launchWave() {
   for (let i = 0; i < drones; i++)
     made.push(spawn('drone', gate.x + rand(-12, 12), gate.z + rand(-12, 12)));
 
-  const t = raidTarget();
-  for (const e of made) {
+  /* Two thirds of the sweep goes for the base, the rest peels off to whatever
+     grove is closest to home. The player can no longer be safe by simply owning
+     ground; they have to decide what to leave behind. */
+  const home = raidTarget(true);
+  const grove = raidTarget(false);
+  let toHome = 0;
+  for (let i = 0; i < made.length; i++) {
+    const e = made[i];
     e.mission = 'raid';
-    if (t) e.setOrder('attackmove', t);
+    const goHome = (i % 3) !== 2 || !grove || grove === home;
+    if (goHome) {
+      /* A strike group has to COMMIT. On attackmove they stopped for every wolf
+         and grove between the compound and the base and died in the middle of
+         the map: measured, the closest raider of a sweep got 57m from a Heart
+         Tree it never touched. Targeting the tree directly means they beeline
+         and only break off for whatever physically blocks them (provoke() still
+         gives a 4s retaliation window, so they are not immune to being
+         intercepted — they just no longer wander off to fight a grove). */
+      toHome++;
+      if (G.heart.alive) e.setOrder('attack', G.heart.pos, G.heart);
+      else if (home) e.setOrder('attackmove', home);
+    } else if (grove) e.setOrder('attackmove', grove);
   }
   SFX.alarm();
   musicStinger('attack');   // 30s of panic strings over the ducked bed
   commsEvent('sweep', 0.5);
-  toast(`SECURITY SWEEP ${n} — ${guards} guards, ${drones} drones inbound`, 'warn');
+  toast(`SECURITY SWEEP ${n} — ${guards} guards, ${drones} drones inbound`
+        + (toHome ? ' · HEADING FOR THE HEART TREE' : ''), 'warn');
 }
 
 /* Live Overgrowth patches, pruned once their filaments have died back. */
