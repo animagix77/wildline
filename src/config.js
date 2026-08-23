@@ -117,6 +117,16 @@ export const DEFS = {
     name: 'Intake Pump', team: TEAM.MACHINE, icon: '🚱',
     hp: 520, radius: 3.4, armor: 3, building: true, pump: true,
   },
+  generator: {
+    name: 'Generator Bank', team: TEAM.MACHINE, icon: '⚡',
+    hp: 700, radius: 3.6, armor: 3, building: true, powers: true,
+    blurb: 'Everything with a barrel on this campus runs off these. Cut the power and the guns go quiet.'
+  },
+  well: {
+    name: 'Deep Well', team: TEAM.MACHINE, icon: '🕳',
+    hp: 480, radius: 2.8, armor: 2, building: true, well: true,
+    blurb: 'Groundwater. It keeps pulling long after you have smashed every intake on the surface.'
+  },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
     hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,

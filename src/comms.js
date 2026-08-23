@@ -39,6 +39,11 @@ const LINES = {
     'A section of our perimeter has embraced open-plan.',
     'That wall was scheduled for demolition anyway. By us. Later.',
   ],
+  power: [
+    'A brownout is affecting the west wing. And the guns. Mostly the guns.',
+    'We are operating on emergency lighting and corporate optimism.',
+    'Facilities confirms the generators were, in hindsight, load-bearing.',
+  ],
   turret: [
     'We are aware of reports of a tower-shaped outage.',
     'A sentry unit has transitioned to horizontal deployment.',

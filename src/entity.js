@@ -58,6 +58,7 @@ export class Entity {
     this.radius = def.radius;
     this.flying = !!def.flying;
     this.isBuilding = !!def.building;
+    this.needsPower = this.type === 'turret';   // see updateBuilding
     this.alive = true;
     this.cooldown = 0;          // seeded from the id once addEntity has assigned one
     this.target = null;
@@ -607,6 +608,18 @@ export class Entity {
   /* ------------------------------------------------- building behaviour -- */
   updateBuilding(dt) {
     const def = this.def;
+    /* No power, no guns. This is the swarm's way past a gun line it cannot
+       out-trade: find the generators instead of feeding wolves to the turrets.
+       Deliberately absolute rather than a slowdown, because "the turrets are
+       off" is a thing a player can SEE and act on, and a 40%-rate turret is
+       just a turret. */
+    if (def.ranged && this.needsPower && !G.powered) {
+      this.target = null;
+      if (this.anim && this.anim.glow) this.anim.glow.visible = false;
+      burnTick(this, dt);
+      return;
+    }
+    if (this.needsPower && this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
       if (this.target && !this.target.alive) this.target = null;
       if (!this.target) this.target = acquire(this);

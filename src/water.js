@@ -126,9 +126,22 @@ const DAM_PER_BEAVER = 0.18;
 const DAM_FLOOR = 0.15;          // a dammed pump still trickles
 
 function activeDraw() {
-  if (!G.pumps || !G.pumps.length) return 1;
-  let total = 0, live = 0;
-  for (const p of G.pumps) {
+  /* Wells draw groundwater and count alongside the surface intakes, which is
+     the point of them: smashing every pump on the map no longer guarantees the
+     water comes back. They cannot be dammed either — there is no surface
+     intake for a beaver to sit on. */
+  /* A well counts double. Measured at parity it sustained only 5% of the drain
+     once the pumps were gone — the refill all but cancelled it, so the "backup
+     supply" was a backup in name only. At weight 2 a surviving well holds
+     roughly a third of the draw: the water still leaves, slower, and capping it
+     is a real second objective rather than a formality. */
+  const WELL_WEIGHT = 2;
+  const wells = (G.wells || []).filter(w => w.alive).length * WELL_WEIGHT;
+  const wellCap = (G.wells || []).length * WELL_WEIGHT;
+  const pumps = G.pumps || [];
+  if (!pumps.length && !wellCap) return 1;
+  let total = wellCap, live = wells;
+  for (const p of pumps) {
     total++;
     if (!p.alive) continue;
     let dams = 0;

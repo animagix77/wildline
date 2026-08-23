@@ -30,6 +30,8 @@ export const MAPS = {
     weather: 'clear',
     water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
+    generators: [[75, -80]],
+    wells: [[20, -48]],
   },
 
   /* ------------------------------------------------------- tier 1 sites -- */
@@ -47,6 +49,8 @@ export const MAPS = {
     weather: 'mist',
     water: [{ x: -20, z: 30, r: 18, drain: 0.0022 }],
     pumps: [[41, -36]],
+    generators: [[88, -44]],
+    wells: [[35, -68]],
   },
   'milltown': {
     id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
@@ -62,6 +66,8 @@ export const MAPS = {
     weather: 'rain',
     water: [{ x: -26, z: 38, r: 20, drain: 0.0030 }, { x: 24, z: 40, r: 14, drain: 0.0030 }],
     pumps: [[26, -42], [70, -34]],
+    generators: [[20, -58], [66, -80]],
+    wells: [[84, -63]],
   },
 
   /* ------------------------------------------------------- tier 2 sites -- */
@@ -83,6 +89,8 @@ export const MAPS = {
     water: [{ x: -30, z: 28, r: 24, drain: 0.0050 }, { x: 10, z: 52, r: 18, drain: 0.0050 },
             { x: -58, z: -30, r: 20, drain: 0.0050 }],
     pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
+    generators: [[19, -47], [65, -65]],
+    wells: [[35, -46], [67, -18]],
   },
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
@@ -99,6 +107,8 @@ export const MAPS = {
     weather: 'snow',
     water: [{ x: -34, z: 40, r: 16, drain: 0.0020 }],
     pumps: [[44, -28]],
+    generators: [[24, -50], [42, -78]],
+    wells: [[76, -78]],
   },
 
   /* ------------------------------------------------------- tier 3 site --- */
@@ -117,6 +127,8 @@ export const MAPS = {
     weather: 'storm',
     water: [{ x: -30, z: 34, r: 22, drain: 0.0040 }],
     pumps: [[16, -24], [86, -24], [52, -76]],
+    generators: [[30, -15], [30, -49]],
+    wells: [[87, -65], [9, -46]],
   },
 
   /* ---------------------------------------------------- the stronghold --- */
@@ -135,6 +147,8 @@ export const MAPS = {
     weather: 'storm',
     water: [{ x: -36, z: 36, r: 20, drain: 0.0035 }, { x: -70, z: -40, r: 16, drain: 0.0035 }],
     pumps: [[8, -16], [94, -16], [48, -74]],
+    generators: [[23, -7], [93, -65], [21, -40]],
+    wells: [[73, -6], [73, -50]],
   },
 };
 
@@ -157,6 +171,8 @@ MAPS['groundbreak'] = {
   weather: 'rain',
   water: [{ x: -22, z: 34, r: 20, drain: 0.0026 }],
   pumps: [[36, -26]],
+    generators: [[87, -48]],
+    wells: [[24, -45]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
 
@@ -175,13 +191,15 @@ MAPS['pourhouse'] = {
   weather: 'storm',
   water: [{ x: -28, z: 36, r: 26, drain: 0.0045 }, { x: 20, z: -70, r: 16, drain: 0.0045 }],
   pumps: [[32, -22], [80, -22]],
+    generators: [[79, -42], [94, -75]],
+    wells: [[21, -75]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
 export const DEFAULT_MAP = 'verdant-hollow';
 
 /* Structure radii, mirrored from config so this stays a pure data check. */
-const R = { core: 9, depot: 5.5, coolant: 4.6, turret: 2.2, pump: 3.4 };
+const R = { core: 9, depot: 5.5, coolant: 4.6, turret: 2.2, pump: 3.4, generator: 5.4, well: 4.2 };
 
 /* Every authored structure must clear every other one and sit inside its own
    perimeter. The Core used to be a hard-coded literal and quietly overlapped a
@@ -196,6 +214,8 @@ export function validateMap(m) {
   (m.coolants || []).forEach(([x, z]) => push('coolant', x, z));
   (m.turrets || []).forEach(([x, z]) => push('turret', x, z));
   (m.pumps || []).forEach(([x, z]) => push('pump', x, z));
+  (m.generators || []).forEach(([x, z]) => push('generator', x, z));
+  (m.wells || []).forEach(([x, z]) => push('well', x, z));
   const bad = [];
   for (let i = 0; i < items.length; i++) {
     const a = items[i];

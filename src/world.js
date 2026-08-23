@@ -325,6 +325,34 @@ export function populate() {
     return p;
   });
 
+  /* Generators. The compound's gun line runs off these, so a swarm that cannot
+     out-trade a turret has a second route: cut the power and walk in. */
+  G.generators = (layout().generators || []).map(([x, z]) => {
+    const g = spawn('generator', x, z);
+    g.onDeath = () => {
+      const left = G.generators.filter(q => q.alive).length;
+      commsEvent(left ? 'turret' : 'power', 0.9);
+      toast(left ? `Generator down — ${left} still feeding the guns`
+                 : 'THE POWER IS OUT — the turrets are dark', 'warn');
+      if (!left) SFX.shieldDown();
+    };
+    G.obstacles.push(g);
+    return g;
+  });
+
+  /* Deep wells. Groundwater, so they keep drawing after every surface intake
+     is scrap — the reason killing pumps is not automatically the whole answer
+     to the water. */
+  G.wells = (layout().wells || []).map(([x, z]) => {
+    const w = spawn('well', x, z);
+    w.onDeath = () => {
+      commsEvent('water', 0.8);
+      toast('A deep well is capped');
+    };
+    G.obstacles.push(w);
+    return w;
+  });
+
   /* A site caught mid-build finishes on a clock if you let it. */
   const con = layout().construction;
   if (con) {
@@ -497,6 +525,11 @@ export function updateWorld(dt) {
   G.waterTax = groveFull > 0.01 ? 1 - groveYield / groveFull : 0;
   G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
+
+  /* A compound with no generators listed has always been powered — the flag has
+     to default true or every legacy map loses its guns. */
+  G.powered = !G.generators || !G.generators.length
+    || G.generators.some(g => g.alive);
 
   /* --- construction clock --- */
   if (G.construction && !G.construction.done) {

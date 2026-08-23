@@ -449,6 +449,69 @@ export const buildTech = () => {
   return g;
 };
 
+/* Generator bank: transformer drums, a hard cage, and a live-current glow that
+   goes out with the power. Wide and low so it reads as infrastructure rather
+   than a weapon, because it is a target, not a threat. */
+export const buildGenerator = () => {
+  const g = new THREE.Group();
+  const STEEL = 0x555f6b, DARK = 0x24292f, COPPER = 0x9a6b33;
+
+  const base = mergeParts([
+    pBox(DARK, 7.0, 0.7, 4.6, 0, 0.35, 0),
+    pBox(STEEL, 6.2, 1.9, 3.9, 0, 1.5, 0),
+  ], VC_MAT_METAL);
+  base.castShadow = base.receiveShadow = true;
+  g.add(base);
+
+  /* three transformer drums with cooling fins */
+  for (let i = -1; i <= 1; i++) {
+    const drum = mergeParts([
+      pCyl(STEEL, 0.95, 2.5, 0, 0, 0),
+      pCyl(DARK, 1.08, 0.22, 0, 1.0, 0),
+      pCyl(DARK, 1.08, 0.22, 0, 0.4, 0),
+      pBox(COPPER, 0.3, 0.5, 0.3, 0, 1.45, 0),
+    ], VC_MAT_METAL);
+    drum.position.set(i * 2.0, 3.4, 0);
+    drum.castShadow = true;
+    g.add(drum);
+  }
+
+  /* the tell: current arcing between the drums, hidden when the bank is dead */
+  const glow = mergeParts([
+    pBox(0x59e5ff, 3.9, 0.10, 0.10, 0, 0, 0),
+    pBox(0x59e5ff, 0.10, 0.10, 2.6, 0, 0, 0),
+  ], VC_GLOW);
+  glow.position.set(0, 4.7, 0);
+  g.add(glow);
+
+  g.userData.anim = { kind: 'generator', glow };
+  return g;
+};
+
+/* Deep well: a capped bore with a pump head. Small, unglamorous, and easy to
+   walk past — which is the joke, because it outlasts every intake you smash. */
+export const buildWell = () => {
+  const g = new THREE.Group();
+  const STONE = 0x6b6f74, DARK = 0x2a2f35, PIPE = 0x4b5560;
+
+  const body = mergeParts([
+    pCyl(STONE, 2.2, 1.5, 0, 0.75, 0),
+    pCyl(DARK, 1.8, 0.25, 0, 1.6, 0),
+    pBox(PIPE, 0.6, 3.2, 0.6, 0, 3.0, 0),
+    pBox(PIPE, 2.4, 0.5, 0.5, 0.6, 4.4, 0),
+    pCyl(DARK, 0.42, 1.4, 1.6, 3.9, 0),
+  ], VC_MAT_METAL);
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+
+  const glow = mergeParts([pCyl(0x39d7ea, 1.5, 0.10, 0, 0, 0)], VC_GLOW);
+  glow.position.set(0, 1.75, 0);
+  g.add(glow);
+
+  g.userData.anim = { kind: 'well', glow };
+  return g;
+};
+
 export const buildTurret = () => {
   const g = new THREE.Group();
   const STEEL = 0x5d6773, DARK = 0x2b3038;
@@ -956,6 +1019,7 @@ export const BUILDERS = {
   turret: () => cached('turret', buildTurret),
   // one-offs, or (grove) needing genuinely per-instance materials
   depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
+  generator: buildGenerator, well: buildWell,
   porcupine: () => cached('porcupine', buildPorcupine),
   beaver: () => cached('beaver', buildBeaver),
   capybara: () => cached('capybara', buildCapybara),

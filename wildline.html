@@ -1169,6 +1169,8 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
               whenever they are not fighting.</li>
           <li>Turrets shred massed wolves. Put <b>Capybaras</b> in front &mdash; the
               guns would rather shoot them, and they can take it.</li>
+          <li>Or take the power away: every turret runs off the
+              <b>Generator Banks</b>. Kill them all and the guns go dark.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
               back together behind you.</li>
         </ul>
@@ -1183,6 +1185,9 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
               Green rate <em>anywhere</em>. Fuller lake, longer buff.</li>
           <li><b>Beavers</b> standing on a pump dam it and slow the drain. Break
               the pump outright and the lake refills.</li>
+          <li><b>Deep Wells</b> pull groundwater. They cannot be dammed, and one
+              alone holds a third of the drain &mdash; smashing every surface
+              intake is not the whole answer.</li>
           <li>Watch the <b>water %</b> and the <b>−%</b> on your income: that is
               what the pumps are costing you.</li>
           <li><b>Rain and storms refill the lakes.</b> Break the intakes during a
@@ -1753,6 +1758,16 @@ const DEFS = {
     name: 'Intake Pump', team: TEAM.MACHINE, icon: '🚱',
     hp: 520, radius: 3.4, armor: 3, building: true, pump: true,
   },
+  generator: {
+    name: 'Generator Bank', team: TEAM.MACHINE, icon: '⚡',
+    hp: 700, radius: 3.6, armor: 3, building: true, powers: true,
+    blurb: 'Everything with a barrel on this campus runs off these. Cut the power and the guns go quiet.'
+  },
+  well: {
+    name: 'Deep Well', team: TEAM.MACHINE, icon: '🕳',
+    hp: 480, radius: 2.8, armor: 2, building: true, well: true,
+    blurb: 'Groundwater. It keeps pulling long after you have smashed every intake on the surface.'
+  },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
     hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
@@ -2012,6 +2027,8 @@ const MAPS = {
     weather: 'clear',
     water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
+    generators: [[75, -80]],
+    wells: [[20, -48]],
   },
 
   /* ------------------------------------------------------- tier 1 sites -- */
@@ -2029,6 +2046,8 @@ const MAPS = {
     weather: 'mist',
     water: [{ x: -20, z: 30, r: 18, drain: 0.0022 }],
     pumps: [[41, -36]],
+    generators: [[88, -44]],
+    wells: [[35, -68]],
   },
   'milltown': {
     id: 'milltown', name: 'Milltown', archetype: 'valley', faction: 'wild',
@@ -2044,6 +2063,8 @@ const MAPS = {
     weather: 'rain',
     water: [{ x: -26, z: 38, r: 20, drain: 0.0030 }, { x: 24, z: 40, r: 14, drain: 0.0030 }],
     pumps: [[26, -42], [70, -34]],
+    generators: [[20, -58], [66, -80]],
+    wells: [[84, -63]],
   },
 
   /* ------------------------------------------------------- tier 2 sites -- */
@@ -2065,6 +2086,8 @@ const MAPS = {
     water: [{ x: -30, z: 28, r: 24, drain: 0.0050 }, { x: 10, z: 52, r: 18, drain: 0.0050 },
             { x: -58, z: -30, r: 20, drain: 0.0050 }],
     pumps: [[33, -24], [79, -26], [31, -72], [79, -70]],
+    generators: [[19, -47], [65, -65]],
+    wells: [[35, -46], [67, -18]],
   },
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
@@ -2081,6 +2104,8 @@ const MAPS = {
     weather: 'snow',
     water: [{ x: -34, z: 40, r: 16, drain: 0.0020 }],
     pumps: [[44, -28]],
+    generators: [[24, -50], [42, -78]],
+    wells: [[76, -78]],
   },
 
   /* ------------------------------------------------------- tier 3 site --- */
@@ -2099,6 +2124,8 @@ const MAPS = {
     weather: 'storm',
     water: [{ x: -30, z: 34, r: 22, drain: 0.0040 }],
     pumps: [[16, -24], [86, -24], [52, -76]],
+    generators: [[30, -15], [30, -49]],
+    wells: [[87, -65], [9, -46]],
   },
 
   /* ---------------------------------------------------- the stronghold --- */
@@ -2117,6 +2144,8 @@ const MAPS = {
     weather: 'storm',
     water: [{ x: -36, z: 36, r: 20, drain: 0.0035 }, { x: -70, z: -40, r: 16, drain: 0.0035 }],
     pumps: [[8, -16], [94, -16], [48, -74]],
+    generators: [[23, -7], [93, -65], [21, -40]],
+    wells: [[73, -6], [73, -50]],
   },
 };
 
@@ -2139,6 +2168,8 @@ MAPS['groundbreak'] = {
   weather: 'rain',
   water: [{ x: -22, z: 34, r: 20, drain: 0.0026 }],
   pumps: [[36, -26]],
+    generators: [[87, -48]],
+    wells: [[24, -45]],
   construction: { time: 300, addTurrets: [[30, -68], [78, -68], [54, -46]], addGarrison: 6 },
 };
 
@@ -2157,13 +2188,15 @@ MAPS['pourhouse'] = {
   weather: 'storm',
   water: [{ x: -28, z: 36, r: 26, drain: 0.0045 }, { x: 20, z: -70, r: 16, drain: 0.0045 }],
   pumps: [[32, -22], [80, -22]],
+    generators: [[79, -42], [94, -75]],
+    wells: [[21, -75]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
 const DEFAULT_MAP = 'verdant-hollow';
 
 /* Structure radii, mirrored from config so this stays a pure data check. */
-const R = { core: 9, depot: 5.5, coolant: 4.6, turret: 2.2, pump: 3.4 };
+const R = { core: 9, depot: 5.5, coolant: 4.6, turret: 2.2, pump: 3.4, generator: 5.4, well: 4.2 };
 
 /* Every authored structure must clear every other one and sit inside its own
    perimeter. The Core used to be a hard-coded literal and quietly overlapped a
@@ -2178,6 +2211,8 @@ function validateMap(m) {
   (m.coolants || []).forEach(([x, z]) => push('coolant', x, z));
   (m.turrets || []).forEach(([x, z]) => push('turret', x, z));
   (m.pumps || []).forEach(([x, z]) => push('pump', x, z));
+  (m.generators || []).forEach(([x, z]) => push('generator', x, z));
+  (m.wells || []).forEach(([x, z]) => push('well', x, z));
   const bad = [];
   for (let i = 0; i < items.length; i++) {
     const a = items[i];
@@ -2597,6 +2632,11 @@ const LINES = {
   wall: [
     'A section of our perimeter has embraced open-plan.',
     'That wall was scheduled for demolition anyway. By us. Later.',
+  ],
+  power: [
+    'A brownout is affecting the west wing. And the guns. Mostly the guns.',
+    'We are operating on emergency lighting and corporate optimism.',
+    'Facilities confirms the generators were, in hindsight, load-bearing.',
   ],
   turret: [
     'We are aware of reports of a tower-shaped outage.',
@@ -3512,9 +3552,22 @@ const DAM_PER_BEAVER = 0.18;
 const DAM_FLOOR = 0.15;          // a dammed pump still trickles
 
 function activeDraw() {
-  if (!G.pumps || !G.pumps.length) return 1;
-  let total = 0, live = 0;
-  for (const p of G.pumps) {
+  /* Wells draw groundwater and count alongside the surface intakes, which is
+     the point of them: smashing every pump on the map no longer guarantees the
+     water comes back. They cannot be dammed either — there is no surface
+     intake for a beaver to sit on. */
+  /* A well counts double. Measured at parity it sustained only 5% of the drain
+     once the pumps were gone — the refill all but cancelled it, so the "backup
+     supply" was a backup in name only. At weight 2 a surviving well holds
+     roughly a third of the draw: the water still leaves, slower, and capping it
+     is a real second objective rather than a formality. */
+  const WELL_WEIGHT = 2;
+  const wells = (G.wells || []).filter(w => w.alive).length * WELL_WEIGHT;
+  const wellCap = (G.wells || []).length * WELL_WEIGHT;
+  const pumps = G.pumps || [];
+  if (!pumps.length && !wellCap) return 1;
+  let total = wellCap, live = wells;
+  for (const p of pumps) {
     total++;
     if (!p.alive) continue;
     let dams = 0;
@@ -6160,6 +6213,69 @@ const buildTech = () => {
   return g;
 };
 
+/* Generator bank: transformer drums, a hard cage, and a live-current glow that
+   goes out with the power. Wide and low so it reads as infrastructure rather
+   than a weapon, because it is a target, not a threat. */
+const buildGenerator = () => {
+  const g = new THREE.Group();
+  const STEEL = 0x555f6b, DARK = 0x24292f, COPPER = 0x9a6b33;
+
+  const base = mergeParts([
+    pBox(DARK, 7.0, 0.7, 4.6, 0, 0.35, 0),
+    pBox(STEEL, 6.2, 1.9, 3.9, 0, 1.5, 0),
+  ], VC_MAT_METAL);
+  base.castShadow = base.receiveShadow = true;
+  g.add(base);
+
+  /* three transformer drums with cooling fins */
+  for (let i = -1; i <= 1; i++) {
+    const drum = mergeParts([
+      pCyl(STEEL, 0.95, 2.5, 0, 0, 0),
+      pCyl(DARK, 1.08, 0.22, 0, 1.0, 0),
+      pCyl(DARK, 1.08, 0.22, 0, 0.4, 0),
+      pBox(COPPER, 0.3, 0.5, 0.3, 0, 1.45, 0),
+    ], VC_MAT_METAL);
+    drum.position.set(i * 2.0, 3.4, 0);
+    drum.castShadow = true;
+    g.add(drum);
+  }
+
+  /* the tell: current arcing between the drums, hidden when the bank is dead */
+  const glow = mergeParts([
+    pBox(0x59e5ff, 3.9, 0.10, 0.10, 0, 0, 0),
+    pBox(0x59e5ff, 0.10, 0.10, 2.6, 0, 0, 0),
+  ], VC_GLOW);
+  glow.position.set(0, 4.7, 0);
+  g.add(glow);
+
+  g.userData.anim = { kind: 'generator', glow };
+  return g;
+};
+
+/* Deep well: a capped bore with a pump head. Small, unglamorous, and easy to
+   walk past — which is the joke, because it outlasts every intake you smash. */
+const buildWell = () => {
+  const g = new THREE.Group();
+  const STONE = 0x6b6f74, DARK = 0x2a2f35, PIPE = 0x4b5560;
+
+  const body = mergeParts([
+    pCyl(STONE, 2.2, 1.5, 0, 0.75, 0),
+    pCyl(DARK, 1.8, 0.25, 0, 1.6, 0),
+    pBox(PIPE, 0.6, 3.2, 0.6, 0, 3.0, 0),
+    pBox(PIPE, 2.4, 0.5, 0.5, 0.6, 4.4, 0),
+    pCyl(DARK, 0.42, 1.4, 1.6, 3.9, 0),
+  ], VC_MAT_METAL);
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+
+  const glow = mergeParts([pCyl(0x39d7ea, 1.5, 0.10, 0, 0, 0)], VC_GLOW);
+  glow.position.set(0, 1.75, 0);
+  g.add(glow);
+
+  g.userData.anim = { kind: 'well', glow };
+  return g;
+};
+
 const buildTurret = () => {
   const g = new THREE.Group();
   const STEEL = 0x5d6773, DARK = 0x2b3038;
@@ -6667,6 +6783,7 @@ const BUILDERS = {
   turret: () => cached('turret', buildTurret),
   // one-offs, or (grove) needing genuinely per-instance materials
   depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
+  generator: buildGenerator, well: buildWell,
   porcupine: () => cached('porcupine', buildPorcupine),
   beaver: () => cached('beaver', buildBeaver),
   capybara: () => cached('capybara', buildCapybara),
@@ -7548,6 +7665,7 @@ class Entity {
     this.radius = def.radius;
     this.flying = !!def.flying;
     this.isBuilding = !!def.building;
+    this.needsPower = this.type === 'turret';   // see updateBuilding
     this.alive = true;
     this.cooldown = 0;          // seeded from the id once addEntity has assigned one
     this.target = null;
@@ -8097,6 +8215,18 @@ class Entity {
   /* ------------------------------------------------- building behaviour -- */
   updateBuilding(dt) {
     const def = this.def;
+    /* No power, no guns. This is the swarm's way past a gun line it cannot
+       out-trade: find the generators instead of feeding wolves to the turrets.
+       Deliberately absolute rather than a slowdown, because "the turrets are
+       off" is a thing a player can SEE and act on, and a 40%-rate turret is
+       just a turret. */
+    if (def.ranged && this.needsPower && !G.powered) {
+      this.target = null;
+      if (this.anim && this.anim.glow) this.anim.glow.visible = false;
+      burnTick(this, dt);
+      return;
+    }
+    if (this.needsPower && this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
       if (this.target && !this.target.alive) this.target = null;
       if (!this.target) this.target = acquire(this);
@@ -9896,6 +10026,34 @@ function populate() {
     return p;
   });
 
+  /* Generators. The compound's gun line runs off these, so a swarm that cannot
+     out-trade a turret has a second route: cut the power and walk in. */
+  G.generators = (layout().generators || []).map(([x, z]) => {
+    const g = spawn('generator', x, z);
+    g.onDeath = () => {
+      const left = G.generators.filter(q => q.alive).length;
+      commsEvent(left ? 'turret' : 'power', 0.9);
+      toast(left ? `Generator down — ${left} still feeding the guns`
+                 : 'THE POWER IS OUT — the turrets are dark', 'warn');
+      if (!left) SFX.shieldDown();
+    };
+    G.obstacles.push(g);
+    return g;
+  });
+
+  /* Deep wells. Groundwater, so they keep drawing after every surface intake
+     is scrap — the reason killing pumps is not automatically the whole answer
+     to the water. */
+  G.wells = (layout().wells || []).map(([x, z]) => {
+    const w = spawn('well', x, z);
+    w.onDeath = () => {
+      commsEvent('water', 0.8);
+      toast('A deep well is capped');
+    };
+    G.obstacles.push(w);
+    return w;
+  });
+
   /* A site caught mid-build finishes on a clock if you let it. */
   const con = layout().construction;
   if (con) {
@@ -10068,6 +10226,11 @@ function updateWorld(dt) {
   G.waterTax = groveFull > 0.01 ? 1 - groveYield / groveFull : 0;
   G.income = (G.heart.alive ? RULES.baseIncome : 0) + groveYield;
   G.biomass += G.income * dt;
+
+  /* A compound with no generators listed has always been powered — the flag has
+     to default true or every legacy map loses its guns. */
+  G.powered = !G.generators || !G.generators.length
+    || G.generators.some(g => g.alive);
 
   /* --- construction clock --- */
   if (G.construction && !G.construction.done) {
