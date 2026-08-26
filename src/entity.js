@@ -24,6 +24,7 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _neigh = [];
 const _face = new THREE.Vector3();
+const _slideGoal = new THREE.Vector3();
 const HIT_TIME = 0.18;
 const PACK_ALERT = 15;      // metres a cry for help carries
 const RANK_GEO = new THREE.OctahedronGeometry(0.16, 0);
@@ -253,6 +254,18 @@ export class Entity {
 
   /* ------------------------------------------------------------ orders -- */
   setOrder(type, pos, target) {
+    /* Re-issuing the order a unit is ALREADY carrying out is a no-op, not a
+       reset. Click-spamming an attack order used to pin a squad in place: every
+       call cleared `stuck`, and `stuck` is what accumulates to 1.1s before
+       breakBlocker() chews through the wall in the way. A player hammering the
+       click on a wall-blocked target therefore reset the timer faster than it
+       could ever fill, and the wolves stood there forever — measured at 5 of 12
+       idle at seven minutes. Spam should be redundant, never harmful.
+       A provoked unit is deliberately excluded: there, the repeat click is the
+       player overriding a grudge, and it must still land. */
+    if (type === 'attack' && target && !this.provokedBy &&
+        this.order.type === 'attack' && this.order.target === target) return;
+
     /* A player order is by definition newer than any grudge, so it clears the
        provoke state outright. Without this the update loop kept overwriting
        `target` with the provoker and, on expiry, replayed the order the player
@@ -269,6 +282,7 @@ export class Entity {
     if (type === 'stop' || type === 'hold') { this.target = null; this.order.type = type === 'stop' ? 'idle' : 'hold'; }
     this.leash = null;
     this.stuck = 0;
+    this._slideUntil = 0;
   }
 
   /* ------------------------------------------------------------ update -- */
@@ -299,7 +313,7 @@ export class Entity {
     }
 
     /* --- target validity & acquisition --- */
-    if (this.target && (!this.target.alive)) this.target = null;
+    if (this.target && (!this.target.alive)) { this.target = null; this.leash = null; }
     const ot = this.order.type;
     if (this.order.target && !this.order.target.alive) {
       this.order.target = null;
@@ -324,10 +338,14 @@ export class Entity {
       this._shunned = this.target;
       this._shunnedUntil = G.time + 6;
       this.target = null;
-      /* Stop where it stands. Walking the unit back to its anchor pulled it out of
-         a fight the player had committed it to — the most control-destroying
-         behaviour in the game, firing on 6-17% of attack-move frames. */
-      this.setOrder('stop');
+      this.leash = null;
+      /* Cancel the CHASE, never the order. setOrder('stop') used to fire here, which
+         wiped order.pos — so one contact anywhere along the route deleted the
+         player's attack-move and the army stopped mid-map. Measured: an un-babysat
+         96-pop push arrived with 13 idle survivors and zero coolants killed. Now the
+         unit drops the target and the movement-goal block below picks its own
+         order.pos back up on the very next frame, so it keeps walking. A unit whose
+         order really is 'idle' has no order.pos and stands still exactly as before. */
     }
 
     /* --- decide movement goal --- */
@@ -360,7 +378,12 @@ export class Entity {
       if (d <= goalRadius) {
         if (goal === this.order.pos) { this.order.type = 'idle'; this.order.pos = null; }
       } else {
-        this.steer(goal, dt);
+        /* A live wall-slide overrides the beeline for its duration: pressing
+           straight at the goal is exactly what wedged the unit in the first place. */
+        if (G.time < (this._slideUntil || 0)) {
+          _slideGoal.set(this.pos.x + this._slideX * 12, 0, this.pos.z + this._slideZ * 12);
+          this.steer(_slideGoal, dt);
+        } else this.steer(goal, dt);
         pushing = true;
       }
     } else {
@@ -405,6 +428,12 @@ export class Entity {
     for (const o of G.entities) {
       if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
       if (o.hp >= o.maxHp) continue;
+      /* Once the Core is cooking it is past welding, permanently — so it is not
+         a repair target at all. Every other building stays a target even while
+         it is being chewed: the technician still walks into the fight, which is
+         what makes "Kill it first" a real instruction. What is gated is the
+         WELD, not the walk (see below). */
+      if (o === G.core && G.coreExposed) continue;
       const d = dist2D(this.pos, o.pos);
       /* prefer things that are nearly dead -- saving a wall is worth less than
          saving the coolant tower the player has spent two minutes on */
@@ -421,7 +450,22 @@ export class Entity {
       } else {
         this.faceTo(best.pos, dt, 8);
         const before = best.hp;
-        best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        /* The player's own regeneration is gated on five seconds out of combat
+           precisely so it "must never win a fight". The machine's had no gate
+           at all, so two technicians at repair 16 out-healed a swarm standing
+           on top of the building — measured at +32.5 hp/s on a Core the player
+           was actively hitting, which made a fully disarmed compound literally
+           unkillable. Same rule for both sides now: you cannot weld a hull
+           somebody is still biting.
+
+           Deliberately gated here rather than in target selection. If the
+           technician simply skipped whatever was under fire it would never come
+           to the fight at all, and the one counterplay the design gives the
+           player — shoot the welder — would stop existing. It still walks in.
+           It just cannot undo damage while the damage is happening. */
+        if (G.time - (best.lastHitAt || -999) >= RULES.techRepairDelay) {
+          best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
         this._weldT = (this._weldT || 0) + dt;
@@ -547,7 +591,45 @@ export class Entity {
     if (best) {
       this.target = best;
       this._blockUntil = G.time + 4;   // commit to the breach for four seconds
+      return;
     }
+    this.slideOut();
+  }
+
+  /* Nothing hostile within reach and still going nowhere — so whatever is in the
+     way is our own, and breakBlocker (which skips `o.team === this.team`) has no
+     answer for it. A machine raider wedged in its own perimeter corner therefore
+     had no recourse at all: it pressed into the fence until the match ended.
+     Measured before this existed: a sweep carrying an explicit "attack the Heart
+     Tree" order sat at one coordinate for 286 consecutive seconds while the tree
+     finished at full health. Slide ALONG the blocker rather than into it. */
+  slideOut() {
+    let best = null, bd = 1e9;
+    for (const o of G.obstacles) {
+      if (!o.alive || o === this) continue;
+      const d = dist2D(this.pos, o.pos) - (o.box ? Math.max(o.box.hw, o.box.hd) : o.radius);
+      if (d < bd && d < 7) { bd = d; best = o; }
+    }
+    if (!best) return;
+    let nx = this.pos.x - best.pos.x, nz = this.pos.z - best.pos.z;
+    const n = Math.hypot(nx, nz);
+    if (n < 1e-3) { nx = 1; nz = 0; } else { nx /= n; nz /= n; }
+    /* An inside corner blocks BOTH tangents, so a slide that keeps picking the
+       same one never escapes. Alternate on a repeat attempt. */
+    if (G.time - (this._slideAt || -99) < 2.5) this._slideFlip = !this._slideFlip;
+    else this._slideFlip = false;
+    this._slideAt = G.time;
+    const goal = (this.target && this.target.alive) ? this.target.pos : this.order.pos;
+    const gx = goal ? goal.x - this.pos.x : -nx;
+    const gz = goal ? goal.z - this.pos.z : -nz;
+    const tx = -nz, tz = nx;
+    let sgn = (gx * tx + gz * tz) >= 0 ? 1 : -1;
+    if (this._slideFlip) sgn = -sgn;
+    // a little outward bias too, or a unit pinched between two faces stays pinched
+    let sx = tx * sgn + nx * 0.35, sz = tz * sgn + nz * 0.35;
+    const m = Math.hypot(sx, sz) || 1;
+    this._slideX = sx / m; this._slideZ = sz / m;
+    this._slideUntil = G.time + 1.2;
   }
 
   clampToWorld() {
@@ -613,7 +695,12 @@ export class Entity {
        Deliberately absolute rather than a slowdown, because "the turrets are
        off" is a thing a player can SEE and act on, and a 40%-rate turret is
        just a turret. */
-    if (def.ranged && this.needsPower && !G.powered) {
+    /* Overgrowth smothers a gun the same way a dead generator does: vines in the
+       barrel. Same absolute gate, same visible tell (the glow goes out), so the
+       spell finally answers the one thing that was killing swarms on the
+       approach — and the player can SEE which guns it caught. */
+    const smothered = G.time < (this.smotheredUntil || -1);
+    if (def.ranged && ((this.needsPower && !G.powered) || smothered)) {
       this.target = null;
       if (this.anim && this.anim.glow) this.anim.glow.visible = false;
       burnTick(this, dt);
@@ -683,11 +770,20 @@ export class Entity {
     if (this.target || G.time - this.lastHitAt < 2) { this.sip = 0; return; }
     /* already well-watered: don't burn the animation topping up from 90% */
     if (this.watered > 4) { this.sip = 0; return; }
+    /* ONLY on command. Pricing the buff (it now suppresses the Green's healing
+       while it lasts) while leaving the drink automatic was the worst of both:
+       a wounded animal parked at a shore re-drank forever and so never healed.
+       Measured — two wolves at 28/56 for sixty seconds, one at the lake and one
+       inland: the lake wolf gained 1 HP with `watered` cycling 14.4 -> 2.5 ->
+       13.1 -> 22.8, the inland wolf healed all 28 and was full in fifteen
+       seconds. The W order sets this; drinking clears it. */
+    if (!this._wantsDrink) { this.sip = 0; return; }
     const L = lakeAt(this.pos.x, this.pos.z);
     if (!L) { this.sip = 0; return; }
     this.sip = (this.sip || 0) + dt;
     if (this.sip < RULES.drinkTime) return;
     this.sip = 0;
+    this._wantsDrink = false;          // one order, one drink
     this.watered = RULES.drinkMin + (RULES.drinkMax - RULES.drinkMin) * L.level;
     this.showWatered(true);
     SFX.drink(this.pos);
@@ -752,9 +848,20 @@ export class Entity {
     if (this.team !== TEAM.WILD) return;
     if (this.hp >= this.maxHp) return;
     if (G.time - this.lastHitAt < RULES.regenDelay) return;
-    /* Watered animals regenerate at the full Green rate ANYWHERE — that is the
-       whole point of the buff, and the reason a push detours past a lake. */
-    const v = this.watered > 0 ? 1 : (G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0);
+    /* WATERED AND HEALING ARE MUTUALLY EXCLUSIVE. This is the price of the buff.
+       Watered used to ALSO grant full-Green regeneration anywhere, which made
+       drinking strictly better than not drinking in every situation — and with
+       the lake sitting 3m off the direct route to the compound, pressing W was
+       a reflex with no question attached to it. Now the sip switches the swarm
+       from recovering to fighting: +20% rate, +15% damage, +10% move, and for
+       those 12-26 seconds nothing heals, not even standing on your own Green.
+       So the order of operations becomes the decision. Heal at home FIRST, then
+       drink, then commit — because a swarm that drinks while it is hurt has
+       thrown away up to a full bar of free healing (0.040/s of max HP on the
+       Green, over a 26s buff, is 1.04x max HP forgone) to get a buff it cannot
+       yet use. Drink on the way in, never on the way out. */
+    if (this.watered > 0) return;
+    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
     const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }

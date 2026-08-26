@@ -81,7 +81,7 @@ export const DEFS = {
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
-    blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
+    blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
   /* ---- MACHINE (enemy) ---- */
@@ -169,12 +169,61 @@ export const RULES = {
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
   waveCapMult:    2.0,      // a sweep may surge to this multiple of the standing cap
-  waveEvery:      108,      // seconds between machine sweep attacks
+  /* Raised from 108 once sweeps started actually ARRIVING. Raiders used to muster
+     inside their own fence and wedge in the north-west corner, so a large share of
+     every wave never reached the valley at all; with that fixed, the old cadence
+     killed a passive player in 6:19 against a 7-8 minute target. This restores the
+     pace by sending slightly FEWER sweeps, not weaker ones — a sweep that lands
+     still lands at full strength, which is the whole point. */
+  waveEvery:      120,      // seconds between machine sweep attacks
   firstWaveAt:    95,
-  spellCost:      65,
+  /* Overgrowth. Priced as a per-fight tool, not a five-wolf decision: at 65 it
+     went uncast for whole matches, which is the worst thing an ability can do.
+     It also SMOTHERS turrets for its duration — vines in the barrel — so the
+     one thing that actually kills a swarm on the approach is no longer immune
+     to the only spell the swarm has. That reuses the generator's power-out
+     gate, so "those guns are off" already reads on screen. */
+  /* --- Deepen the Roots (the late-game biomass sink) -----------------------
+     Measured before this existed: a competent player hit 96/96 pop at 3:15 of a
+     7:00 match and the build queue was EMPTY at every sample from then on, while
+     biomass climbed 402 -> 1784 with income still running 6-8/s. Fifty-four
+     percent of the match was spent discarding the entire economy, and matches
+     ended holding 1958-2344 unspendable biomass. The cap was a wall, not a
+     decision.
+
+     Roots convert that surplus back into army, at a price that climbs steeply
+     enough to stay a real question: the first is cheap relative to a late-game
+     wallet, the fifth costs more than a full rebuild. Deliberately capped — this
+     is a release valve for a stalled economy, not a route to an unbounded swarm,
+     and 96 remains the number the whole roster is balanced around. */
+  rootsCost:      140,      // price of the first Deepen the Roots
+  rootsGrowth:    1.55,     // each one costs this much more than the last
+  rootsStep:      6,        // popCap gained per purchase
+  rootsMax:       5,        // ...and how many the valley will bear
+
+  spellCost:      40,
   spellCooldown:  26,
   spellRadius:    16,
   spellDuration:  5,
+
+  /* --- Thermal runaway -----------------------------------------------------
+     Killing the last coolant tower used to hand the player an exposed Core and
+     nothing else: technicians welded it back to 3000/3000 faster than a swarm
+     could chew through armour 8, so the "objective" was a health bar that
+     regrew. Now the last coolant starts a clock. The Core cooks itself from
+     full in this many seconds, cannot be repaired, and the HUD counts it down —
+     so coolant kills are permanent progress and the endgame is a race the
+     player can see rather than an attrition slug they cannot win.
+
+     Deliberately slower than a committed assault: killing it yourself is still
+     much faster and still the point. This only guarantees the match ENDS. */
+  runawaySeconds: 240,
+
+  /* How long a machine structure must go unhit before a Field Technician will
+     weld it. Mirrors regenDelay, which is the player's own out-of-combat rule —
+     the machine's repair had no combat gate at all, so a fully disarmed
+     compound was literally unkillable. */
+  techRepairDelay: 5,
 
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
@@ -194,7 +243,13 @@ export const RULES = {
      Deliberately short: this is a decision about WHEN to commit, not a chore to
      keep topped up. Duration scales with how full the lake is, which is what
      finally makes TerraByte's pumps something the player feels rather than
-     something that quietly edits their income. */
+     something that quietly edits their income.
+
+     PRICED: Watered SUPPRESSES regeneration for its whole duration (see
+     Entity.regen). The buff is a stimulant, not a rest stop — you cannot drink
+     and heal at the same time, so drinking a hurt swarm costs it the recovery
+     it was about to get. Without that, the lake being on the route made
+     drinking free, and a free 1.38x damage swing is not a decision. */
   drinkTime:      1.8,      // seconds at the shore to drink
   drinkMin:       12,       // buff seconds from a nearly-dry lake
   drinkMax:       26,       // ...and from a full one

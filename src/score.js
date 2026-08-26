@@ -344,10 +344,21 @@ export function rankFor(score, timeSec, stats) {
   }
   const minutes0 = Math.max(0.5, (timeSec || 0) / 60);
   const ppm0 = score / minutes0;
+  let letter = 'D';
   for (const r of SCORE.ranks) {
-    if (ppm0 >= r.ppm && score >= r.min && objective >= (r.work || 0)) return r.letter;
+    if (ppm0 >= r.ppm && score >= r.min && objective >= (r.work || 0)) { letter = r.letter; break; }
   }
-  return 'D';
+  /* A finished run that LOST cannot outrank a C. rankFor took no outcome argument
+     at all, so a measured defeat — ppm 1815, score 16,813, objective 14.5 — cleared
+     every S gate and printed 'S RANK' directly under a dead Heart Tree, the same
+     letter a victory got. Losing the one thing the whole game is about is not an S,
+     and a triumphant grade undercuts the defeat copy in the line above it. */
+  if (s && s.finished && s.win === false) {
+    const floor = SCORE.ranks.findIndex(r => r.letter === 'C');
+    const cur = SCORE.ranks.findIndex(r => r.letter === letter);
+    if (cur >= 0 && floor >= 0 && cur < floor) letter = 'C';
+  }
+  return letter;
 }
 
 

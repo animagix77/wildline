@@ -104,8 +104,16 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card .ico{font-size:28px}
 .card .nm{font-size:10px;letter-spacing:.3px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
+/* Pop and siege ride the cost line. Siege wears the structure colour, not the
+   leaf green, because it answers a different question: not "can I afford it"
+   but "will it dent the thing I have to kill to win". */
+.card .cost i{font-style:normal;margin-left:4px;opacity:.85}
+.card .cost i.siege{color:#ffd88a;opacity:1}
 .card .key{position:absolute;top:4px;left:5px;font-size:9px;color:var(--dim);border:1px solid rgba(255,255,255,.16);
   border-radius:2px;padding:0 3px}
+.card.roots{background:linear-gradient(160deg,rgba(127,212,74,.14),rgba(255,255,255,.02))}
+.card.roots .nm{font-size:9px;line-height:1.15}
+.card.roots.maxed .cost{opacity:.5}
 .card.spell{background:linear-gradient(160deg,rgba(57,215,234,.10),rgba(255,255,255,.02))}
 .card.spell:hover{border-color:var(--machine)}
 .card .cd{position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:4px;

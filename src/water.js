@@ -117,19 +117,19 @@ export function initWater(scene, defs) {
   return lakes;
 }
 
-/* Intake pumps still standing decide how fast the water goes — and beavers
-   sitting on them decide how well those pumps work. The Beaver's card has
-   always promised "every beaver on a pump slows the drain"; until now that was
-   a blurb with no code behind it. */
-const DAM_RADIUS = 9;
-const DAM_PER_BEAVER = 0.18;
-const DAM_FLOOR = 0.15;          // a dammed pump still trickles
+/* Intake pumps still standing decide how fast the water goes. */
+/* The beaver used to be able to sit on a pump and "dam" it, shaving the draw
+   while it stayed put. It is gone, and deliberately so: one beaver camped on a
+   pump forever cut the drain by 11%, while simply killing that pump cut it by
+   33% — permanently, for free, and with the beaver then walking away to do
+   something else. A choice nobody can ever correctly make is not a choice, it
+   is a trap for players who read the card. The beaver keeps the ability that
+   was actually good: mend(). */
 
 function activeDraw() {
   /* Wells draw groundwater and count alongside the surface intakes, which is
      the point of them: smashing every pump on the map no longer guarantees the
-     water comes back. They cannot be dammed either — there is no surface
-     intake for a beaver to sit on. */
+     water comes back. */
   /* A well counts double. Measured at parity it sustained only 5% of the drain
      once the pumps were gone — the refill all but cancelled it, so the "backup
      supply" was a backup in name only. At weight 2 a surviving well holds
@@ -141,18 +141,7 @@ function activeDraw() {
   const pumps = G.pumps || [];
   if (!pumps.length && !wellCap) return 1;
   let total = wellCap, live = wells;
-  for (const p of pumps) {
-    total++;
-    if (!p.alive) continue;
-    let dams = 0;
-    for (const e of G.entities) {
-      if (!e.alive || e.type !== 'beaver') continue;
-      const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z;
-      if (dx * dx + dz * dz < DAM_RADIUS * DAM_RADIUS) dams++;
-    }
-    live += Math.max(DAM_FLOOR, 1 - dams * DAM_PER_BEAVER);
-  }
-  G.dammed = total - live;                     // for the HUD
+  for (const p of pumps) { total++; if (p.alive) live++; }
   return total ? live / total : 1;
 }
 
@@ -165,10 +154,10 @@ export function updateWater(dt) {
     L.uni.uTime.value += dt;
     /* Net flow, not an either/or. The old rule only refilled when EVERY pump
        was dead, so killing three of four changed nothing the player could see.
-       Now each pump you break (or dam) shifts the balance, and at roughly half
-       the intakes down the lake holds steady — a visible, earnable stalemate. */
+       Now each pump you break shifts the balance, and at roughly half the
+       intakes down the lake holds steady — a visible, earnable stalemate. */
     /* Three forces on one number: the intakes pulling it down, the water table
-       pushing it back when they are broken or dammed, and the sky. */
+       pushing it back when they are broken, and the sky. */
     const rain = rainfall();
     const flow = L.baseDrain * (draw - REFILL * (1 - draw) - rain);
     if (flow !== 0) {

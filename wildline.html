@@ -113,8 +113,16 @@ canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card .ico{font-size:28px}
 .card .nm{font-size:10px;letter-spacing:.3px}
 .card .cost{font-size:11px;color:var(--leaf);font-variant-numeric:tabular-nums}
+/* Pop and siege ride the cost line. Siege wears the structure colour, not the
+   leaf green, because it answers a different question: not "can I afford it"
+   but "will it dent the thing I have to kill to win". */
+.card .cost i{font-style:normal;margin-left:4px;opacity:.85}
+.card .cost i.siege{color:#ffd88a;opacity:1}
 .card .key{position:absolute;top:4px;left:5px;font-size:9px;color:var(--dim);border:1px solid rgba(255,255,255,.16);
   border-radius:2px;padding:0 3px}
+.card.roots{background:linear-gradient(160deg,rgba(127,212,74,.14),rgba(255,255,255,.02))}
+.card.roots .nm{font-size:9px;line-height:1.15}
+.card.roots.maxed .cost{opacity:.5}
 .card.spell{background:linear-gradient(160deg,rgba(57,215,234,.10),rgba(255,255,255,.02))}
 .card.spell:hover{border-color:var(--machine)}
 .card .cd{position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:4px;
@@ -1136,6 +1144,7 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li><b>Shift</b>+<b>1..5</b> — add to a group</li>
           <li><b>Z R X C V G N B</b> — wolf / capybara / boar / bear / raven / porcupine / beaver / local</li>
           <li><b>F</b> + click — <b>Overgrowth</b>: root machines in an area</li>
+          <li><b>T</b> — <b>Deepen the Roots</b>: raise the wildlife limit</li>
           <li><b>Ctrl+1..5</b> set group · <b>1..5</b> recall</li>
           <li><b>F1</b> help · <b>F3</b> performance · <b>M</b> mute</li>
         </ul>
@@ -1181,17 +1190,23 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li>Intake pumps inside the compound drain the lakes. Groves in a dry
               catchment pay far less.</li>
           <li>An animal that stops at a shore drinks and leaves <b>Watered</b>:
-              +20% attack speed, +15% damage, +10% move, and it heals at full
-              Green rate <em>anywhere</em>. Fuller lake, longer buff.</li>
-          <li><b>Beavers</b> standing on a pump dam it and slow the drain. Break
-              the pump outright and the lake refills.</li>
-          <li><b>Deep Wells</b> pull groundwater. They cannot be dammed, and one
-              alone holds a third of the drain &mdash; smashing every surface
-              intake is not the whole answer.</li>
+              +20% attack speed, +15% damage, +10% move. Fuller lake, longer
+              buff.</li>
+          <li>But <b>Watered animals do not heal</b> &mdash; not even on the
+              Green. Mend at home first, drink second, then commit. Drink on the
+              way in, never on the way out.</li>
+          <li>Break a pump outright and its share of the drain stops for good,
+              and the lake starts to refill.</li>
+          <li><b>Deep Wells</b> pull groundwater, and one alone holds a third of
+              the drain &mdash; smashing every surface intake is not the whole
+              answer.</li>
           <li>Watch the <b>water %</b> and the <b>−%</b> on your income: that is
               what the pumps are costing you.</li>
           <li><b>Rain and storms refill the lakes.</b> Break the intakes during a
               downpour and the water actually climbs.</li>
+          <li>On some sites the sky is on a clock &mdash; fronts roll through on
+              the same schedule every attempt. Watch for <b>raining</b> on the
+              water readout and time your push to it.</li>
         </ul>
         <h3>Reading the top bar</h3>
         <ul>
@@ -1722,7 +1737,7 @@ const DEFS = {
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
     armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
-    blurb: 'Engineer. Gnaws through machine structures, dams intakes to slow the drain, and rebuilds your own — the Heart Tree included — when it is not fighting.'
+    blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
   /* ---- MACHINE (enemy) ---- */
@@ -1810,12 +1825,61 @@ const RULES = {
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
   waveCapMult:    2.0,      // a sweep may surge to this multiple of the standing cap
-  waveEvery:      108,      // seconds between machine sweep attacks
+  /* Raised from 108 once sweeps started actually ARRIVING. Raiders used to muster
+     inside their own fence and wedge in the north-west corner, so a large share of
+     every wave never reached the valley at all; with that fixed, the old cadence
+     killed a passive player in 6:19 against a 7-8 minute target. This restores the
+     pace by sending slightly FEWER sweeps, not weaker ones — a sweep that lands
+     still lands at full strength, which is the whole point. */
+  waveEvery:      120,      // seconds between machine sweep attacks
   firstWaveAt:    95,
-  spellCost:      65,
+  /* Overgrowth. Priced as a per-fight tool, not a five-wolf decision: at 65 it
+     went uncast for whole matches, which is the worst thing an ability can do.
+     It also SMOTHERS turrets for its duration — vines in the barrel — so the
+     one thing that actually kills a swarm on the approach is no longer immune
+     to the only spell the swarm has. That reuses the generator's power-out
+     gate, so "those guns are off" already reads on screen. */
+  /* --- Deepen the Roots (the late-game biomass sink) -----------------------
+     Measured before this existed: a competent player hit 96/96 pop at 3:15 of a
+     7:00 match and the build queue was EMPTY at every sample from then on, while
+     biomass climbed 402 -> 1784 with income still running 6-8/s. Fifty-four
+     percent of the match was spent discarding the entire economy, and matches
+     ended holding 1958-2344 unspendable biomass. The cap was a wall, not a
+     decision.
+
+     Roots convert that surplus back into army, at a price that climbs steeply
+     enough to stay a real question: the first is cheap relative to a late-game
+     wallet, the fifth costs more than a full rebuild. Deliberately capped — this
+     is a release valve for a stalled economy, not a route to an unbounded swarm,
+     and 96 remains the number the whole roster is balanced around. */
+  rootsCost:      140,      // price of the first Deepen the Roots
+  rootsGrowth:    1.55,     // each one costs this much more than the last
+  rootsStep:      6,        // popCap gained per purchase
+  rootsMax:       5,        // ...and how many the valley will bear
+
+  spellCost:      40,
   spellCooldown:  26,
   spellRadius:    16,
   spellDuration:  5,
+
+  /* --- Thermal runaway -----------------------------------------------------
+     Killing the last coolant tower used to hand the player an exposed Core and
+     nothing else: technicians welded it back to 3000/3000 faster than a swarm
+     could chew through armour 8, so the "objective" was a health bar that
+     regrew. Now the last coolant starts a clock. The Core cooks itself from
+     full in this many seconds, cannot be repaired, and the HUD counts it down —
+     so coolant kills are permanent progress and the endgame is a race the
+     player can see rather than an attrition slug they cannot win.
+
+     Deliberately slower than a committed assault: killing it yourself is still
+     much faster and still the point. This only guarantees the match ENDS. */
+  runawaySeconds: 240,
+
+  /* How long a machine structure must go unhit before a Field Technician will
+     weld it. Mirrors regenDelay, which is the player's own out-of-combat rule —
+     the machine's repair had no combat gate at all, so a fully disarmed
+     compound was literally unkillable. */
+  techRepairDelay: 5,
 
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
@@ -1835,7 +1899,13 @@ const RULES = {
      Deliberately short: this is a decision about WHEN to commit, not a chore to
      keep topped up. Duration scales with how full the lake is, which is what
      finally makes TerraByte's pumps something the player feels rather than
-     something that quietly edits their income. */
+     something that quietly edits their income.
+
+     PRICED: Watered SUPPRESSES regeneration for its whole duration (see
+     Entity.regen). The buff is a stimulant, not a rest stop — you cannot drink
+     and heal at the same time, so drinking a hurt swarm costs it the recovery
+     it was about to get. Without that, the lake being on the route made
+     drinking free, and a free 1.38x damage swing is not a decision. */
   drinkTime:      1.8,      // seconds at the shore to drink
   drinkMin:       12,       // buff seconds from a nearly-dry lake
   drinkMax:       26,       // ...and from a full one
@@ -1871,11 +1941,14 @@ const G = {
   queue: [],                  // [{type, remaining, total}]
   rally: null,                // THREE.Vector3
 
+  rootsN: 0,                  // Deepen the Roots purchases made (price and cap key off it)
   spellReady: 0,              // timestamp when Overgrowth is usable again
   nextWave: RULES.firstWaveAt,
   waveNum: 0,
 
   coreExposed: false,
+  runawayAt: 0,               // G.time the last coolant died — starts the meltdown clock
+  runawaySaid: null,          // which meltdown countdown milestones have been announced
   depotsGoneToldOnce: false,
   over: false,
   paused: false,
@@ -2025,6 +2098,15 @@ const MAPS = {
     depots: [[56, -76], [56, -27]],
     core: { x: 58, z: -50 },
     weather: 'clear',
+    /* The hollow's sky is on a clock. `weather` is only the opening frame now;
+       `fronts` is [preset, seconds], looping on sim time, identical every run.
+       This map is where the rain system finally does something: clear for the
+       first 100s so the player watches the lake fall at full rate, then rain
+       (which roughly halves the loss), a clear spell to make them miss it, then
+       a storm at ~5:00 — and during a storm, killing the intake actually pushes
+       the water back up. Any map can carry one of these; only this one does,
+       because this is the one everybody starts on. */
+    fronts: [['clear', 100], ['rain', 120], ['clear', 70], ['storm', 90]],
     water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
     generators: [[75, -80]],
@@ -2498,6 +2580,7 @@ function applyCampaignMods(st, siteId) {
       popCap: RULES.popCap, spellCooldown: RULES.spellCooldown,
       spawnEvery: DEFS.depot.spawnEvery,
       dmg: { guard: DEFS.guard.dmg, drone: DEFS.drone.dmg, turret: DEFS.turret.dmg },
+      cost: { bear: DEFS.bear.cost, beaver: DEFS.beaver.cost },
     };
   }
   const B = CAMP_BASE;
@@ -2507,6 +2590,7 @@ function applyCampaignMods(st, siteId) {
   RULES.popCap = B.popCap; RULES.spellCooldown = B.spellCooldown;
   DEFS.depot.spawnEvery = B.spawnEvery;
   for (const k of ['guard', 'drone', 'turret']) DEFS[k].dmg = B.dmg[k];
+  for (const k of ['bear', 'beaver']) DEFS[k].cost = B.cost[k];
 
   const { challenge } = scalingFor(st, siteId);
   RULES.machinePopCap = Math.max(6, Math.round(RULES.machinePopCap * challenge));
@@ -2523,8 +2607,16 @@ function applyCampaignMods(st, siteId) {
   if (perks.includes('deeproots')) RULES.spellCooldown = Math.round(RULES.spellCooldown * 0.75);
   if (perks.includes('highground')) RULES.popCap += 6;
   if (perks.includes('supplycut')) DEFS.depot.spawnEvery *= 1.3;
-  if (perks.includes('quarry')) { DEFS.bear.cost = Math.round(70 * 0.85); DEFS.beaver.cost = Math.round(45 * 0.85); }
-  else { DEFS.bear.cost = 70; DEFS.beaver.cost = 45; }
+  /* Scale the LIVE cost, never a literal. These used to be hardcoded 70/45 — the
+     config's values from an earlier balance pass — so entering the campaign silently
+     repriced the Bear from 80 down to 70 and the Beaver from 32 UP to 45, and the
+     "Bears and beavers cost 15% less" perk still left the Beaver at 38, a fifth
+     dearer than the same animal in skirmish. A perk advertised as a discount must
+     not be a tax, and the only way to keep that true as config moves is to read it. */
+  if (perks.includes('quarry')) {
+    DEFS.bear.cost = Math.round(B.cost.bear * 0.85);
+    DEFS.beaver.cost = Math.round(B.cost.beaver * 0.85);
+  }
   G.drainMult = perks.includes('floodplain') ? 0.7 : 1;
   if (!perks.includes('locals')) G.lockedUnits = ['local'];   // the town has not joined yet
   else G.lockedUnits = null;
@@ -3226,6 +3318,11 @@ function disposePost() {
    Weather is a MapDef property, not a random event — a player planning a strike
    should know what they are walking into, so Coldrake is always sleeting and
    Substation Gary is always snowbound.
+
+   A map may instead carry `fronts`: an authored [preset, seconds] timetable
+   that loops on the sim clock. Still not a random event — the same front
+   arrives at the same second of every attempt, so it is something to plan a
+   push around rather than something that happens to you. See FRONTS below.
    ========================================================================= */
 
 const PRECIP_COUNT = 6000;
@@ -3242,7 +3339,7 @@ const PRESETS = {
   mist:  { kind: 0, density: 0, mist: 0.85, wind: [1, 1] },
 };
 
-function initWeather(scene, name = 'clear') {
+function buildWeather(scene, name = 'clear') {
   disposeWeather();
   const p = PRESETS[name] || PRESETS.clear;
   G.weather = { name, ...p };
@@ -3334,6 +3431,64 @@ function initWeather(scene, name = 'clear') {
   return G.weather;
 }
 
+/* ------------------------------------------------------------- fronts -- */
+/* A looping, authored timetable of skies: [presetName, seconds]. The clock is
+   G.time, which only advances while the match is actually running, so the front
+   that arrives at 1:40 arrives at 1:40 every single attempt. That is the whole
+   point — 'verdant-hollow' shipped as weather:'clear', RAINFALL.clear is 0, and
+   so the entire rain system did nothing on the one map every new player starts
+   on. Rather than repaint the opening valley as permanently wet (and change its
+   music and its whole first impression), the sky moves: the hollow opens clear
+   with the lake visibly draining, the rain arrives and roughly halves the loss,
+   and a storm later on makes breaking the intakes actually push the water back
+   UP. Three lessons, in order, on the map where they are cheapest to learn. */
+const FRONT_FADE = 2.5;        // seconds the old sky takes to clear out
+
+let cycle = null, cycleTotal = 0, curName = 'clear';
+let frontTo = null, frontT = 0, sceneRef = null;
+
+const FRONT_TOAST = {
+  clear:  'The sky is clearing',
+  rain:   'Rain moving in',
+  storm:  'A storm is coming over the ridge',
+  snow:   'Snow moving in',
+  mist:   'Mist is settling in the low ground',
+};
+
+function installCycle(map) {
+  cycle = null; cycleTotal = 0;
+  const f = map && map.fronts;
+  if (!f || !f.length) return;
+  let total = 0;
+  for (const [, secs] of f) total += secs;
+  if (total <= 0) return;
+  cycle = f; cycleTotal = total;
+}
+
+/** Which preset the timetable calls for at sim-time t. Pure arithmetic. */
+function nameAt(t) {
+  let x = ((t % cycleTotal) + cycleTotal) % cycleTotal;
+  for (const [n, secs] of cycle) { if (x < secs) return n; x -= secs; }
+  return cycle[0][0];
+}
+
+function initWeather(scene, name = 'clear') {
+  sceneRef = scene;
+  frontTo = null; frontT = 0;
+  installCycle(G.map);
+  curName = cycle ? nameAt(0) : name;
+  return buildWeather(scene, curName);
+}
+
+/** The sky the timetable will hand you next, and in how long. For the HUD. */
+function nextFront() {
+  if (!cycle) return null;
+  let x = ((G.time % cycleTotal) + cycleTotal) % cycleTotal, i = 0;
+  for (const [, secs] of cycle) { if (x < secs) break; x -= secs; i++; }
+  const at = cycle[(i + 1) % cycle.length];
+  return { name: at[0], in: cycle[i][1] - x };
+}
+
 /* Ground mist: a few big soft billboards drifting low over the terrain. */
 function buildMist(scene, strength) {
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -3406,15 +3561,38 @@ function isPouring() { return rainfall() > 0.42; }
 
 function updateWeather(dt) {
   const cam = G.camera;
+
+  /* a front on the timetable: announce it, fade the old sky out, swap, and let
+     the new one's existing uFade ramp bring it in */
+  if (cycle && !frontTo) {
+    const want = nameAt(G.time);
+    if (want !== curName) {
+      frontTo = want; frontT = FRONT_FADE;
+      toast(FRONT_TOAST[want] || 'The weather is turning');
+    }
+  }
+  let out = 1;
+  if (frontTo) {
+    frontT -= dt;
+    out = Math.max(0, frontT / FRONT_FADE);
+    if (frontT <= 0) {
+      const n = frontTo; frontTo = null; curName = n;
+      buildWeather(sceneRef, n);
+      return;
+    }
+  }
+
   if (precip && uni) {
     uni.uTime.value += dt;
-    uni.uFade.value = Math.min(1, uni.uFade.value + dt * 0.6);
+    uni.uFade.value = frontTo ? Math.min(uni.uFade.value, out)
+                              : Math.min(1, uni.uFade.value + dt * 0.6);
     if (cam) uni.uOrigin.value.set(cam.position.x, 0, cam.position.z);
   }
   if (mist) {
     const mu = mist.children[0].material.uniforms;
     mu.uTime.value += dt;
-    mu.uFade.value = Math.min(1, mu.uFade.value + dt * 0.4);
+    mu.uFade.value = frontTo ? Math.min(mu.uFade.value, out)
+                             : Math.min(1, mu.uFade.value + dt * 0.4);
     if (cam) for (const m of mist.children) m.lookAt(cam.position.x, m.position.y, cam.position.z);
   }
 }
@@ -3543,19 +3721,19 @@ function initWater(scene, defs) {
   return lakes;
 }
 
-/* Intake pumps still standing decide how fast the water goes — and beavers
-   sitting on them decide how well those pumps work. The Beaver's card has
-   always promised "every beaver on a pump slows the drain"; until now that was
-   a blurb with no code behind it. */
-const DAM_RADIUS = 9;
-const DAM_PER_BEAVER = 0.18;
-const DAM_FLOOR = 0.15;          // a dammed pump still trickles
+/* Intake pumps still standing decide how fast the water goes. */
+/* The beaver used to be able to sit on a pump and "dam" it, shaving the draw
+   while it stayed put. It is gone, and deliberately so: one beaver camped on a
+   pump forever cut the drain by 11%, while simply killing that pump cut it by
+   33% — permanently, for free, and with the beaver then walking away to do
+   something else. A choice nobody can ever correctly make is not a choice, it
+   is a trap for players who read the card. The beaver keeps the ability that
+   was actually good: mend(). */
 
 function activeDraw() {
   /* Wells draw groundwater and count alongside the surface intakes, which is
      the point of them: smashing every pump on the map no longer guarantees the
-     water comes back. They cannot be dammed either — there is no surface
-     intake for a beaver to sit on. */
+     water comes back. */
   /* A well counts double. Measured at parity it sustained only 5% of the drain
      once the pumps were gone — the refill all but cancelled it, so the "backup
      supply" was a backup in name only. At weight 2 a surviving well holds
@@ -3567,18 +3745,7 @@ function activeDraw() {
   const pumps = G.pumps || [];
   if (!pumps.length && !wellCap) return 1;
   let total = wellCap, live = wells;
-  for (const p of pumps) {
-    total++;
-    if (!p.alive) continue;
-    let dams = 0;
-    for (const e of G.entities) {
-      if (!e.alive || e.type !== 'beaver') continue;
-      const dx = e.pos.x - p.pos.x, dz = e.pos.z - p.pos.z;
-      if (dx * dx + dz * dz < DAM_RADIUS * DAM_RADIUS) dams++;
-    }
-    live += Math.max(DAM_FLOOR, 1 - dams * DAM_PER_BEAVER);
-  }
-  G.dammed = total - live;                     // for the HUD
+  for (const p of pumps) { total++; if (p.alive) live++; }
   return total ? live / total : 1;
 }
 
@@ -3591,10 +3758,10 @@ function updateWater(dt) {
     L.uni.uTime.value += dt;
     /* Net flow, not an either/or. The old rule only refilled when EVERY pump
        was dead, so killing three of four changed nothing the player could see.
-       Now each pump you break (or dam) shifts the balance, and at roughly half
-       the intakes down the lake holds steady — a visible, earnable stalemate. */
+       Now each pump you break shifts the balance, and at roughly half the
+       intakes down the lake holds steady — a visible, earnable stalemate. */
     /* Three forces on one number: the intakes pulling it down, the water table
-       pushing it back when they are broken or dammed, and the sky. */
+       pushing it back when they are broken, and the sky. */
     const rain = rainfall();
     const flow = L.baseDrain * (draw - REFILL * (1 - draw) - rain);
     if (flow !== 0) {
@@ -4099,10 +4266,21 @@ function rankFor(score, timeSec, stats) {
   }
   const minutes0 = Math.max(0.5, (timeSec || 0) / 60);
   const ppm0 = score / minutes0;
+  let letter = 'D';
   for (const r of SCORE.ranks) {
-    if (ppm0 >= r.ppm && score >= r.min && objective >= (r.work || 0)) return r.letter;
+    if (ppm0 >= r.ppm && score >= r.min && objective >= (r.work || 0)) { letter = r.letter; break; }
   }
-  return 'D';
+  /* A finished run that LOST cannot outrank a C. rankFor took no outcome argument
+     at all, so a measured defeat — ppm 1815, score 16,813, objective 14.5 — cleared
+     every S gate and printed 'S RANK' directly under a dead Heart Tree, the same
+     letter a victory got. Losing the one thing the whole game is about is not an S,
+     and a triumphant grade undercuts the defeat copy in the line above it. */
+  if (s && s.finished && s.win === false) {
+    const floor = SCORE.ranks.findIndex(r => r.letter === 'C');
+    const cur = SCORE.ranks.findIndex(r => r.letter === letter);
+    if (cur >= 0 && floor >= 0 && cur < floor) letter = 'C';
+  }
+  return letter;
 }
 
 
@@ -7631,6 +7809,7 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _neigh = [];
 const _face = new THREE.Vector3();
+const _slideGoal = new THREE.Vector3();
 const HIT_TIME = 0.18;
 const PACK_ALERT = 15;      // metres a cry for help carries
 const RANK_GEO = new THREE.OctahedronGeometry(0.16, 0);
@@ -7860,6 +8039,18 @@ class Entity {
 
   /* ------------------------------------------------------------ orders -- */
   setOrder(type, pos, target) {
+    /* Re-issuing the order a unit is ALREADY carrying out is a no-op, not a
+       reset. Click-spamming an attack order used to pin a squad in place: every
+       call cleared `stuck`, and `stuck` is what accumulates to 1.1s before
+       breakBlocker() chews through the wall in the way. A player hammering the
+       click on a wall-blocked target therefore reset the timer faster than it
+       could ever fill, and the wolves stood there forever — measured at 5 of 12
+       idle at seven minutes. Spam should be redundant, never harmful.
+       A provoked unit is deliberately excluded: there, the repeat click is the
+       player overriding a grudge, and it must still land. */
+    if (type === 'attack' && target && !this.provokedBy &&
+        this.order.type === 'attack' && this.order.target === target) return;
+
     /* A player order is by definition newer than any grudge, so it clears the
        provoke state outright. Without this the update loop kept overwriting
        `target` with the provoker and, on expiry, replayed the order the player
@@ -7876,6 +8067,7 @@ class Entity {
     if (type === 'stop' || type === 'hold') { this.target = null; this.order.type = type === 'stop' ? 'idle' : 'hold'; }
     this.leash = null;
     this.stuck = 0;
+    this._slideUntil = 0;
   }
 
   /* ------------------------------------------------------------ update -- */
@@ -7906,7 +8098,7 @@ class Entity {
     }
 
     /* --- target validity & acquisition --- */
-    if (this.target && (!this.target.alive)) this.target = null;
+    if (this.target && (!this.target.alive)) { this.target = null; this.leash = null; }
     const ot = this.order.type;
     if (this.order.target && !this.order.target.alive) {
       this.order.target = null;
@@ -7931,10 +8123,14 @@ class Entity {
       this._shunned = this.target;
       this._shunnedUntil = G.time + 6;
       this.target = null;
-      /* Stop where it stands. Walking the unit back to its anchor pulled it out of
-         a fight the player had committed it to — the most control-destroying
-         behaviour in the game, firing on 6-17% of attack-move frames. */
-      this.setOrder('stop');
+      this.leash = null;
+      /* Cancel the CHASE, never the order. setOrder('stop') used to fire here, which
+         wiped order.pos — so one contact anywhere along the route deleted the
+         player's attack-move and the army stopped mid-map. Measured: an un-babysat
+         96-pop push arrived with 13 idle survivors and zero coolants killed. Now the
+         unit drops the target and the movement-goal block below picks its own
+         order.pos back up on the very next frame, so it keeps walking. A unit whose
+         order really is 'idle' has no order.pos and stands still exactly as before. */
     }
 
     /* --- decide movement goal --- */
@@ -7967,7 +8163,12 @@ class Entity {
       if (d <= goalRadius) {
         if (goal === this.order.pos) { this.order.type = 'idle'; this.order.pos = null; }
       } else {
-        this.steer(goal, dt);
+        /* A live wall-slide overrides the beeline for its duration: pressing
+           straight at the goal is exactly what wedged the unit in the first place. */
+        if (G.time < (this._slideUntil || 0)) {
+          _slideGoal.set(this.pos.x + this._slideX * 12, 0, this.pos.z + this._slideZ * 12);
+          this.steer(_slideGoal, dt);
+        } else this.steer(goal, dt);
         pushing = true;
       }
     } else {
@@ -8012,6 +8213,12 @@ class Entity {
     for (const o of G.entities) {
       if (!o.alive || !o.isBuilding || o.team !== this.team) continue;
       if (o.hp >= o.maxHp) continue;
+      /* Once the Core is cooking it is past welding, permanently — so it is not
+         a repair target at all. Every other building stays a target even while
+         it is being chewed: the technician still walks into the fight, which is
+         what makes "Kill it first" a real instruction. What is gated is the
+         WELD, not the walk (see below). */
+      if (o === G.core && G.coreExposed) continue;
       const d = dist2D(this.pos, o.pos);
       /* prefer things that are nearly dead -- saving a wall is worth less than
          saving the coolant tower the player has spent two minutes on */
@@ -8028,7 +8235,22 @@ class Entity {
       } else {
         this.faceTo(best.pos, dt, 8);
         const before = best.hp;
-        best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        /* The player's own regeneration is gated on five seconds out of combat
+           precisely so it "must never win a fight". The machine's had no gate
+           at all, so two technicians at repair 16 out-healed a swarm standing
+           on top of the building — measured at +32.5 hp/s on a Core the player
+           was actively hitting, which made a fully disarmed compound literally
+           unkillable. Same rule for both sides now: you cannot weld a hull
+           somebody is still biting.
+
+           Deliberately gated here rather than in target selection. If the
+           technician simply skipped whatever was under fire it would never come
+           to the fight at all, and the one counterplay the design gives the
+           player — shoot the welder — would stop existing. It still walks in.
+           It just cannot undo damage while the damage is happening. */
+        if (G.time - (best.lastHitAt || -999) >= RULES.techRepairDelay) {
+          best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+        }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
         this._weldT = (this._weldT || 0) + dt;
@@ -8154,7 +8376,45 @@ class Entity {
     if (best) {
       this.target = best;
       this._blockUntil = G.time + 4;   // commit to the breach for four seconds
+      return;
     }
+    this.slideOut();
+  }
+
+  /* Nothing hostile within reach and still going nowhere — so whatever is in the
+     way is our own, and breakBlocker (which skips `o.team === this.team`) has no
+     answer for it. A machine raider wedged in its own perimeter corner therefore
+     had no recourse at all: it pressed into the fence until the match ended.
+     Measured before this existed: a sweep carrying an explicit "attack the Heart
+     Tree" order sat at one coordinate for 286 consecutive seconds while the tree
+     finished at full health. Slide ALONG the blocker rather than into it. */
+  slideOut() {
+    let best = null, bd = 1e9;
+    for (const o of G.obstacles) {
+      if (!o.alive || o === this) continue;
+      const d = dist2D(this.pos, o.pos) - (o.box ? Math.max(o.box.hw, o.box.hd) : o.radius);
+      if (d < bd && d < 7) { bd = d; best = o; }
+    }
+    if (!best) return;
+    let nx = this.pos.x - best.pos.x, nz = this.pos.z - best.pos.z;
+    const n = Math.hypot(nx, nz);
+    if (n < 1e-3) { nx = 1; nz = 0; } else { nx /= n; nz /= n; }
+    /* An inside corner blocks BOTH tangents, so a slide that keeps picking the
+       same one never escapes. Alternate on a repeat attempt. */
+    if (G.time - (this._slideAt || -99) < 2.5) this._slideFlip = !this._slideFlip;
+    else this._slideFlip = false;
+    this._slideAt = G.time;
+    const goal = (this.target && this.target.alive) ? this.target.pos : this.order.pos;
+    const gx = goal ? goal.x - this.pos.x : -nx;
+    const gz = goal ? goal.z - this.pos.z : -nz;
+    const tx = -nz, tz = nx;
+    let sgn = (gx * tx + gz * tz) >= 0 ? 1 : -1;
+    if (this._slideFlip) sgn = -sgn;
+    // a little outward bias too, or a unit pinched between two faces stays pinched
+    let sx = tx * sgn + nx * 0.35, sz = tz * sgn + nz * 0.35;
+    const m = Math.hypot(sx, sz) || 1;
+    this._slideX = sx / m; this._slideZ = sz / m;
+    this._slideUntil = G.time + 1.2;
   }
 
   clampToWorld() {
@@ -8220,7 +8480,12 @@ class Entity {
        Deliberately absolute rather than a slowdown, because "the turrets are
        off" is a thing a player can SEE and act on, and a 40%-rate turret is
        just a turret. */
-    if (def.ranged && this.needsPower && !G.powered) {
+    /* Overgrowth smothers a gun the same way a dead generator does: vines in the
+       barrel. Same absolute gate, same visible tell (the glow goes out), so the
+       spell finally answers the one thing that was killing swarms on the
+       approach — and the player can SEE which guns it caught. */
+    const smothered = G.time < (this.smotheredUntil || -1);
+    if (def.ranged && ((this.needsPower && !G.powered) || smothered)) {
       this.target = null;
       if (this.anim && this.anim.glow) this.anim.glow.visible = false;
       burnTick(this, dt);
@@ -8290,11 +8555,20 @@ class Entity {
     if (this.target || G.time - this.lastHitAt < 2) { this.sip = 0; return; }
     /* already well-watered: don't burn the animation topping up from 90% */
     if (this.watered > 4) { this.sip = 0; return; }
+    /* ONLY on command. Pricing the buff (it now suppresses the Green's healing
+       while it lasts) while leaving the drink automatic was the worst of both:
+       a wounded animal parked at a shore re-drank forever and so never healed.
+       Measured — two wolves at 28/56 for sixty seconds, one at the lake and one
+       inland: the lake wolf gained 1 HP with `watered` cycling 14.4 -> 2.5 ->
+       13.1 -> 22.8, the inland wolf healed all 28 and was full in fifteen
+       seconds. The W order sets this; drinking clears it. */
+    if (!this._wantsDrink) { this.sip = 0; return; }
     const L = lakeAt(this.pos.x, this.pos.z);
     if (!L) { this.sip = 0; return; }
     this.sip = (this.sip || 0) + dt;
     if (this.sip < RULES.drinkTime) return;
     this.sip = 0;
+    this._wantsDrink = false;          // one order, one drink
     this.watered = RULES.drinkMin + (RULES.drinkMax - RULES.drinkMin) * L.level;
     this.showWatered(true);
     SFX.drink(this.pos);
@@ -8359,9 +8633,20 @@ class Entity {
     if (this.team !== TEAM.WILD) return;
     if (this.hp >= this.maxHp) return;
     if (G.time - this.lastHitAt < RULES.regenDelay) return;
-    /* Watered animals regenerate at the full Green rate ANYWHERE — that is the
-       whole point of the buff, and the reason a push detours past a lake. */
-    const v = this.watered > 0 ? 1 : (G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0);
+    /* WATERED AND HEALING ARE MUTUALLY EXCLUSIVE. This is the price of the buff.
+       Watered used to ALSO grant full-Green regeneration anywhere, which made
+       drinking strictly better than not drinking in every situation — and with
+       the lake sitting 3m off the direct route to the compound, pressing W was
+       a reflex with no question attached to it. Now the sip switches the swarm
+       from recovering to fighting: +20% rate, +15% damage, +10% move, and for
+       those 12-26 seconds nothing heals, not even standing on your own Green.
+       So the order of operations becomes the decision. Heal at home FIRST, then
+       drink, then commit — because a swarm that drinks while it is hurt has
+       thrown away up to a full bar of free healing (0.040/s of max HP on the
+       Green, over a 26s buff, is 1.04x max HP forgone) to get a buff it cannot
+       yet use. Drink on the way in, never on the way out. */
+    if (this.watered > 0) return;
+    const v = G.verdant ? G.verdant.at(this.pos.x, this.pos.z) : 0;
     const rate = RULES.regenOffGreen + (RULES.regenOnGreen - RULES.regenOffGreen) * v;
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }
@@ -9990,9 +10275,11 @@ function populate() {
       } else {
         commsEvent('coreExposed');
         G.coreExposed = true;
+        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        toast('THERMAL RUNAWAY — the Server Core is exposed', 'warn');
+        toast(`THERMAL RUNAWAY — the Core is exposed and cooking. `
+              + `${Math.round(RULES.runawaySeconds / 60)} minutes before it melts itself.`, 'warn');
       }
     };
     G.obstacles.push(c);
@@ -10200,6 +10487,37 @@ function updateWorld(dt) {
       && Math.min(3, 1 + Math.floor(bloomed / 2)) > Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2))) SFX.lane();
   G.bloomed = bloomed;
 
+  /* --- thermal runaway ---------------------------------------------------
+     The last coolant tower is the point of no return. Before this, killing all
+     three bought the player an exposed Core and a health bar that technicians
+     welded straight back to full — measured at 11m47s of assaulting a naked,
+     disarmed Core that ended the match at 3000/3000. Now the compound cooks
+     itself on a clock, so every coolant kill is permanent progress.
+
+     It is deliberately slow. Bringing the Core down yourself is far quicker and
+     is still the ending the game wants; this only guarantees that a decided
+     match actually ENDS, and it gives the player something to race instead of
+     something to grind. */
+  if (G.coreExposed && G.core.alive && !G.over) {
+    const burn = G.core.maxHp / RULES.runawaySeconds;
+    G.core.hp -= burn * dt;
+    /* Milestones, because a bar creeping down is not a clock. */
+    const left = Math.max(0, G.core.hp / burn);
+    if (!G.runawaySaid) G.runawaySaid = {};
+    for (const mark of [180, 120, 60, 30]) {
+      if (left <= mark && !G.runawaySaid[mark]) {
+        G.runawaySaid[mark] = true;
+        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
+        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
+           initiated our Thermal Resilience Journey"), which is exactly the
+           register a meltdown countdown wants, and it keeps the exposure
+           announcement from repeating itself four times on the way down. */
+        commsEvent('coolant', 0.7);
+      }
+    }
+    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+  }
+
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
     const alive = G.coolants.filter(c => c.alive).length;
@@ -10320,6 +10638,35 @@ function rallySlot() {
   const a = (i % per) / per * Math.PI * 2 + ringIdx * 0.7;
   const r = ringIdx * 3.2;
   return _rally.set(G.rally.x + Math.cos(a) * r, 0, G.rally.z + Math.sin(a) * r);
+}
+
+/* ------------------------------------------------- Deepen the Roots ------
+   The late game's only other thing to buy. See RULES.rootsCost for why it
+   exists: past ~3:00 a competent player is pinned at the pop cap with an empty
+   queue and an income they cannot spend, so more than half the match had no
+   purchasing decision in it at all. This converts a stalled economy back into
+   army, at a price that climbs fast enough that "can I afford this AND rebuild
+   what I am about to lose" stays a live question rather than a formality. */
+function rootsBought() { return G.rootsN || 0; }
+
+function rootsPrice() {
+  return Math.round(RULES.rootsCost * Math.pow(RULES.rootsGrowth, rootsBought()));
+}
+
+function rootsMaxed() { return rootsBought() >= RULES.rootsMax; }
+
+function deepenRoots() {
+  if (!G.heart.alive) return false;
+  if (rootsMaxed()) { toast('The roots are as deep as this valley goes', 'warn'); SFX.deny(); return false; }
+  const price = rootsPrice();
+  if (G.biomass < price) { toast(`Not enough biomass to deepen the roots (${price})`, 'warn'); SFX.deny(); return false; }
+  G.biomass -= price;
+  G.rootsN = rootsBought() + 1;
+  G.popCap += RULES.rootsStep;
+  ring(G.heart.pos, 0x9bff6a, 22, 1.2);
+  SFX.bloom();   // the same good-news chime a grove gets; this is an economy milestone
+  toast(`The roots go deeper — the valley will hold ${G.popCap} now`);
+  return true;
 }
 
 function queueUnit(type) {
@@ -10469,6 +10816,15 @@ function raidTarget(forHome) {
   return null;
 }
 
+/* Which way is "out of the compound" from this gate. Compared in half-extent units
+   so a wide, shallow compound still resolves the near face correctly. */
+function gateOutward(g) {
+  const dx = g.x - COMPOUND.x, dz = g.z - COMPOUND.z;
+  const ax = Math.abs(dx) / Math.max(1, COMPOUND.hw);
+  const az = Math.abs(dz) / Math.max(1, COMPOUND.hd);
+  return ax >= az ? { x: Math.sign(dx) || 1, z: 0 } : { x: 0, z: Math.sign(dz) || 1 };
+}
+
 function launchWave() {
   const alive0 = G.depots.filter(d => d.alive).length;
   if (alive0 === 0 && G.waveNum > 2) {
@@ -10508,11 +10864,24 @@ function launchWave() {
     drones = Math.max(1, Math.floor(drones * k));
   }
   const gate = G.gates[G.waveNum % G.gates.length];
+  /* Muster OUTSIDE the fence. Raiders used to appear centred on the gate line
+     itself, and the north gate's line is the north WALL — so half a sweep spawned
+     inside the compound. A beeline to a Heart Tree that lies west then walked them
+     along the inside of that wall into the north-west corner, where they wedged
+     against their own perimeter and stayed: measured, seven raiders holding an
+     explicit "attack the Heart Tree" order sat at one coordinate for 286 seconds
+     while the tree finished the match untouched. Stepping the muster point out
+     past the wall means a straight run home never crosses their own fence. */
+  const out = gateOutward(gate);
+  const tanX = -out.z, tanZ = out.x;
+  const mx = gate.x + out.x * 7, mz = gate.z + out.z * 7;
+  const at = (spread, push) => [
+    mx + tanX * rand(-spread, spread) + out.x * rand(0, push),
+    mz + tanZ * rand(-spread, spread) + out.z * rand(0, push),
+  ];
   const made = [];
-  for (let i = 0; i < guards; i++)
-    made.push(spawn('guard', gate.x + rand(-10, 10), gate.z + rand(-10, 10)));
-  for (let i = 0; i < drones; i++)
-    made.push(spawn('drone', gate.x + rand(-12, 12), gate.z + rand(-12, 12)));
+  for (let i = 0; i < guards; i++) { const [x, z] = at(9, 8);  made.push(spawn('guard', x, z)); }
+  for (let i = 0; i < drones; i++) { const [x, z] = at(11, 10); made.push(spawn('drone', x, z)); }
 
   /* Two thirds of the sweep goes for the base, the rest peels off to whatever
      grove is closest to home. The player can no longer be safe by simply owning
@@ -10568,18 +10937,31 @@ function pruneOvergrowths() {
   }
 }
 
-/* Overgrowth: root every machine unit in a radius. */
+/* Overgrowth: root every machine unit in a radius, and smother the guns.
+
+   It used to skip `e.isBuilding` outright, which meant the ability did nothing
+   about turrets — the one thing that actually kills a swarm on the approach was
+   immune to the swarm's only spell. Now the vines go in the barrel too: a
+   caught turret goes dark for the duration exactly as if its generator had
+   died, which is a tell the player already knows how to read. */
 function castOvergrowth(point) {
   commsEvent('overgrowth', 0.7);
   spawnOvergrowthField(point);
-  let hit = 0;
+  let hit = 0, guns = 0;
   for (const e of G.entities) {
-    if (!e.alive || e.team !== TEAM.MACHINE || e.isBuilding) continue;
-    if (dist2D(e.pos, point) > RULES.spellRadius) continue;
-    e.rootedUntil = G.time + RULES.spellDuration;
-    hit++;
+    if (!e.alive || e.team !== TEAM.MACHINE) continue;
+    if (dist2D(e.pos, point) > RULES.spellRadius + (e.isBuilding ? e.radius : 0)) continue;
+    if (e.isBuilding) {
+      if (!e.def.ranged) continue;          // no point smothering a wall
+      e.smotheredUntil = G.time + RULES.spellDuration;
+      e.target = null;
+      guns++;
+    } else {
+      e.rootedUntil = G.time + RULES.spellDuration;
+      hit++;
+    }
   }
-  return hit;
+  return { rooted: hit, guns };
 }
 
 function countMachine(type) {
@@ -12190,7 +12572,13 @@ function castAt(x, y) {
   ring(pt, 0x9bff6a, RULES.spellRadius, 1.2);
   burst(pt, 0x6ad06a, 40, 14, 1.3, 1.1);
   SFX.spell();
-  toast(n ? `Overgrowth — ${n} machines rooted` : 'Overgrowth — nothing caught in it');
+  /* Say what it caught. "3 machines rooted" hid the important half — a cast
+     that silences two turrets is a completely different play from one that
+     pins three guards, and the player has to be able to tell them apart. */
+  const bits = [];
+  if (n.rooted) bits.push(`${n.rooted} machine${n.rooted === 1 ? '' : 's'} rooted`);
+  if (n.guns) bits.push(`${n.guns} gun${n.guns === 1 ? '' : 's'} smothered`);
+  toast(bits.length ? `Overgrowth — ${bits.join(', ')}` : 'Overgrowth — nothing caught in it');
 }
 
 /* Tell the player *before* they pick a target that the cast will not happen. */
@@ -12254,7 +12642,7 @@ function onKey(e) {
       let sent = 0;
       for (const u of sel) {
         const p = shorePoint(u.pos.x, u.pos.z, _wv);
-        if (p) { u.setOrder('move', p.clone()); sent++; }
+        if (p) { u._wantsDrink = true; u.setOrder('move', p.clone()); sent++; }
       }
       if (sent) { SFX.order(); voiceFor(commandable(), 'order'); toast(`${sent} sent to drink`); }
       else { SFX.deny(); toast('No water left to drink', 'warn'); }
@@ -12270,6 +12658,7 @@ function onKey(e) {
     case 'KeyR': queueUnit('capybara'); return;
     case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
+    case 'KeyT': deepenRoots(); return;
   }
 
   const m = /^Digit([1-5])$/.exec(e.code);
@@ -12376,11 +12765,26 @@ function initCards() {
     el.className = 'card';
     el.dataset.type = type;
     /* Population is the constraint that decides the late game — a Bear is four
-       Wolves you are not fielding — and it appeared nowhere in the UI. */
+       Wolves you are not fielding — and it appeared nowhere in the UI.
+
+       Neither did the siege multiplier, which is the single biggest hidden
+       decision in the game: the win condition is a pile of armoured buildings,
+       and only three of the eight buildables hit them harder than they hit
+       flesh. A player could field a perfectly good army that was quietly bad at
+       the only thing that ends the match. Both numbers now sit on the card. */
+    const siege = d.siege || 1;
     el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${d.icon}</span>
       <span class="nm">${d.name}</span>
-      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i></span>`;
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`;
+      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i>`
+      + (siege > 1 ? `<i class="siege" title="damage vs structures">🏗×${siege}</i>` : '')
+      + `</span>`;
+    /* Structure DPS against the Server Core (armour 8) — the number that
+       actually decides whether a composition can finish the game. Flat armour is
+       why the multiplier alone understates the gap: it is the difference
+       between "slow" and "you will be here all night". */
+    const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
+    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`
+      + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
     /* Shift-click queues five. Filling a 96-pop army one press at a time is
        not a decision, it is typing. */
     el.addEventListener('click', ev => {
@@ -12389,13 +12793,25 @@ function initCards() {
     });
     host.appendChild(el);
   }
+  /* Deepen the Roots — the late game's second thing to buy. Sits at the end of
+     the roster because that is where the eye lands once every unit is greyed out
+     by the pop cap, which is exactly the moment it is for. */
+  const rt = document.createElement('div');
+  rt.className = 'card roots';
+  rt.id = 'rootscard';
+  rt.innerHTML = `<span class="key">T</span><span class="ico">🌳</span>
+    <span class="nm">Deepen the Roots</span><span class="cost">🍃 <b class="rcost">${rootsPrice()}</b></span>`;
+  rt.title = `Raise the wildlife limit by ${RULES.rootsStep}. Each one costs more than the last.`;
+  rt.addEventListener('click', () => { deepenRoots(); refreshRootsCard(); });
+  host.appendChild(rt);
+
   const sp = document.createElement('div');
   sp.className = 'card spell';
   sp.id = 'spellcard';
   sp.innerHTML = `<span class="key">F</span><span class="ico">🌿</span>
     <span class="nm">Overgrowth</span><span class="cost">🍃 ${RULES.spellCost}</span>
     <div class="cd" style="display:none"></div>`;
-  sp.title = `Roots erupt in a ${RULES.spellRadius}m circle, holding every machine in place for ${RULES.spellDuration}s.`;
+  sp.title = `Roots erupt in a ${RULES.spellRadius}m circle for ${RULES.spellDuration}s: machines are held in place, and any Sentry Turret caught in it goes dark.`;
   sp.addEventListener('click', enterSpellMode);
   host.appendChild(sp);
 
@@ -12416,16 +12832,30 @@ function initCards() {
   });
 }
 
+/* The price climbs, so the card has to say so. Called from the HUD tick as well
+   as the click handler, because the hotkey buys without going through the card. */
+function refreshRootsCard() {
+  const rt = document.getElementById('rootscard');
+  if (!rt) return;
+  const b = rt.querySelector('.rcost');
+  if (!b) return;
+  const maxed = rootsMaxed();
+  const txt = maxed ? '—' : String(rootsPrice());
+  if (b.textContent !== txt) b.textContent = txt;
+  rt.classList.toggle('maxed', maxed);
+}
+
 
 /* =================== src/hud.js =================== */
 const el = id => document.getElementById(id);
-let mmCtx, cards = null, spellCard = null;
+let mmCtx, cards = null, spellCard = null, rootsCard = null;
 let lastSelSig = '';
 
 function initHUD() {
   mmCtx = el('minimap').getContext('2d');
   cards = [...document.querySelectorAll('#cards .card[data-type]')];
   spellCard = el('spellcard');
+  rootsCard = el('rootscard');
   const pips = el('objpips');
   pips.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -12475,11 +12905,15 @@ function updateHUD() {
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
       /* These used to share one slot and hide each other. Show whichever the
          player can act on, and say when the sky is helping. */
-      const dammed = Math.round((G.dammed || 0) * 10) / 10;
       const bits = [];
       if (isPouring()) bits.push('raining');
       if (n) bits.push(`${n} watered`);
-      if (dammed >= 0.5) bits.push(`${dammed} dammed`);
+      /* On a map whose sky is on a timetable, the front is the single most
+         plannable thing on the board — it is fixed, it is known, and pushing
+         under it is worth real water. So say when it lands, not just that it is
+         here. Only inside a minute, or it is noise rather than a decision. */
+      const nf = nextFront();
+      if (nf && nf.in < 60) bits.push(`${nf.name} in ${Math.ceil(nf.in)}s`);
       el('watersub').textContent = bits.length ? bits.join(' · ') : 'water';
       wres.classList.toggle('rain', isPouring());
     }
@@ -12490,9 +12924,15 @@ function updateHUD() {
   const pips = el('objpips').children;
   for (let i = 0; i < 3; i++) pips[i].className = 'pip ' + (G.coolants[i].alive ? 'alive' : 'dead');
   pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
+  /* Once the coolant towers are gone the objective is a RACE, so show the clock
+     rather than a sentence. The meltdown timer is the thing the player is now
+     playing against, and it is the only number that says how much of the match
+     is left. */
   el('objtext').textContent = left > 0
     ? `Destroy the Coolant Towers (${left} left)`
-    : (G.core.alive ? 'Server Core exposed — bring it down' : 'The valley is quiet again');
+    : G.core.alive
+      ? `Core melting down — ${fmt(Math.max(0, G.core.hp / (G.core.maxHp / RULES.runawaySeconds)))} · bring it down`
+      : 'The valley is quiet again';
 
   /* cards */
   for (const c of cards) {
@@ -12501,6 +12941,13 @@ function updateHUD() {
     const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
+  }
+  /* Deepen the Roots: price climbs with each purchase, so the card is re-read
+     rather than painted once at init. */
+  if (rootsCard) {
+    refreshRootsCard();
+    rootsCard.classList.toggle('locked',
+      rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive);
   }
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
@@ -12920,9 +13367,22 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState, order(units, type, pos, target) {
-    for (const u of units) u.setOrder(type, pos, target);
-  } };
+  /* `cast` and `deepenRoots` are here because a balance run has to be able to
+     exercise everything the player can. Overgrowth was reachable only from a UI
+     click path, so the game's only ability went unmeasured across whole playtest
+     sessions — an ability nobody can test is an ability nobody can tune. */
+  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState,
+    order(units, type, pos, target) {
+      for (const u of units) u.setOrder(type, pos, target);
+    },
+    cast(x, z) {
+      if (G.time < G.spellReady || G.biomass < RULES.spellCost) return false;
+      G.biomass -= RULES.spellCost;
+      G.spellReady = G.time + RULES.spellCooldown;
+      return castOvergrowth({ x, z });
+    },
+    deepenRoots, rootsPrice,
+  };
 }
 
 function frame(now, manual) {

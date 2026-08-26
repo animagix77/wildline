@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { queueUnit, buildScene, populate, updateWorld, reapDead } from './world.js';
+import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice } from './world.js';
 import { RTSCamera } from './camera.js';
 import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
-import { updateAI } from './ai.js';
+import { updateAI, castOvergrowth } from './ai.js';
 import { updateCombatFX } from './combat.js';
 import { updateVFX, initVFXLights } from './vfx.js';
 import { commsEvent, updateComms } from './comms.js';
@@ -13,7 +13,7 @@ import { updateWater, renderWaterReflection } from './water.js';
 import { initPost, renderPost, resizePost } from './post.js';
 import { SFX, updateListener, ambientVoices } from './audio.js';
 import { tickShaders } from './shaders.js';
-import { BASE, COMPOUND } from './config.js';
+import { BASE, COMPOUND, RULES } from './config.js';
 import { toast } from './ui.js';
 import { showSplash, splashReady } from './splash.js';
 import { vw, vh } from './utils.js';
@@ -173,9 +173,22 @@ if (HEADLESS) {
     return G.phase;
   };
   /* balance checks need to actually play: queue units and issue orders */
-  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState, order(units, type, pos, target) {
-    for (const u of units) u.setOrder(type, pos, target);
-  } };
+  /* `cast` and `deepenRoots` are here because a balance run has to be able to
+     exercise everything the player can. Overgrowth was reachable only from a UI
+     click path, so the game's only ability went unmeasured across whole playtest
+     sessions — an ability nobody can test is an ability nobody can tune. */
+  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState,
+    order(units, type, pos, target) {
+      for (const u of units) u.setOrder(type, pos, target);
+    },
+    cast(x, z) {
+      if (G.time < G.spellReady || G.biomass < RULES.spellCost) return false;
+      G.biomass -= RULES.spellCost;
+      G.spellReady = G.time + RULES.spellCooldown;
+      return castOvergrowth({ x, z });
+    },
+    deepenRoots, rootsPrice,
+  };
 }
 
 function frame(now, manual) {

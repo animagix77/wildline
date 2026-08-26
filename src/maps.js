@@ -28,6 +28,15 @@ export const MAPS = {
     depots: [[56, -76], [56, -27]],
     core: { x: 58, z: -50 },
     weather: 'clear',
+    /* The hollow's sky is on a clock. `weather` is only the opening frame now;
+       `fronts` is [preset, seconds], looping on sim time, identical every run.
+       This map is where the rain system finally does something: clear for the
+       first 100s so the player watches the lake fall at full rate, then rain
+       (which roughly halves the loss), a clear spell to make them miss it, then
+       a storm at ~5:00 — and during a storm, killing the intake actually pushes
+       the water back up. Any map can carry one of these; only this one does,
+       because this is the one everybody starts on. */
+    fronts: [['clear', 100], ['rain', 120], ['clear', 70], ['storm', 90]],
     water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
     generators: [[75, -80]],

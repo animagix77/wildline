@@ -1,20 +1,21 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
-import { fmt, queuedPop } from './world.js';
+import { fmt, queuedPop, rootsPrice, rootsMaxed } from './world.js';
 import { waterLevel, lakeCount } from './water.js';
-import { isPouring } from './weather.js';
-import { setSelection, syncHoverTip } from './input.js';
+import { isPouring, nextFront } from './weather.js';
+import { setSelection, syncHoverTip, refreshRootsCard } from './input.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
 const el = id => document.getElementById(id);
-let mmCtx, cards = null, spellCard = null;
+let mmCtx, cards = null, spellCard = null, rootsCard = null;
 let lastSelSig = '';
 
 export function initHUD() {
   mmCtx = el('minimap').getContext('2d');
   cards = [...document.querySelectorAll('#cards .card[data-type]')];
   spellCard = el('spellcard');
+  rootsCard = el('rootscard');
   const pips = el('objpips');
   pips.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -64,11 +65,15 @@ export function updateHUD() {
       for (const e of G.entities) if (e.alive && e.watered > 0) n++;
       /* These used to share one slot and hide each other. Show whichever the
          player can act on, and say when the sky is helping. */
-      const dammed = Math.round((G.dammed || 0) * 10) / 10;
       const bits = [];
       if (isPouring()) bits.push('raining');
       if (n) bits.push(`${n} watered`);
-      if (dammed >= 0.5) bits.push(`${dammed} dammed`);
+      /* On a map whose sky is on a timetable, the front is the single most
+         plannable thing on the board — it is fixed, it is known, and pushing
+         under it is worth real water. So say when it lands, not just that it is
+         here. Only inside a minute, or it is noise rather than a decision. */
+      const nf = nextFront();
+      if (nf && nf.in < 60) bits.push(`${nf.name} in ${Math.ceil(nf.in)}s`);
       el('watersub').textContent = bits.length ? bits.join(' · ') : 'water';
       wres.classList.toggle('rain', isPouring());
     }
@@ -79,9 +84,15 @@ export function updateHUD() {
   const pips = el('objpips').children;
   for (let i = 0; i < 3; i++) pips[i].className = 'pip ' + (G.coolants[i].alive ? 'alive' : 'dead');
   pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
+  /* Once the coolant towers are gone the objective is a RACE, so show the clock
+     rather than a sentence. The meltdown timer is the thing the player is now
+     playing against, and it is the only number that says how much of the match
+     is left. */
   el('objtext').textContent = left > 0
     ? `Destroy the Coolant Towers (${left} left)`
-    : (G.core.alive ? 'Server Core exposed — bring it down' : 'The valley is quiet again');
+    : G.core.alive
+      ? `Core melting down — ${fmt(Math.max(0, G.core.hp / (G.core.maxHp / RULES.runawaySeconds)))} · bring it down`
+      : 'The valley is quiet again';
 
   /* cards */
   for (const c of cards) {
@@ -90,6 +101,13 @@ export function updateHUD() {
     const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
+  }
+  /* Deepen the Roots: price climbs with each purchase, so the card is re-read
+     rather than painted once at init. */
+  if (rootsCard) {
+    refreshRootsCard();
+    rootsCard.classList.toggle('locked',
+      rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive);
   }
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;

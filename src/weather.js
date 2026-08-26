@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD } from './config.js';
 import { rand, terrainHeight } from './utils.js';
+import { toast } from './ui.js';
 
 /* =========================================================================
    Weather — rain, snow and drifting mist.
@@ -14,6 +15,11 @@ import { rand, terrainHeight } from './utils.js';
    Weather is a MapDef property, not a random event — a player planning a strike
    should know what they are walking into, so Coldrake is always sleeting and
    Substation Gary is always snowbound.
+
+   A map may instead carry `fronts`: an authored [preset, seconds] timetable
+   that loops on the sim clock. Still not a random event — the same front
+   arrives at the same second of every attempt, so it is something to plan a
+   push around rather than something that happens to you. See FRONTS below.
    ========================================================================= */
 
 const PRECIP_COUNT = 6000;
@@ -30,7 +36,7 @@ const PRESETS = {
   mist:  { kind: 0, density: 0, mist: 0.85, wind: [1, 1] },
 };
 
-export function initWeather(scene, name = 'clear') {
+function buildWeather(scene, name = 'clear') {
   disposeWeather();
   const p = PRESETS[name] || PRESETS.clear;
   G.weather = { name, ...p };
@@ -122,6 +128,64 @@ export function initWeather(scene, name = 'clear') {
   return G.weather;
 }
 
+/* ------------------------------------------------------------- fronts -- */
+/* A looping, authored timetable of skies: [presetName, seconds]. The clock is
+   G.time, which only advances while the match is actually running, so the front
+   that arrives at 1:40 arrives at 1:40 every single attempt. That is the whole
+   point — 'verdant-hollow' shipped as weather:'clear', RAINFALL.clear is 0, and
+   so the entire rain system did nothing on the one map every new player starts
+   on. Rather than repaint the opening valley as permanently wet (and change its
+   music and its whole first impression), the sky moves: the hollow opens clear
+   with the lake visibly draining, the rain arrives and roughly halves the loss,
+   and a storm later on makes breaking the intakes actually push the water back
+   UP. Three lessons, in order, on the map where they are cheapest to learn. */
+const FRONT_FADE = 2.5;        // seconds the old sky takes to clear out
+
+let cycle = null, cycleTotal = 0, curName = 'clear';
+let frontTo = null, frontT = 0, sceneRef = null;
+
+const FRONT_TOAST = {
+  clear:  'The sky is clearing',
+  rain:   'Rain moving in',
+  storm:  'A storm is coming over the ridge',
+  snow:   'Snow moving in',
+  mist:   'Mist is settling in the low ground',
+};
+
+function installCycle(map) {
+  cycle = null; cycleTotal = 0;
+  const f = map && map.fronts;
+  if (!f || !f.length) return;
+  let total = 0;
+  for (const [, secs] of f) total += secs;
+  if (total <= 0) return;
+  cycle = f; cycleTotal = total;
+}
+
+/** Which preset the timetable calls for at sim-time t. Pure arithmetic. */
+function nameAt(t) {
+  let x = ((t % cycleTotal) + cycleTotal) % cycleTotal;
+  for (const [n, secs] of cycle) { if (x < secs) return n; x -= secs; }
+  return cycle[0][0];
+}
+
+export function initWeather(scene, name = 'clear') {
+  sceneRef = scene;
+  frontTo = null; frontT = 0;
+  installCycle(G.map);
+  curName = cycle ? nameAt(0) : name;
+  return buildWeather(scene, curName);
+}
+
+/** The sky the timetable will hand you next, and in how long. For the HUD. */
+export function nextFront() {
+  if (!cycle) return null;
+  let x = ((G.time % cycleTotal) + cycleTotal) % cycleTotal, i = 0;
+  for (const [, secs] of cycle) { if (x < secs) break; x -= secs; i++; }
+  const at = cycle[(i + 1) % cycle.length];
+  return { name: at[0], in: cycle[i][1] - x };
+}
+
 /* Ground mist: a few big soft billboards drifting low over the terrain. */
 function buildMist(scene, strength) {
   const geo = new THREE.PlaneGeometry(1, 1);
@@ -194,15 +258,38 @@ export function isPouring() { return rainfall() > 0.42; }
 
 export function updateWeather(dt) {
   const cam = G.camera;
+
+  /* a front on the timetable: announce it, fade the old sky out, swap, and let
+     the new one's existing uFade ramp bring it in */
+  if (cycle && !frontTo) {
+    const want = nameAt(G.time);
+    if (want !== curName) {
+      frontTo = want; frontT = FRONT_FADE;
+      toast(FRONT_TOAST[want] || 'The weather is turning');
+    }
+  }
+  let out = 1;
+  if (frontTo) {
+    frontT -= dt;
+    out = Math.max(0, frontT / FRONT_FADE);
+    if (frontT <= 0) {
+      const n = frontTo; frontTo = null; curName = n;
+      buildWeather(sceneRef, n);
+      return;
+    }
+  }
+
   if (precip && uni) {
     uni.uTime.value += dt;
-    uni.uFade.value = Math.min(1, uni.uFade.value + dt * 0.6);
+    uni.uFade.value = frontTo ? Math.min(uni.uFade.value, out)
+                              : Math.min(1, uni.uFade.value + dt * 0.6);
     if (cam) uni.uOrigin.value.set(cam.position.x, 0, cam.position.z);
   }
   if (mist) {
     const mu = mist.children[0].material.uniforms;
     mu.uTime.value += dt;
-    mu.uFade.value = Math.min(1, mu.uFade.value + dt * 0.4);
+    mu.uFade.value = frontTo ? Math.min(mu.uFade.value, out)
+                             : Math.min(1, mu.uFade.value + dt * 0.4);
     if (cam) for (const m of mist.children) m.lookAt(cam.position.x, m.position.y, cam.position.z);
   }
 }

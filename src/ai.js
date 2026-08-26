@@ -106,6 +106,15 @@ function raidTarget(forHome) {
   return null;
 }
 
+/* Which way is "out of the compound" from this gate. Compared in half-extent units
+   so a wide, shallow compound still resolves the near face correctly. */
+function gateOutward(g) {
+  const dx = g.x - COMPOUND.x, dz = g.z - COMPOUND.z;
+  const ax = Math.abs(dx) / Math.max(1, COMPOUND.hw);
+  const az = Math.abs(dz) / Math.max(1, COMPOUND.hd);
+  return ax >= az ? { x: Math.sign(dx) || 1, z: 0 } : { x: 0, z: Math.sign(dz) || 1 };
+}
+
 function launchWave() {
   const alive0 = G.depots.filter(d => d.alive).length;
   if (alive0 === 0 && G.waveNum > 2) {
@@ -145,11 +154,24 @@ function launchWave() {
     drones = Math.max(1, Math.floor(drones * k));
   }
   const gate = G.gates[G.waveNum % G.gates.length];
+  /* Muster OUTSIDE the fence. Raiders used to appear centred on the gate line
+     itself, and the north gate's line is the north WALL — so half a sweep spawned
+     inside the compound. A beeline to a Heart Tree that lies west then walked them
+     along the inside of that wall into the north-west corner, where they wedged
+     against their own perimeter and stayed: measured, seven raiders holding an
+     explicit "attack the Heart Tree" order sat at one coordinate for 286 seconds
+     while the tree finished the match untouched. Stepping the muster point out
+     past the wall means a straight run home never crosses their own fence. */
+  const out = gateOutward(gate);
+  const tanX = -out.z, tanZ = out.x;
+  const mx = gate.x + out.x * 7, mz = gate.z + out.z * 7;
+  const at = (spread, push) => [
+    mx + tanX * rand(-spread, spread) + out.x * rand(0, push),
+    mz + tanZ * rand(-spread, spread) + out.z * rand(0, push),
+  ];
   const made = [];
-  for (let i = 0; i < guards; i++)
-    made.push(spawn('guard', gate.x + rand(-10, 10), gate.z + rand(-10, 10)));
-  for (let i = 0; i < drones; i++)
-    made.push(spawn('drone', gate.x + rand(-12, 12), gate.z + rand(-12, 12)));
+  for (let i = 0; i < guards; i++) { const [x, z] = at(9, 8);  made.push(spawn('guard', x, z)); }
+  for (let i = 0; i < drones; i++) { const [x, z] = at(11, 10); made.push(spawn('drone', x, z)); }
 
   /* Two thirds of the sweep goes for the base, the rest peels off to whatever
      grove is closest to home. The player can no longer be safe by simply owning
@@ -205,18 +227,31 @@ function pruneOvergrowths() {
   }
 }
 
-/* Overgrowth: root every machine unit in a radius. */
+/* Overgrowth: root every machine unit in a radius, and smother the guns.
+
+   It used to skip `e.isBuilding` outright, which meant the ability did nothing
+   about turrets — the one thing that actually kills a swarm on the approach was
+   immune to the swarm's only spell. Now the vines go in the barrel too: a
+   caught turret goes dark for the duration exactly as if its generator had
+   died, which is a tell the player already knows how to read. */
 export function castOvergrowth(point) {
   commsEvent('overgrowth', 0.7);
   spawnOvergrowthField(point);
-  let hit = 0;
+  let hit = 0, guns = 0;
   for (const e of G.entities) {
-    if (!e.alive || e.team !== TEAM.MACHINE || e.isBuilding) continue;
-    if (dist2D(e.pos, point) > RULES.spellRadius) continue;
-    e.rootedUntil = G.time + RULES.spellDuration;
-    hit++;
+    if (!e.alive || e.team !== TEAM.MACHINE) continue;
+    if (dist2D(e.pos, point) > RULES.spellRadius + (e.isBuilding ? e.radius : 0)) continue;
+    if (e.isBuilding) {
+      if (!e.def.ranged) continue;          // no point smothering a wall
+      e.smotheredUntil = G.time + RULES.spellDuration;
+      e.target = null;
+      guns++;
+    } else {
+      e.rootedUntil = G.time + RULES.spellDuration;
+      hit++;
+    }
   }
-  return hit;
+  return { rooted: hit, guns };
 }
 
 function countMachine(type) {

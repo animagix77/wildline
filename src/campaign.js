@@ -243,6 +243,7 @@ export function applyCampaignMods(st, siteId) {
       popCap: RULES.popCap, spellCooldown: RULES.spellCooldown,
       spawnEvery: DEFS.depot.spawnEvery,
       dmg: { guard: DEFS.guard.dmg, drone: DEFS.drone.dmg, turret: DEFS.turret.dmg },
+      cost: { bear: DEFS.bear.cost, beaver: DEFS.beaver.cost },
     };
   }
   const B = CAMP_BASE;
@@ -252,6 +253,7 @@ export function applyCampaignMods(st, siteId) {
   RULES.popCap = B.popCap; RULES.spellCooldown = B.spellCooldown;
   DEFS.depot.spawnEvery = B.spawnEvery;
   for (const k of ['guard', 'drone', 'turret']) DEFS[k].dmg = B.dmg[k];
+  for (const k of ['bear', 'beaver']) DEFS[k].cost = B.cost[k];
 
   const { challenge } = scalingFor(st, siteId);
   RULES.machinePopCap = Math.max(6, Math.round(RULES.machinePopCap * challenge));
@@ -268,8 +270,16 @@ export function applyCampaignMods(st, siteId) {
   if (perks.includes('deeproots')) RULES.spellCooldown = Math.round(RULES.spellCooldown * 0.75);
   if (perks.includes('highground')) RULES.popCap += 6;
   if (perks.includes('supplycut')) DEFS.depot.spawnEvery *= 1.3;
-  if (perks.includes('quarry')) { DEFS.bear.cost = Math.round(70 * 0.85); DEFS.beaver.cost = Math.round(45 * 0.85); }
-  else { DEFS.bear.cost = 70; DEFS.beaver.cost = 45; }
+  /* Scale the LIVE cost, never a literal. These used to be hardcoded 70/45 — the
+     config's values from an earlier balance pass — so entering the campaign silently
+     repriced the Bear from 80 down to 70 and the Beaver from 32 UP to 45, and the
+     "Bears and beavers cost 15% less" perk still left the Beaver at 38, a fifth
+     dearer than the same animal in skirmish. A perk advertised as a discount must
+     not be a tax, and the only way to keep that true as config moves is to read it. */
+  if (perks.includes('quarry')) {
+    DEFS.bear.cost = Math.round(B.cost.bear * 0.85);
+    DEFS.beaver.cost = Math.round(B.cost.beaver * 0.85);
+  }
   G.drainMult = perks.includes('floodplain') ? 0.7 : 1;
   if (!perks.includes('locals')) G.lockedUnits = ['local'];   // the town has not joined yet
   else G.lockedUnits = null;

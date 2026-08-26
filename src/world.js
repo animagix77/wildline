@@ -15,7 +15,7 @@ import { commsEvent } from './comms.js';
 import { recordResult, setPending, campState, bankSurvivors } from './campaign.js';
 import { SFX } from './audio.js';
 import { musicStop, musicStinger } from './music.js';
-import { ring, burst } from './combat.js';
+import { ring, burst, kill } from './combat.js';
 
 /* =========================================================================
    Scene construction
@@ -289,9 +289,11 @@ export function populate() {
       } else {
         commsEvent('coreExposed');
         G.coreExposed = true;
+        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        toast('THERMAL RUNAWAY — the Server Core is exposed', 'warn');
+        toast(`THERMAL RUNAWAY — the Core is exposed and cooking. `
+              + `${Math.round(RULES.runawaySeconds / 60)} minutes before it melts itself.`, 'warn');
       }
     };
     G.obstacles.push(c);
@@ -499,6 +501,37 @@ export function updateWorld(dt) {
       && Math.min(3, 1 + Math.floor(bloomed / 2)) > Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2))) SFX.lane();
   G.bloomed = bloomed;
 
+  /* --- thermal runaway ---------------------------------------------------
+     The last coolant tower is the point of no return. Before this, killing all
+     three bought the player an exposed Core and a health bar that technicians
+     welded straight back to full — measured at 11m47s of assaulting a naked,
+     disarmed Core that ended the match at 3000/3000. Now the compound cooks
+     itself on a clock, so every coolant kill is permanent progress.
+
+     It is deliberately slow. Bringing the Core down yourself is far quicker and
+     is still the ending the game wants; this only guarantees that a decided
+     match actually ENDS, and it gives the player something to race instead of
+     something to grind. */
+  if (G.coreExposed && G.core.alive && !G.over) {
+    const burn = G.core.maxHp / RULES.runawaySeconds;
+    G.core.hp -= burn * dt;
+    /* Milestones, because a bar creeping down is not a clock. */
+    const left = Math.max(0, G.core.hp / burn);
+    if (!G.runawaySaid) G.runawaySaid = {};
+    for (const mark of [180, 120, 60, 30]) {
+      if (left <= mark && !G.runawaySaid[mark]) {
+        G.runawaySaid[mark] = true;
+        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
+        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
+           initiated our Thermal Resilience Journey"), which is exactly the
+           register a meltdown countdown wants, and it keeps the exposure
+           announcement from repeating itself four times on the way down. */
+        commsEvent('coolant', 0.7);
+      }
+    }
+    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+  }
+
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
     const alive = G.coolants.filter(c => c.alive).length;
@@ -619,6 +652,35 @@ function rallySlot() {
   const a = (i % per) / per * Math.PI * 2 + ringIdx * 0.7;
   const r = ringIdx * 3.2;
   return _rally.set(G.rally.x + Math.cos(a) * r, 0, G.rally.z + Math.sin(a) * r);
+}
+
+/* ------------------------------------------------- Deepen the Roots ------
+   The late game's only other thing to buy. See RULES.rootsCost for why it
+   exists: past ~3:00 a competent player is pinned at the pop cap with an empty
+   queue and an income they cannot spend, so more than half the match had no
+   purchasing decision in it at all. This converts a stalled economy back into
+   army, at a price that climbs fast enough that "can I afford this AND rebuild
+   what I am about to lose" stays a live question rather than a formality. */
+export function rootsBought() { return G.rootsN || 0; }
+
+export function rootsPrice() {
+  return Math.round(RULES.rootsCost * Math.pow(RULES.rootsGrowth, rootsBought()));
+}
+
+export function rootsMaxed() { return rootsBought() >= RULES.rootsMax; }
+
+export function deepenRoots() {
+  if (!G.heart.alive) return false;
+  if (rootsMaxed()) { toast('The roots are as deep as this valley goes', 'warn'); SFX.deny(); return false; }
+  const price = rootsPrice();
+  if (G.biomass < price) { toast(`Not enough biomass to deepen the roots (${price})`, 'warn'); SFX.deny(); return false; }
+  G.biomass -= price;
+  G.rootsN = rootsBought() + 1;
+  G.popCap += RULES.rootsStep;
+  ring(G.heart.pos, 0x9bff6a, 22, 1.2);
+  SFX.bloom();   // the same good-news chime a grove gets; this is an economy milestone
+  toast(`The roots go deeper — the valley will hold ${G.popCap} now`);
+  return true;
 }
 
 export function queueUnit(type) {

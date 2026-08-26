@@ -23,11 +23,14 @@ export const G = {
   queue: [],                  // [{type, remaining, total}]
   rally: null,                // THREE.Vector3
 
+  rootsN: 0,                  // Deepen the Roots purchases made (price and cap key off it)
   spellReady: 0,              // timestamp when Overgrowth is usable again
   nextWave: RULES.firstWaveAt,
   waveNum: 0,
 
   coreExposed: false,
+  runawayAt: 0,               // G.time the last coolant died — starts the meltdown clock
+  runawaySaid: null,          // which meltdown countdown milestones have been announced
   depotsGoneToldOnce: false,
   over: false,
   paused: false,

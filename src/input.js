@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { TEAM, DEFS, RULES, BUILDABLE } from './config.js';
-import { queueUnit, cancelQueue, resetRallySpiral } from './world.js';
+import { queueUnit, cancelQueue, resetRallySpiral, deepenRoots, rootsPrice, rootsMaxed } from './world.js';
 import { castOvergrowth } from './ai.js';
 import { ring, burst } from './combat.js';
 import { toast } from './ui.js';
@@ -348,7 +348,13 @@ function castAt(x, y) {
   ring(pt, 0x9bff6a, RULES.spellRadius, 1.2);
   burst(pt, 0x6ad06a, 40, 14, 1.3, 1.1);
   SFX.spell();
-  toast(n ? `Overgrowth — ${n} machines rooted` : 'Overgrowth — nothing caught in it');
+  /* Say what it caught. "3 machines rooted" hid the important half — a cast
+     that silences two turrets is a completely different play from one that
+     pins three guards, and the player has to be able to tell them apart. */
+  const bits = [];
+  if (n.rooted) bits.push(`${n.rooted} machine${n.rooted === 1 ? '' : 's'} rooted`);
+  if (n.guns) bits.push(`${n.guns} gun${n.guns === 1 ? '' : 's'} smothered`);
+  toast(bits.length ? `Overgrowth — ${bits.join(', ')}` : 'Overgrowth — nothing caught in it');
 }
 
 /* Tell the player *before* they pick a target that the cast will not happen. */
@@ -412,7 +418,7 @@ function onKey(e) {
       let sent = 0;
       for (const u of sel) {
         const p = shorePoint(u.pos.x, u.pos.z, _wv);
-        if (p) { u.setOrder('move', p.clone()); sent++; }
+        if (p) { u._wantsDrink = true; u.setOrder('move', p.clone()); sent++; }
       }
       if (sent) { SFX.order(); voiceFor(commandable(), 'order'); toast(`${sent} sent to drink`); }
       else { SFX.deny(); toast('No water left to drink', 'warn'); }
@@ -428,6 +434,7 @@ function onKey(e) {
     case 'KeyR': queueUnit('capybara'); return;
     case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
+    case 'KeyT': deepenRoots(); return;
   }
 
   const m = /^Digit([1-5])$/.exec(e.code);
@@ -534,11 +541,26 @@ function initCards() {
     el.className = 'card';
     el.dataset.type = type;
     /* Population is the constraint that decides the late game — a Bear is four
-       Wolves you are not fielding — and it appeared nowhere in the UI. */
+       Wolves you are not fielding — and it appeared nowhere in the UI.
+
+       Neither did the siege multiplier, which is the single biggest hidden
+       decision in the game: the win condition is a pile of armoured buildings,
+       and only three of the eight buildables hit them harder than they hit
+       flesh. A player could field a perfectly good army that was quietly bad at
+       the only thing that ends the match. Both numbers now sit on the card. */
+    const siege = d.siege || 1;
     el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${d.icon}</span>
       <span class="nm">${d.name}</span>
-      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i></span>`;
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`;
+      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i>`
+      + (siege > 1 ? `<i class="siege" title="damage vs structures">🏗×${siege}</i>` : '')
+      + `</span>`;
+    /* Structure DPS against the Server Core (armour 8) — the number that
+       actually decides whether a composition can finish the game. Flat armour is
+       why the multiplier alone understates the gap: it is the difference
+       between "slow" and "you will be here all night". */
+    const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
+    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`
+      + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
     /* Shift-click queues five. Filling a 96-pop army one press at a time is
        not a decision, it is typing. */
     el.addEventListener('click', ev => {
@@ -547,13 +569,25 @@ function initCards() {
     });
     host.appendChild(el);
   }
+  /* Deepen the Roots — the late game's second thing to buy. Sits at the end of
+     the roster because that is where the eye lands once every unit is greyed out
+     by the pop cap, which is exactly the moment it is for. */
+  const rt = document.createElement('div');
+  rt.className = 'card roots';
+  rt.id = 'rootscard';
+  rt.innerHTML = `<span class="key">T</span><span class="ico">🌳</span>
+    <span class="nm">Deepen the Roots</span><span class="cost">🍃 <b class="rcost">${rootsPrice()}</b></span>`;
+  rt.title = `Raise the wildlife limit by ${RULES.rootsStep}. Each one costs more than the last.`;
+  rt.addEventListener('click', () => { deepenRoots(); refreshRootsCard(); });
+  host.appendChild(rt);
+
   const sp = document.createElement('div');
   sp.className = 'card spell';
   sp.id = 'spellcard';
   sp.innerHTML = `<span class="key">F</span><span class="ico">🌿</span>
     <span class="nm">Overgrowth</span><span class="cost">🍃 ${RULES.spellCost}</span>
     <div class="cd" style="display:none"></div>`;
-  sp.title = `Roots erupt in a ${RULES.spellRadius}m circle, holding every machine in place for ${RULES.spellDuration}s.`;
+  sp.title = `Roots erupt in a ${RULES.spellRadius}m circle for ${RULES.spellDuration}s: machines are held in place, and any Sentry Turret caught in it goes dark.`;
   sp.addEventListener('click', enterSpellMode);
   host.appendChild(sp);
 
@@ -572,6 +606,19 @@ function initCards() {
     const i = ev.target.closest('.qitem');
     if (i) cancelQueue(+i.dataset.i);
   });
+}
+
+/* The price climbs, so the card has to say so. Called from the HUD tick as well
+   as the click handler, because the hotkey buys without going through the card. */
+export function refreshRootsCard() {
+  const rt = document.getElementById('rootscard');
+  if (!rt) return;
+  const b = rt.querySelector('.rcost');
+  if (!b) return;
+  const maxed = rootsMaxed();
+  const txt = maxed ? '—' : String(rootsPrice());
+  if (b.textContent !== txt) b.textContent = txt;
+  rt.classList.toggle('maxed', maxed);
 }
 
 export { setSelection };
