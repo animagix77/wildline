@@ -39,10 +39,16 @@ function makeHealthBar(width) {
   const fill = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0x7fd44a, depthTest: false }));
   fill.scale.set(width * 0.94, width * 0.09, 1);
   fill.position.z = 0.01;
-  g.add(bg); g.add(fill);
+  /* A thin amber tick marking permanent structural damage — the ceiling a
+     technician can no longer weld past. */
+  const scar = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0xffb15a, depthTest: false }));
+  scar.scale.set(width * 0.02, width * 0.17, 1);
+  scar.position.z = 0.02;
+  scar.visible = false;
+  g.add(bg); g.add(fill); g.add(scar);
   g.renderOrder = 999;
   g.visible = false;
-  return { g, bg, fill, width: width * 0.94 };
+  return { g, bg, fill, scar, width: width * 0.94 };
 }
 
 /* =========================================================================
@@ -464,7 +470,11 @@ export class Entity {
            player — shoot the welder — would stop existing. It still walks in.
            It just cannot undo damage while the damage is happening. */
         if (G.time - (best.lastHitAt || -999) >= RULES.techRepairDelay) {
-          best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+          /* Weld up to the CEILING, not to full. Structural damage is
+             permanent, so every assault that gets through lowers what the
+             compound can ever be restored to. */
+          const ceiling = best.maxHp - (best.scar || 0);
+          if (best.hp < ceiling) best.hp = Math.min(ceiling, best.hp + this.def.repair * dt);
         }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
@@ -917,6 +927,14 @@ export class Entity {
     if (show) {
       this.hb.fill.scale.x = this.hb.width * frac;
       this.hb.fill.position.x = -this.hb.width * (1 - frac) / 2;
+      /* Scar tick: a dark notch marking the ceiling this structure can never be
+         welded back above. Without it the player has no way to know a failed
+         assault achieved anything, which is most of the point of it. */
+      if (this.scar > 0 && this.hb.scar) {
+        const ceil = clamp(1 - this.scar / this.maxHp, 0, 1);
+        this.hb.scar.visible = true;
+        this.hb.scar.position.x = this.hb.width * (ceil - 0.5);
+      } else if (this.hb.scar) this.hb.scar.visible = false;
       const c = this.team === TEAM.MACHINE ? 0x39d7ea : this.team === TEAM.NEUTRAL ? 0xffe27a : (frac > 0.5 ? 0x7fd44a : frac > 0.25 ? 0xffc85c : 0xff6a3d);
       this.hb.fill.material.color.setHex(c);
       this.hb.g.quaternion.copy(G.camera.quaternion);
@@ -1142,6 +1160,7 @@ export class Entity {
     if (this.hb) {
       this.hb.bg.material.dispose();
       this.hb.fill.material.dispose();
+      if (this.hb.scar) this.hb.scar.material.dispose();
       this.hb = null;
     }
     if (this.rankPips) { this.rankPips.children.forEach(p => p.geometry === undefined || 0); this.rankPips = null; }

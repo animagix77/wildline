@@ -1181,7 +1181,10 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
           <li>Or take the power away: every turret runs off the
               <b>Generator Banks</b>. Kill them all and the guns go dark.</li>
           <li>Kill the <b>Field Technicians</b> in orange. They weld the compound
-              back together behind you.</li>
+              back together behind you &mdash; but only up to the amber notch on
+              a structure's health bar. A quarter of everything you break is
+              <b>permanent</b>, so an assault that dies short still leaves the
+              next one easier.</li>
         </ul>
       </div>
       <div>
@@ -1881,6 +1884,18 @@ const RULES = {
      compound was literally unkillable. */
   techRepairDelay: 5,
 
+  /* --- Structural damage (scarring) ----------------------------------------
+     The adjudicator's finding, and the one thing this project's design rule
+     forbids: outcomes were bimodal because a FAILED PUSH LEFT NO MARK. The
+     technicians restored every coolant you did not finish while your dead army
+     stayed dead, so fewer bodies meant lost groves meant less income meant a
+     smaller army — a spiral that only ran one way, with no comeback anywhere.
+
+     A quarter of all damage dealt to a machine structure is now structural: it
+     cannot be welded out. Four failed assaults leave a coolant at roughly 40%
+     of its original ceiling, so the third attempt is genuinely easier than the
+     first and a push that dies short still bought something. */
+  scarFraction:   0.25,
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
      survivable and hurt bodies come back. Both live here. Regeneration is
@@ -2739,6 +2754,11 @@ const LINES = {
     'Today we said goodbye to a Security Depot. Our thoughts are with its subscribers.',
     'Reinforcement cadence has entered a quiet period.',
     'The depot is fine. The depot is f— [STATEMENT ENDS]',
+  ],
+  scarred: [
+    'Structural review finds the coolant housing is now "characterful".',
+    'That damage is load-bearing now. We are calling it a design feature.',
+    'Maintenance has downgraded the repair target from "as new" to "standing".',
   ],
   coolant: [
     'Server temperatures remain within accept— within— parameters.',
@@ -7699,6 +7719,14 @@ function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  /* Machine structures scar. See RULES.scarFraction — this is what makes a
+     failed assault worth something instead of worth nothing. Only machine
+     buildings: the Heart Tree has no repair-negation problem to solve, and
+     scarring it would just make losing faster without adding a decision. */
+  if (target.isBuilding && target.team === TEAM.MACHINE) {
+    target.scar = Math.min(target.maxHp * 0.75,
+      (target.scar || 0) + dealt * RULES.scarFraction);
+  }
   target.lastHitAt = G.time;
   /* remember which way the blow came from so the body is knocked the right way */
   target.hitT = 0.18;
@@ -7824,10 +7852,16 @@ function makeHealthBar(width) {
   const fill = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0x7fd44a, depthTest: false }));
   fill.scale.set(width * 0.94, width * 0.09, 1);
   fill.position.z = 0.01;
-  g.add(bg); g.add(fill);
+  /* A thin amber tick marking permanent structural damage — the ceiling a
+     technician can no longer weld past. */
+  const scar = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0xffb15a, depthTest: false }));
+  scar.scale.set(width * 0.02, width * 0.17, 1);
+  scar.position.z = 0.02;
+  scar.visible = false;
+  g.add(bg); g.add(fill); g.add(scar);
   g.renderOrder = 999;
   g.visible = false;
-  return { g, bg, fill, width: width * 0.94 };
+  return { g, bg, fill, scar, width: width * 0.94 };
 }
 
 /* =========================================================================
@@ -8249,7 +8283,11 @@ class Entity {
            player — shoot the welder — would stop existing. It still walks in.
            It just cannot undo damage while the damage is happening. */
         if (G.time - (best.lastHitAt || -999) >= RULES.techRepairDelay) {
-          best.hp = Math.min(best.maxHp, best.hp + this.def.repair * dt);
+          /* Weld up to the CEILING, not to full. Structural damage is
+             permanent, so every assault that gets through lowers what the
+             compound can ever be restored to. */
+          const ceiling = best.maxHp - (best.scar || 0);
+          if (best.hp < ceiling) best.hp = Math.min(ceiling, best.hp + this.def.repair * dt);
         }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
@@ -8702,6 +8740,14 @@ class Entity {
     if (show) {
       this.hb.fill.scale.x = this.hb.width * frac;
       this.hb.fill.position.x = -this.hb.width * (1 - frac) / 2;
+      /* Scar tick: a dark notch marking the ceiling this structure can never be
+         welded back above. Without it the player has no way to know a failed
+         assault achieved anything, which is most of the point of it. */
+      if (this.scar > 0 && this.hb.scar) {
+        const ceil = clamp(1 - this.scar / this.maxHp, 0, 1);
+        this.hb.scar.visible = true;
+        this.hb.scar.position.x = this.hb.width * (ceil - 0.5);
+      } else if (this.hb.scar) this.hb.scar.visible = false;
       const c = this.team === TEAM.MACHINE ? 0x39d7ea : this.team === TEAM.NEUTRAL ? 0xffe27a : (frac > 0.5 ? 0x7fd44a : frac > 0.25 ? 0xffc85c : 0xff6a3d);
       this.hb.fill.material.color.setHex(c);
       this.hb.g.quaternion.copy(G.camera.quaternion);
@@ -8927,6 +8973,7 @@ class Entity {
     if (this.hb) {
       this.hb.bg.material.dispose();
       this.hb.fill.material.dispose();
+      if (this.hb.scar) this.hb.scar.material.dispose();
       this.hb = null;
     }
     if (this.rankPips) { this.rankPips.children.forEach(p => p.geometry === undefined || 0); this.rankPips = null; }

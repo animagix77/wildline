@@ -3,7 +3,7 @@ import { G } from './state.js';
 import { GLOW } from './meshes.js';
 import { rand, terrainHeight, dist2D } from './utils.js';
 import { SFX } from './audio.js';
-import { TEAM } from './config.js';
+import { TEAM, RULES } from './config.js';
 import { addScore } from './score.js';
 import { toast } from './ui.js';
 import { explode, chainExplosion, spiritWisp, ripple, bloodSpray, bloodPool } from './vfx.js';
@@ -196,6 +196,14 @@ export function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  /* Machine structures scar. See RULES.scarFraction — this is what makes a
+     failed assault worth something instead of worth nothing. Only machine
+     buildings: the Heart Tree has no repair-negation problem to solve, and
+     scarring it would just make losing faster without adding a decision. */
+  if (target.isBuilding && target.team === TEAM.MACHINE) {
+    target.scar = Math.min(target.maxHp * 0.75,
+      (target.scar || 0) + dealt * RULES.scarFraction);
+  }
   target.lastHitAt = G.time;
   /* remember which way the blow came from so the body is knocked the right way */
   target.hitT = 0.18;

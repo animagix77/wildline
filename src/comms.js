@@ -54,6 +54,11 @@ const LINES = {
     'Reinforcement cadence has entered a quiet period.',
     'The depot is fine. The depot is f— [STATEMENT ENDS]',
   ],
+  scarred: [
+    'Structural review finds the coolant housing is now "characterful".',
+    'That damage is load-bearing now. We are calling it a design feature.',
+    'Maintenance has downgraded the repair target from "as new" to "standing".',
+  ],
   coolant: [
     'Server temperatures remain within accept— within— parameters.',
     'We have initiated our Thermal Resilience Journey.',

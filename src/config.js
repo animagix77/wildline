@@ -225,6 +225,18 @@ export const RULES = {
      compound was literally unkillable. */
   techRepairDelay: 5,
 
+  /* --- Structural damage (scarring) ----------------------------------------
+     The adjudicator's finding, and the one thing this project's design rule
+     forbids: outcomes were bimodal because a FAILED PUSH LEFT NO MARK. The
+     technicians restored every coolant you did not finish while your dead army
+     stayed dead, so fewer bodies meant lost groves meant less income meant a
+     smaller army — a spiral that only ran one way, with no comeback anywhere.
+
+     A quarter of all damage dealt to a machine structure is now structural: it
+     cannot be welded out. Four failed assaults leave a coolant at roughly 40%
+     of its original ceiling, so the third attempt is genuinely easier than the
+     first and a push that dies short still bought something. */
+  scarFraction:   0.25,
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
      survivable and hurt bodies come back. Both live here. Regeneration is
