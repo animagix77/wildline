@@ -272,6 +272,12 @@
   margin:9px auto 0; max-width:620px;
   font-size:13px; line-height:1.7; font-style:italic; color:var(--dim);
 }
+/* The earned sentence on a defeat: same voice, but it is advice, not flavour,
+   so it reads as a memo rather than as narration. */
+.es-postmortem{
+  font-style:normal; font-size:12.5px; color:var(--bone);
+  border-left:2px solid var(--alarm); padding:2px 0 2px 12px; text-align:left;
+}
 
 /* headline numbers */
 .es-topline{

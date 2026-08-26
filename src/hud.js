@@ -297,6 +297,8 @@ function drawMinimap() {
   };
   if (G.heart && G.heart.alive && G.time - (G.heart.lastHitAt || -99) < 4) pulseAt(G.heart.pos, 9);
   for (const g of (G.groves || [])) if (g.losing) pulseAt(g.pos, 6);
+  // ...and wherever something of ours is being shot at, far from home
+  if (G.farAlert && G.time < G.farAlert.until) pulseAt(G.farAlert, 7);
 
   // groves
   for (const g of G.groves) {

@@ -538,11 +538,20 @@ export const buildTurret = () => {
   ], VC_MAT_METAL);
   shell.castShadow = true;
   head.add(shell);
-  head.add(sph(GLOW(0xff8a3d), 0.34, 0, 0.2, 1.05));
+  /* THE HOUSING GLOW, and it needed a name.
+     entity.js has always hidden `anim.glow` when a turret loses power or is
+     smothered by Overgrowth, and swelled it with the wind-up (RULES.turretSpinUp)
+     — and two config comments sell that swell as the readable tell the whole
+     spin-up mechanic depends on. The lamp existed; it was just never handed to
+     the anim record, so every one of those reads was `undefined` and NONE of
+     the tells have ever rendered. Measured: `!!e.anim.glow` was false on all
+     six turrets of verdant-hollow. */
+  const glow = sph(GLOW(0xff8a3d), 0.34, 0, 0.2, 1.05);
+  head.add(glow);
   head.add(box(GLOW(0xff8a3d), 1.9, 0.09, 0.09, 0, 0.66, 0.75));
   g.add(head);
 
-  g.userData.anim = { kind: 'turret', head, muzzle: new THREE.Vector3(0, 3.2, 2.4) };
+  g.userData.anim = { kind: 'turret', head, glow, muzzle: new THREE.Vector3(0, 3.2, 2.4) };
   return g;
 };
 

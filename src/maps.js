@@ -39,7 +39,16 @@ export const MAPS = {
     fronts: [['clear', 100], ['rain', 120], ['clear', 70], ['storm', 90]],
     water: [{ x: -12, z: 34, r: 22, drain: 0.0026 }],
     pumps: [[32, -23]],
-    generators: [[75, -80]],
+    /* MOVED from [75,-80] — the far back corner, past the core, past two depots
+       and four turrets. Across two full matches and 24 structures destroyed a
+       critic never had a reason to go near it, and G.powered read true for all
+       892 seconds of a winning run: the entire "cut the power and the guns go
+       quiet" mechanic, its blurb and the whole `power` comms category, never
+       fired once on the map every new player starts on. Every other map already
+       puts a generator on the near face. Now this one does too — 14m inside the
+       west gate, on the same shelf as the well, so "kill the power, then walk
+       in" is a legible opening play instead of a thing that exists in config. */
+    generators: [[30, -58]],
     wells: [[20, -48]],
   },
 

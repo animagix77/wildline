@@ -72,6 +72,7 @@ const BASE_RULES = {
   startBiomass: RULES.startBiomass,
   garrisonGuards: RULES.garrisonGuards,
   garrisonDrones: RULES.garrisonDrones,
+  escortMax: RULES.escortMax,
 };
 const BASE_SPAWN_EVERY = DEFS.depot.spawnEvery;
 const MACHINE_GUNS = ['guard', 'drone', 'turret'];
@@ -91,6 +92,9 @@ export function applyDifficulty(diff) {
   // the standing garrison is part of "garrison size", so it scales with the same dial
   RULES.garrisonGuards = Math.max(2, Math.round(BASE_RULES.garrisonGuards * d.machinePopCap));
   RULES.garrisonDrones = Math.max(1, Math.round(BASE_RULES.garrisonDrones * d.machinePopCap));
+  // the escort surge is garrison size too — it is the campus deciding how many
+  // people to send, so it rides the same dial rather than a second one
+  RULES.escortMax = Math.max(4, Math.round(BASE_RULES.escortMax * d.machinePopCap));
   RULES.startBiomass = Math.round(BASE_RULES.startBiomass * d.startBiomass);
   DEFS.depot.spawnEvery = BASE_SPAWN_EVERY * d.spawnEveryMult;
   for (const k of MACHINE_GUNS) DEFS[k].dmg = Math.max(1, Math.round(BASE_DMG[k] * d.enemyDamageMult));
@@ -101,6 +105,7 @@ export function applyDifficulty(diff) {
     if (!G.time) {
       G.biomass = RULES.startBiomass;
       G.nextWave = RULES.firstWaveAt;
+      G.nextDetail = RULES.firstWaveAt * 0.55;
     }
   }
   return d;
@@ -402,6 +407,44 @@ function sxFlavour(list, seed) {
   return list[Math.abs(Math.round(seed)) % list.length];
 }
 
+/* ------------------------------------------------------ the post-mortem --
+   MEASURED: a critic lost at 8:43 with rank C and worked out WHY only by going
+   and reading updateWorld(). Their groves kept flipping to single wandering
+   guards while their attention was on the compound, so income oscillated
+   between 1.5 and 4.9/s all match — and the diagnosis was already sitting on
+   the same screen, unlabelled, as "bloomed at peak 3, bloomed in total 15".
+   A rank tells you how you did. It does not tell you what to do differently.
+
+   So the defeat screen now reads the worst measured thing about the run and
+   says it out loud, in the only voice this game has for bad news. Ordered
+   most-diagnostic first, and it says nothing at all rather than something
+   generic — an unearned lesson is worse than none. */
+function sxPostMortem(s) {
+  const churn = s.grovesBloomed - s.peakGroves;
+  if (s.peakGroves >= 2 && churn >= 6) {
+    return `Site Report: the growth corridor was re-seeded ${s.grovesBloomed} times to hold ${s.peakGroves}. `
+         + 'Our landscaping teams found them unattended. Groves pay nothing while they are being trampled — '
+         + 'leave something on them, or intercept the crew.';
+  }
+  if (s.peakGroves <= 1) {
+    return `Site Report: the subject never held more than ${s.peakGroves} grove${s.peakGroves === 1 ? '' : 's'}. `
+         + 'Biomass comes from bloomed ground and almost nowhere else. The Heart Tree alone cannot fund a swarm.';
+  }
+  if (s.popCap && s.largestArmy < s.popCap * 0.45) {
+    return `Site Report: peak infestation reached ${s.largestArmy} of a permitted ${s.popCap}. `
+         + 'The valley was never full. Unspent biomass defends nothing.';
+  }
+  if (s.structureTotal === 0) {
+    return 'Site Report: campus integrity 100%. The sweeps were survived and never answered — '
+         + 'and the sweeps do not stop. Every depot levelled pushes the next one further out.';
+  }
+  if (s.unitsLostTotal > 0 && s.killTotal / Math.max(1, s.unitsLostTotal) < 1.2) {
+    return `Site Report: ${s.unitsLostTotal} wildlife expended for ${s.killTotal} personnel. `
+         + 'Trading one for one is a loss for the side with the smaller animals. Fight where the guns are not.';
+  }
+  return null;
+}
+
 function sxNormalise(stats) {
   const s = stats || {};
   const timeSec = typeof s.timeSec === 'number' ? s.timeSec : 0;
@@ -482,6 +525,7 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
   panel.appendChild(sxEl('div', 'es-head', `
     <h1 class="es-word">${win ? 'VICTORY' : 'DEFEAT'}</h1>
     <p class="es-flavour">${sxFlavour(win ? WIN_FLAVOUR : LOSE_FLAVOUR, s.timeSec)}</p>
+    ${!win && sxPostMortem(s) ? `<p class="es-flavour es-postmortem">${sxPostMortem(s)}</p>` : ''}
   `));
 
   panel.appendChild(sxEl('div', 'es-topline', `

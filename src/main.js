@@ -5,6 +5,7 @@ import { RTSCamera } from './camera.js';
 import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
 import { updateAI, castOvergrowth } from './ai.js';
+import { spawn } from './entity.js';
 import { updateCombatFX } from './combat.js';
 import { updateVFX, initVFXLights } from './vfx.js';
 import { commsEvent, updateComms } from './comms.js';
@@ -153,16 +154,31 @@ function openTitle() {
 let last = performance.now();
 let hudAccum = 0;
 
-// ?headless=1 keeps the loop ticking when the tab is hidden (used for testing)
+/* ?headless=1 hands the clock to the test harness, and NOTHING ELSE MAY DRIVE IT.
+
+   This used to keep a self-scheduling loop alive whenever the tab was hidden,
+   on the theory that a backgrounded test still needs to tick. The effect was
+   that the simulation free-ran between one harness call and the next: measured,
+   1.498 sim-seconds advanced across 4.01s of wall time with ZERO __step calls.
+   Every headless measurement taken in this project was therefore contaminated
+   by however long the tooling happened to pause between evaluations — which is
+   also the most likely explanation for a "bimodal" outcome spread that could
+   not be reproduced once the clock was pinned.
+
+   Under ?headless=1 the loop is now driven exclusively by __step(). Call
+   window.__auto() to hand the clock back to rAF if you want to watch it run. */
 const HEADLESS = new URLSearchParams(location.search).has('headless');
+let autoDrive = !HEADLESS;
 function schedule() {
-  if (HEADLESS && document.hidden) setTimeout(() => frame(performance.now()), 16);
-  else requestAnimationFrame(frame);
+  if (autoDrive) requestAnimationFrame(frame);
 }
 
 if (HEADLESS) {
   // synchronous stepping so automated checks can fast-forward the simulation
   window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) frame(last + ms, true); };
+  /* deterministic by default; opt back into real time to watch a run */
+  window.__auto = (on = true) => { autoDrive = !!on; if (on) schedule(); return autoDrive; };
+  window.__isPinned = () => !autoDrive;
   window.__begin = () => {
     /* the splash sits in front of the menu, so a harness run has to clear it
        first or every automated check silently measures an empty menu */
@@ -188,6 +204,10 @@ if (HEADLESS) {
       return castOvergrowth({ x, z });
     },
     deepenRoots, rootsPrice,
+    /* The live tuning tables. Balance work needs an A/B on the SAME build —
+       toggling a rule at runtime and replaying a scenario is the only way to
+       attribute a measured change to one lever rather than to map RNG. */
+    RULES, spawn,
   };
 }
 

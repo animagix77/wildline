@@ -223,6 +223,33 @@ export function applyDamage(target, amount, attacker) {
     }
   }
 
+  /* WILDLIFE DYING OUT IN THE DARK.
+     A gamble on a turret-covered grove is a good decision and it was an
+     invisible one: five wolves sent to a contested grove were killed by a
+     turret 19m away with no toast, no comms line and no cue the player could
+     pick out — the loss was discoverable only by counting your own units two
+     minutes later. Anything of ours taking fire well away from the tree now
+     says so, once, names what is shooting it, and pulses the minimap where it
+     is happening (see updateMinimap, which already knows how to draw this). */
+  if (attacker && target.team === TEAM.WILD && !target.isBuilding
+      && G.heart && dist2D(target.pos, G.heart.pos) > 40
+      && G.time - (G._farToast || -99) > 14) {
+    /* Only for a DETACHMENT, never for the main push. The player is already
+       looking at a thirty-unit assault and narrating it is noise; the case this
+       exists for is the five wolves sent to a contested grove. The scan sits
+       behind the throttle, so it runs at most once every fourteen seconds. */
+    let near = 0;
+    for (const o of G.entities) {
+      if (!o.alive || o.team !== TEAM.WILD || o.isBuilding) continue;
+      if (dist2D(o.pos, target.pos) < 30 && ++near >= 7) break;
+    }
+    if (near < 7) {
+      G._farToast = G.time;
+      G.farAlert = { x: target.pos.x, z: target.pos.z, until: G.time + 5 };
+      toast(`${def.name} under fire out in the valley — ${attacker.def.name}`, 'warn');
+    }
+  }
+
   /* Fight back. The old rule only fired when the victim was already idle AND had
      no target — i.e. almost never — so animals walked through rifle fire without
      reacting. Entity.provoke decides what to do with it. */

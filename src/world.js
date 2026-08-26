@@ -292,8 +292,11 @@ export function populate() {
         G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        toast(`THERMAL RUNAWAY — the Core is exposed and cooking. `
-              + `${Math.round(RULES.runawaySeconds / 60)} minutes before it melts itself.`, 'warn');
+        /* Say it in the unit the clock is actually in. At 240 this read "4
+           minutes"; at 90 the same expression rounded to "2 minutes", which is
+           both wrong and the sort of thing nobody notices for a year. */
+        toast('THERMAL RUNAWAY — the Core is exposed and cooking. '
+              + `${Math.round(RULES.runawaySeconds)}s before it melts itself — get there first.`, 'warn');
       }
     };
     G.obstacles.push(c);
@@ -303,7 +306,13 @@ export function populate() {
   G.depots = DEPOTS.map(([x, z]) => {
     const d = spawn('depot', x, z, { rotY: z > COMPOUND.z ? Math.PI : 0 });
     d.spawnTimer = rand(4, 10);
-    d.onDeath = () => { commsEvent('depot'); toast('Security Depot destroyed — fewer reinforcements', 'machine'); };
+    d.onDeath = () => {
+      commsEvent('depot');
+      /* Name the time. "Fewer reinforcements" is a number the player cannot
+         see; seconds off the next sweep is one they can. */
+      const secs = Math.round(RULES.waveEvery * RULES.depotWaveDelay);
+      toast(`Security Depot destroyed — every sweep from here is ${secs}s further out`, 'machine');
+    };
     G.obstacles.push(d);
     return d;
   });
@@ -333,9 +342,16 @@ export function populate() {
     const g = spawn('generator', x, z);
     g.onDeath = () => {
       const left = G.generators.filter(q => q.alive).length;
+      /* Count the guns AT THE MOMENT OF DEATH. The line used to fire off the
+         derived `powered` flag and landed at 6:06 of a match in which the live
+         turret count had already been zero for some time — the joke played to
+         an empty stage. Naming the number fixes it in both directions: if there
+         is nothing left to switch off, it says that instead. */
+      const guns = G.entities.filter(q => q.alive && q.type === 'turret').length;
       commsEvent(left ? 'turret' : 'power', 0.9);
       toast(left ? `Generator down — ${left} still feeding the guns`
-                 : 'THE POWER IS OUT — the turrets are dark', 'warn');
+                 : (guns ? `THE POWER IS OUT — ${guns} turret${guns > 1 ? 's go' : ' goes'} dark`
+                         : 'THE POWER IS OUT — there was nothing left to switch off'), 'warn');
       if (!left) SFX.shieldDown();
     };
     G.obstacles.push(g);
@@ -362,6 +378,11 @@ export function populate() {
   } else {
     G.construction = null;
   }
+
+  /* SITE WORKS. See RULES.siteWorks for the measurement that made these
+     necessary. A map that already carries a construction timer is already a
+     race against a building site, so it does not get a second one. */
+  G.works = con ? [] : (RULES.siteWorks || []).map(w => ({ def: w, noticed: false, built: false }));
 
   // starting garrison — sized by difficulty, not hard-coded
   for (let i = 0; i < RULES.garrisonGuards; i++) {
@@ -455,13 +476,30 @@ export function updateWorld(dt) {
   /* --- groves --- */
   let bloomed = 0;
   for (const g of G.groves) {
+    /* Trampled ground recovers on a clock. Until it does the grove cannot be
+       re-taken, which is the whole reason intercepting a landscaping detail is
+       worth doing — see RULES.groveDormant. */
+    if (g.dormantUntil && G.time >= g.dormantUntil) {
+      g.dormantUntil = 0;
+      g.anim.pillar.material.opacity = 0.45;
+      toast('The trampled ground has recovered — that grove can be taken again');
+    }
     let wild = 0, machine = 0;
     for (const e of G.entities) {
       if (!e.alive || e.isBuilding) continue;
       if (dist2D(e.pos, g.pos) > 7) continue;
       if (e.team === TEAM.WILD) wild++; else if (e.team === TEAM.MACHINE) machine++;
     }
-    const dir = wild > 0 && machine === 0 ? 1 : (machine > 0 && wild === 0 ? -1 : 0);
+    /* Taking a grove and losing one are no longer the same speed. See
+       RULES.decapBase: one wandering guard needs ~8.6 seconds, which is long
+       enough for the warning toast below to be an order you can actually give,
+       while a four-strong landscaping detail still strips it in three. */
+    let dir = 0;
+    if (wild > 0 && machine === 0) dir = 1;
+    else if (machine > 0 && wild === 0) {
+      dir = -Math.min(1, RULES.decapBase + RULES.decapPerExtra * (machine - 1));
+    }
+    if (dir > 0 && !g.owned && G.time < (g.dormantUntil || 0)) dir = 0;
     /* Being pushed off a grove is expensive and used to happen in near-silence.
        Warn once per contest, and let the minimap pulse while it lasts. */
     g.losing = dir < 0 && g.owned;
@@ -486,10 +524,11 @@ export function updateWorld(dt) {
         toast('Grove bloomed — biomass rising');
       } else if (g.owned && g.prog <= 0) {
         g.owned = false;
+        g.dormantUntil = G.time + RULES.groveDormant;
         g.anim.bloom.visible = false;
-        g.anim.pillar.material.opacity = 0.45;
+        g.anim.pillar.material.opacity = 0.18;   // the dim pillar IS the dormancy tell
         g.anim.water.material.uniforms.wl_bloom.value = 0;
-        toast('A grove has been trampled', 'warn');
+        toast(`A grove has been trampled — the ground will not take a bloom for ${RULES.groveDormant}s`, 'warn');
       }
     }
     if (g.owned) bloomed++;
@@ -500,6 +539,33 @@ export function updateWorld(dt) {
   if (bloomed > (G.bloomed || 0) && G.lanes !== undefined
       && Math.min(3, 1 + Math.floor(bloomed / 2)) > Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2))) SFX.lane();
   G.bloomed = bloomed;
+
+  /* --- the Heart Tree does not heal itself, and nobody ever said so -------
+     MEASURED: a critic took the tree to 1023/4200, parked three Beavers beside
+     it, and had it back at full inside two minutes — then discovered they had
+     only tried it because they had read entity.js. The Beaver's card mentions
+     the Heart Tree in a subordinate clause after two other jobs, and nothing
+     else in the game points at the single most important defensive tool it
+     has. A tool that is both undiscoverable AND underpriced is not a decision;
+     it is a secret. The price moved in config (RULES.mendStack); this is the
+     other half, and shipping only the price would have made things worse.
+
+     Fires once, the first time the tree is genuinely hurt AND there is no
+     mender already on it — so a player who has already worked it out is never
+     told, and a player who has not is told at the exact moment it matters. */
+  if (!G.mendHintDone && G.heart && G.heart.alive && G.heart.hp < G.heart.maxHp * 0.6) {
+    let menderNear = false;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding || e.team !== TEAM.WILD || !e.def.mend) continue;
+      if (dist2D(e.pos, G.heart.pos) - G.heart.radius <= (e.def.mendRange || 7)) { menderNear = true; break; }
+    }
+    if (!menderNear) {
+      G.mendHintDone = true;
+      commsEvent('heartLow', 1);
+      toast('TerraByte Arboriculture confirms the Heart Tree does not self-repair. '
+            + 'Nothing in this valley does — except a Beaver, and it will mend the tree for free.', 'machine');
+    }
+  }
 
   /* --- thermal runaway ---------------------------------------------------
      The last coolant tower is the point of no return. Before this, killing all
@@ -518,9 +584,18 @@ export function updateWorld(dt) {
     /* Milestones, because a bar creeping down is not a clock. */
     const left = Math.max(0, G.core.hp / burn);
     if (!G.runawaySaid) G.runawaySaid = {};
-    for (const mark of [180, 120, 60, 30]) {
+    /* Milestones below the length of the clock, so a short runaway does not
+       silently skip straight past its own countdown. */
+    for (const mark of [180, 120, 60, 30].filter(m => m < RULES.runawaySeconds)) {
       if (left <= mark && !G.runawaySaid[mark]) {
         G.runawaySaid[mark] = true;
+        /* The clock is only interesting when the clock is the thing killing the
+           Core. Measured: with a swarm chewing the Core directly, all four
+           milestones fired inside thirteen real seconds because the burn-rate
+           divisor turns direct damage into "seconds remaining". Latch them so
+           they are not repeated later, but stay quiet while the player is
+           plainly winning the race by hand. */
+        if (G.time - (G.core.lastHitAt || -99) < 6) continue;
         toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
         /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
            initiated our Thermal Resilience Journey"), which is exactly the
@@ -589,6 +664,8 @@ export function updateWorld(dt) {
     }
   }
 
+  updateSiteWorks();
+
   /* --- population --- */
   let pop = 0, mpop = 0;
   for (const e of G.entities) {
@@ -625,6 +702,104 @@ export function updateWorld(dt) {
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
   } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+}
+
+/* =========================================================================
+   SITE WORKS — the compound builds while you wait.
+
+   The dead stretch of a match runs from the moment the player's army is
+   finished (~4:15, pop cap, empty queue) to the moment the compound is worth
+   attacking (~8:00). It cannot be closed by sending more sweeps: a true-passive
+   valley already dies at the bottom of its target window. So the campus keeps
+   pouring concrete, on an announced clock, and the player watches the objective
+   get worse in real time.
+
+   Placement is DERIVED, not authored, for the plainest reason: there are nine
+   maps and validateMap() only checks the arrays in maps.js. A runtime literal
+   would be a data bug waiting to happen — that is exactly how a Core once
+   landed on top of a Depot and flung units away at 256 m/s. The scan below
+   clears every live obstacle and both gates by construction, on every map, and
+   returns null rather than guessing if the campus is genuinely full.
+   ========================================================================= */
+const WORKS_RADIUS = { pump: 3.4, turret: 2.2 };
+
+function worksSpot(kind) {
+  const r = WORKS_RADIUS[kind] || 3.4;
+  const { x: cx, z: cz, hw, hd } = COMPOUND;
+  const margin = r + 5;
+  if (hw <= margin || hd <= margin) return null;
+  /* Face the valley. A new gun matters only if it is on the road the player's
+     army actually walks, and a new structure matters only if the player can see
+     it go up — both of which mean the side the Heart Tree is on. */
+  const tx = Math.sign(BASE.x - cx) || -1;
+  const tz = Math.sign(BASE.z - cz) || 1;
+  let best = null, bestScore = -1e9;
+  for (let ix = -hw + margin; ix <= hw - margin + 0.001; ix += 3) {
+    for (let iz = -hd + margin; iz <= hd - margin + 0.001; iz += 3) {
+      const x = cx + ix, z = cz + iz;
+      let ok = true;
+      for (const o of G.obstacles) {
+        if (!o || !o.alive) continue;
+        if (dist2D({ x, z }, o.pos) < r + o.radius + 3) { ok = false; break; }
+      }
+      if (!ok) continue;
+      /* Never plug a gate: the campus has to be able to get its own sweeps out,
+         and a wave that wedges on its own new building is the single worst bug
+         this file has ever shipped. */
+      for (const g of (G.gates || [])) {
+        if (dist2D({ x, z }, g) < r + 14) { ok = false; break; }
+      }
+      if (!ok) continue;
+      const score = ix * tx + iz * tz;
+      if (score > bestScore) { bestScore = score; best = { x, z }; }
+    }
+  }
+  return best;
+}
+
+/* Which quarter of the compound a point sits in, said the way a site notice
+   would say it, so the warning names somewhere the player can actually look. */
+function worksFace(p) {
+  const dx = p.x - COMPOUND.x, dz = p.z - COMPOUND.z;
+  const ns = dz > COMPOUND.hd * 0.25 ? 'south' : (dz < -COMPOUND.hd * 0.25 ? 'north' : '');
+  const ew = dx > COMPOUND.hw * 0.25 ? 'east' : (dx < -COMPOUND.hw * 0.25 ? 'west' : '');
+  return (ns + (ns && ew ? '-' : '') + ew) || 'central';
+}
+
+function updateSiteWorks() {
+  if (!G.works || !G.works.length || G.over || !G.core || !G.core.alive) return;
+  for (const w of G.works) {
+    if (w.built) continue;
+    const at = w.def.at;
+    if (!w.noticed && G.time >= at - RULES.worksNotice) {
+      w.noticed = true;
+      /* Pick the spot at NOTICE time and hold it, so the warning names the same
+         place the concrete lands. */
+      w.spot = worksSpot(w.def.kind);
+      if (!w.spot) { w.built = true; continue; }   // campus full: skip it quietly
+      const secs = Math.max(1, Math.round(at - G.time));
+      toast(`${w.def.notice} (${worksFace(w.spot)} quarter, ${secs}s)`, 'machine');
+      commsEvent('works', 1);
+    }
+    if (G.time < at) continue;
+    w.built = true;
+    if (!w.spot) continue;
+    const e = spawn(w.def.kind, w.spot.x, w.spot.z);
+    G.obstacles.push(e);
+    if (w.def.kind === 'pump') {
+      G.pumps.push(e);
+      e.onDeath = () => {
+        const left = G.pumps.filter(q => q.alive).length;
+        commsEvent('water', 0.8);
+        toast(left ? `Intake pump destroyed — ${left} still drawing`
+                   : 'The last pump is dead. The water is coming back.');
+      };
+    }
+    ring(e.pos, 0xffb648, 16, 1.2);
+    SFX.alarm();
+    commsEvent('built', 1);
+    toast(`${w.def.done}`, 'warn');
+  }
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point

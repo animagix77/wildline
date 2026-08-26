@@ -8,6 +8,7 @@ import { lakeAt } from './water.js';
 import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip, threatMark } from './vfx.js';
 import { HALF } from './config.js';
 import { SFX } from './audio.js';
+import { toast } from './ui.js';
 
 const HB_Y = {
   wolf: 2.7, boar: 3.0, bear: 4.3, raven: 1.6, guard: 3.2, drone: 1.5, local: 3.2,
@@ -28,6 +29,23 @@ const _slideGoal = new THREE.Vector3();
 const HIT_TIME = 0.18;
 const PACK_ALERT = 15;      // metres a cry for help carries
 const RANK_GEO = new THREE.OctahedronGeometry(0.16, 0);
+
+/* ------------------------------------------------------------- watered -- */
+/* Pre-tinted twins of the shared body materials, one per base material, built
+   on first use. See Entity.showWatered for why this may NOT be done by mutating
+   the emissive in place: meshes.js hands out cached materials shared by every
+   animal of a species. */
+const WATERED_TINT = 0x1b4a63;
+const wateredTwins = new Map();
+function wateredTwin(base) {
+  let m = wateredTwins.get(base);
+  if (!m) {
+    m = base.clone();
+    m.emissive.setHex(WATERED_TINT);
+    wateredTwins.set(base, m);
+  }
+  return m;
+}
 
 /* --------------------------------------------------------------- health -- */
 const hbBgGeo = new THREE.PlaneGeometry(1, 1);
@@ -81,6 +99,11 @@ export class Entity {
     this.provokeUntil = 0;
     this.chargeT = 0;
     this.rootedUntil = 0;
+    /* Set each tick by the machine brain for raiders in a strike column: the
+       unit holds its ground so the rest of the column can close up. Deliberately
+       NOT isRooted() — a unit keeping pace still shoots what comes into range,
+       it just stops walking away from its escort. */
+    this.keepingPace = false;
     this.stuck = 0;
     this.lastPos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
@@ -379,7 +402,7 @@ export class Entity {
     const wasX = this.pos.x, wasZ = this.pos.z;
     this._stepX = wasX; this._stepZ = wasZ;
     let pushing = false;
-    if (goal && !this.isRooted()) {
+    if (goal && !this.isRooted() && !this.keepingPace) {
       const d = dist2D(this.pos, goal);
       if (d <= goalRadius) {
         if (goal === this.order.pos) { this.order.type = 'idle'; this.order.pos = null; }
@@ -716,12 +739,51 @@ export class Entity {
       burnTick(this, dt);
       return;
     }
-    if (this.needsPower && this.anim && this.anim.glow) this.anim.glow.visible = true;
+    /* ...and back on the moment it is neither. Gated on needsPower it could only
+       ever restore a turret, so an Overgrowth cast on any other lit gun would
+       have put its lamp out permanently. */
+    if (this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
       if (this.target && !this.target.alive) this.target = null;
+      /* Wind-up. See RULES.turretSpinUp: the gun gets stronger the longer it is
+         allowed to keep firing, and goes cold quickly when it is not. Held on
+         the turret rather than on the target, so switching victims inside one
+         engagement does not reset it — being denied a target does.
+
+         SENTRY TURRETS ONLY. updateBuilding is shared with the Heart Tree,
+         which is also a ranged building; letting the tree wind up would hand
+         the player back the free garrison that the whole sweep rework exists to
+         take away. */
+      if (this.type === 'turret') {
+        if (this.target) this.spin = Math.min(RULES.turretSpinUp, (this.spin || 0) + dt);
+        else this.spin = Math.max(0, (this.spin || 0) - dt * RULES.turretSpinDown);
+      }
       if (!this.target) this.target = acquire(this);
       if (this.target && dist2D(this.pos, this.target.pos) > def.range + this.target.radius + 2) this.target = null;
       this.cooldown -= dt;
+      /* The tell: the housing glow swells with the wind-up, so "that gun has
+         been on us a while" is readable off the board without a HUD. */
+      if (this.type === 'turret' && this.anim && this.anim.glow) {
+        this.anim.glow.scale.setScalar(1 + 0.7 * ((this.spin || 0) / RULES.turretSpinUp));
+      }
+      /* Introduce the spell NEXT TO THE PROBLEM IT SOLVES, once per match.
+         MEASURED: Overgrowth was affordable and off cooldown for essentially
+         all 892 seconds of a winning match — roughly thirty-four casts
+         available — and the player cast it twice, because nothing in the flow
+         of a match ever poses a question it is the answer to. The wind-up glow
+         is the tell; the ability just needed saying out loud beside it, the
+         first time a gun is genuinely winding up on the player's own animals.
+
+         DELIBERATELY NOT nested in the glow branch above. That is exactly how
+         the glow tell itself came to be dead code for however long: one missing
+         object reference silently switched off everything downstream of it. */
+      if (this.type === 'turret' && !G.spellHintDone
+          && this.target && this.target.team === TEAM.WILD
+          && (this.spin || 0) >= RULES.turretSpinUp * 0.45) {
+        G.spellHintDone = true;
+        toast('That turret is winding up — the longer it fires, the harder it hits. '
+              + `[F] Overgrowth smothers it cold for ${RULES.spellDuration}s (${RULES.spellCost} biomass).`, 'warn');
+      }
       if (this.target) {
         const h = this.anim && this.anim.head;
         if (h) {
@@ -735,7 +797,9 @@ export class Entity {
           this.cooldown = def.rate;
           this.muzzlePoint(_v2);
           muzzleFlash(_v2, def.projectile.color);
-          fireProjectile(_v2.clone(), this.target, def.dmg, def.projectile, this);
+          const wind = 1 + (RULES.turretSpinMax - 1)
+                     * ((this.spin || 0) / RULES.turretSpinUp);
+          fireProjectile(_v2.clone(), this.target, def.dmg * wind, def.projectile, this);
           this.lastFiredAt = G.wallTime;
           this.shotSfx();
         }
@@ -822,7 +886,21 @@ export class Entity {
       if (score < bd) { bd = score; best = o; }
     }
     if (!best) return;
-    best.hp = Math.min(best.maxHp, best.hp + this.def.mend * dt);
+    /* Menders on ONE structure fall off geometrically. See RULES.mendStack:
+       three beavers healing the Heart Tree at full rate undid an entire
+       fifty-eight-machine sweep for ninety-six biomass, live, while that sweep
+       stood on top of the tree. The k-th mender on the same target contributes
+       mendStack^k, so one gives 14 hp/s, three give 24.5, and no number of them
+       ever passes 28 — while the same beavers spread over separate structures
+       are untouched, which is the habit worth rewarding.
+
+       The counter self-resets off G.time rather than a frame id: every entity
+       updated in one frame reads the same G.time, and the next frame reads a
+       different one. No bookkeeping to forget to clear. */
+    if (best._mendAt !== G.time) { best._mendAt = G.time; best._mendN = 0; }
+    const k = best._mendN++;
+    const falloff = Math.pow(RULES.mendStack !== undefined ? RULES.mendStack : 1, k);
+    best.hp = Math.min(best.maxHp, best.hp + this.def.mend * falloff * dt);
     this.mending = best;
     this.faceTo(best.pos, dt, 6);
     this._mendT = (this._mendT || 0) + dt;
@@ -835,17 +913,37 @@ export class Entity {
   }
 
   /* A blue sheen so a watered swarm is readable at a glance, without adding a
-     per-unit sprite: tint the existing body material's emissive. */
+     per-unit sprite: swap the body material for a pre-tinted twin.
+
+     This used to write `o.material.emissive.setHex(...)` in place, and that was
+     wrong in a way that got worse the longer a match ran. M() in meshes.js is a
+     CACHE: every wolf in the game shares one material object per (colour,
+     emissive, roughness, ...) key. Mutating it tinted the whole species, and the
+     restore path then made the tint permanent — the second wolf to drink read
+     the already-blue emissive out of the shared material and stored THAT in
+     `userData._em` as its "original", so when its buff ended it faithfully
+     restored the wrong colour and every wolf stayed blue for the rest of the
+     match.
+
+     Measured before the fix, on three wolves of which one drank: after A alone
+     drank, C (which never drank) read 1b4a63 on all five of its sub-meshes; and
+     after every buff had expired all three were still 1b4a63.
+
+     Swapping the reference never touches the shared original. The tinted twins
+     are cached one-per-base-material, so a swarm of ninety-six animals allocates
+     a handful of materials, not ninety-six. */
   showWatered(on) {
     const m = this.mesh;
     if (!m) return;
     m.traverse(o => {
       if (!o.material || !o.material.emissive) return;
       if (on) {
-        if (o.userData._em === undefined) o.userData._em = o.material.emissive.getHex();
-        o.material.emissive.setHex(0x1b4a63);
-      } else if (o.userData._em !== undefined) {
-        o.material.emissive.setHex(o.userData._em);
+        if (o.userData._baseMat) return;            // already tinted; don't re-capture
+        o.userData._baseMat = o.material;
+        o.material = wateredTwin(o.material);
+      } else if (o.userData._baseMat) {
+        o.material = o.userData._baseMat;
+        o.userData._baseMat = null;
       }
     });
   }

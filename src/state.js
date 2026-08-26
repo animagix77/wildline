@@ -26,6 +26,7 @@ export const G = {
   rootsN: 0,                  // Deepen the Roots purchases made (price and cap key off it)
   spellReady: 0,              // timestamp when Overgrowth is usable again
   nextWave: RULES.firstWaveAt,
+  nextDetail: RULES.firstWaveAt * 0.55,   // the mid-cycle landscaping crew
   waveNum: 0,
 
   coreExposed: false,
