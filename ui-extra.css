@@ -830,3 +830,34 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 .st .wet{ color:#8fe8ff; }
 .st .vet{ color:#ffe27a; }
 #waterres.rain #waterlvl{ color:#8fe8ff; }
+
+/* --- Meltdown hold meter -------------------------------------------------
+   The endgame is a hold the compound is actively trying to break, so the bar
+   has to say which way it is currently moving. Rising is hot and pulsing;
+   cooling is cyan and still — the same colour language the coolant towers and
+   the Core shield already use, so it reads without a legend. */
+.heat-wrap{ display:flex; align-items:center; gap:7px; margin-top:6px; }
+.heat-track{
+  flex:1; height:7px; border-radius:4px; overflow:hidden;
+  background:rgba(255,255,255,.10);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.heat-fill{
+  height:100%; width:0%; border-radius:4px;
+  background:linear-gradient(90deg,#ff9d3d,#ff4b2b);
+  box-shadow:0 0 10px rgba(255,90,45,.75);
+  transition:width .18s linear, background .3s ease;
+  animation:heatPulse 1.15s ease-in-out infinite;
+}
+.heat-num{
+  font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#ff8a5c; min-width:34px; text-align:right; letter-spacing:.4px;
+}
+/* Hold broken: the bar is draining and must not read as progress. */
+.heat-wrap.cooling .heat-fill{
+  background:linear-gradient(90deg,#2f7f8c,#39d7ea);
+  box-shadow:0 0 8px rgba(57,215,234,.5);
+  animation:none;
+}
+.heat-wrap.cooling .heat-num{ color:#6fb6c4; font-weight:600; }
+@keyframes heatPulse{ 50%{ filter:brightness(1.35); } }

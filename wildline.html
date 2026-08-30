@@ -1046,6 +1046,37 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 .st .vet{ color:#ffe27a; }
 #waterres.rain #waterlvl{ color:#8fe8ff; }
 
+/* --- Meltdown hold meter -------------------------------------------------
+   The endgame is a hold the compound is actively trying to break, so the bar
+   has to say which way it is currently moving. Rising is hot and pulsing;
+   cooling is cyan and still — the same colour language the coolant towers and
+   the Core shield already use, so it reads without a legend. */
+.heat-wrap{ display:flex; align-items:center; gap:7px; margin-top:6px; }
+.heat-track{
+  flex:1; height:7px; border-radius:4px; overflow:hidden;
+  background:rgba(255,255,255,.10);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.heat-fill{
+  height:100%; width:0%; border-radius:4px;
+  background:linear-gradient(90deg,#ff9d3d,#ff4b2b);
+  box-shadow:0 0 10px rgba(255,90,45,.75);
+  transition:width .18s linear, background .3s ease;
+  animation:heatPulse 1.15s ease-in-out infinite;
+}
+.heat-num{
+  font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#ff8a5c; min-width:34px; text-align:right; letter-spacing:.4px;
+}
+/* Hold broken: the bar is draining and must not read as progress. */
+.heat-wrap.cooling .heat-fill{
+  background:linear-gradient(90deg,#2f7f8c,#39d7ea);
+  box-shadow:0 0 8px rgba(57,215,234,.5);
+  animation:none;
+}
+.heat-wrap.cooling .heat-num{ color:#6fb6c4; font-weight:600; }
+@keyframes heatPulse{ 50%{ filter:brightness(1.35); } }
+
 </style>
 </head>
 <body>
@@ -1083,8 +1114,12 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
     </div>
     <div id="objective">
       <div class="obj-title">OBJECTIVE</div>
-      <div class="obj-text" id="objtext">Destroy the Coolant Towers</div>
+      <div class="obj-text" id="objtext">Knock all 3 Coolant Towers offline</div>
       <div class="obj-pips" id="objpips"></div>
+      <div class="heat-wrap" id="heatwrap" style="display:none">
+        <div class="heat-track"><div class="heat-fill" id="heatbar"></div></div>
+        <span class="heat-num" id="heatnum">--</span>
+      </div>
     </div>
     <div class="res right">
       <span class="sub">TIME</span>
@@ -1819,7 +1854,28 @@ const DEFS = {
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
-    hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
+    /* CUT from 1300, and the cut is the direct consequence of the towers no
+       longer dying. At 1300 a tower was priced as a PERMANENT kill: pay it once,
+       bank it forever. The meltdown asks for all three down AT THE SAME TIME
+       instead, which is a different and much larger bill — measured, a 35-unit
+       army that had taken groves and left a garrison could put exactly ONE
+       tower down (to 186hp, 342 scar) before it was spent, and the technicians
+       had it back to 973 within thirty seconds. Three simultaneous kills at the
+       old price is not a hard objective, it is an impossible one.
+
+       CUT AGAIN, 650 -> 450, on a measurement rather than a feeling. At 650 the
+       bill for three simultaneous take-downs is 1950 tower-damage; a committed
+       34-unit army that had taken groves and left a ten-pop garrison delivered
+       about 1300 of it before it was spent — two towers to 0 and 21, and the
+       third never touched. 450 puts the bill at 1350, just inside what one
+       assault can carry, so the first push arrives with the hold in reach and
+       scarring makes the follow-up genuinely cheaper. */
+    hp: 450, radius: 4.6, armor: 2, building: true, critical: true,
+    /* Goes OFFLINE at zero instead of dying: the tower stays standing and dark,
+       and a technician can relight it. See RULES.meltdownSeconds for why the
+       objective stopped being a kill. */
+    downs: true,
+    blurb: 'Knock it offline and it stays down only as long as you hold the ground.'
   },
   core: {
     name: 'Server Core', team: TEAM.MACHINE, icon: '🧊',
@@ -2167,29 +2223,148 @@ const RULES = {
   spellRadius:    16,
   spellDuration:  5,
 
-  /* --- Thermal runaway -----------------------------------------------------
-     Killing the last coolant tower used to hand the player an exposed Core and
-     nothing else: technicians welded it back to 3000/3000 faster than a swarm
-     could chew through armour 8, so the "objective" was a health bar that
-     regrew. Now the last coolant starts a clock. The Core cooks itself from
-     full in this many seconds, cannot be repaired, and the HUD counts it down —
-     so coolant kills are permanent progress and the endgame is a race the
-     player can see rather than an attrition slug they cannot win.
+  /* --- Meltdown: the Core dies to a HOLD, not to a kill ---------------------
+     THE PROBLEM THIS REPLACES. Coolant kills used to be permanent, so the whole
+     match was a one-way ratchet: three towers down, shield off forever, Core
+     cooks itself on a 90s clock. Nothing the compound did could take a metre
+     back. That is why the design's own premise never bound — "should I leave
+     some at home?" had no cost attached to saying no, because progress banked
+     while you were away could not be lost. Measured on the pinned clock: the
+     all-in guardrail (nobody home at all) WON at 5:17, and 15/15 offensive
+     variants won. The good line was unlosable.
 
-     Deliberately slower than a committed assault: killing it yourself is still
-     much faster and still the point. This only guarantees the match ENDS. */
-  /* CUT from 240. Measured on a full winning run: the last coolant fell at
-     12:51 — the loudest, best-earned moment of the match — and then the Core
-     ticked itself down from 2989 to 1857 across ninety seconds in which the
-     game asked the player for nothing at all, before the army walked over and
-     deleted the last 1,664 by hand. The four-minute countdown that was supposed
-     to be a finale functioned as dead air between the real climax and the real
-     ending, and was then mostly bypassed anyway.
+     A coolant tower now goes OFFLINE at zero rather than dying (def.downs). It
+     stays standing, dark, and a Field Technician can bring it back. The Core
+     overheats only while ALL of them are offline at once, so the ending is a
+     window the player has to hold open with the compound actively trying to
+     shut it — which is exactly when the valley is emptiest and the sweep that
+     splits off for the Heart Tree is landing. That is the question the design
+     was always selling and has never once asked.
 
-     At 90 the clock is a sprint the player races rather than a bar they wait
-     out, and it still is not the fast way to finish: a committed army kills a
-     naked Core in about thirty seconds. This only guarantees the match ENDS. */
-  runawaySeconds: 90,
+     Nothing is lost by failing the hold. Heat bleeds back at a fraction of the
+     fill rate (not instantly), and scarring means every take-down is cheaper
+     than the last, so a hold that breaks at 80% is real progress, not a reset.
+
+     meltdownSeconds is DELIBERATELY short. This is a climax, not an endurance
+     test: long enough that the compound gets to fight for it, short enough that
+     a player who has genuinely won the fight is not made to stand around.
+
+     LENGTH SET FROM WHAT AN ARMY CAN ACTUALLY HOLD, not from taste. Measured
+     across ten full runs: a player fields ONE assault army per match (peaks
+     around 45 units, then settles near 10 and never rebuilds to strike
+     strength), and that army holds the towers for 14-22 seconds before it is
+     spent. A 45-second hold at half rate is a 90-second bar. Nobody was ever
+     going to clear it, which is why every good-line run ended the same way — a
+     hold that began, reached 16-25%, and died. */
+  meltdownSeconds:  30,
+  /* How many towers must be offline before the Core starts cooking, and how
+     much faster it cooks once MORE of them are.
+
+     ALL THREE AT ONCE was the wrong bar and the measurement is unambiguous. It
+     prices the objective at 1350 tower-damage delivered simultaneously across
+     three positions inside a defended compound; a committed army that has taken
+     groves, kept beavers on the Heart Tree and cast Overgrowth measurably
+     delivers about 700 before it is spent. Every run stalled the same way — two
+     towers down and held, the third never touched — and the good line lost at
+     5:09, 6:03 and 8:03. A gate nobody can reach is not difficulty, it is a
+     wall with a countdown painted on it.
+
+     Two-of-three starts the meltdown at half rate: a real hold, reachable by a
+     real army, and still long enough (90s) that the compound gets to fight for
+     it. The third tower is then an ACCELERANT rather than a gate — taking it
+     doubles the rate and turns a grind into a finish — which is a much better
+     shape for the last tower anyway, because it makes the hardest one to reach
+     the one that actually decides the match. */
+  meltdownAt:       2,      // towers offline before the Core cooks at all
+  /* Full rate at TWO, not three — so the bar a single army can reach is the bar
+     that finishes the job. The third tower is still worth taking: the rate is
+     down/meltdownFullAt, so three-of-three cooks at 1.5x and turns a 30-second
+     hold into a 20-second one. Accelerant, not gate. */
+  meltdownFullAt:   2,
+  /* Heat barely bleeds off at all, and that is the single most important number
+     in the endgame. It makes the meltdown CUMULATIVE across a whole match
+     rather than a one-perfect-window puzzle.
+
+     MEASURED at 0.5: a competent line — groves taken, beavers mending the
+     Heart, Overgrowth cast on raiders, a fourteen-pop garrison — fought to wave
+     5 and 8:03, scarred all three towers, got every tower offline at once, and
+     peaked at 22% heat before the emergency welders relit one. Ten seconds of
+     hold. Then all of it drained away and the match was unwinnable despite the
+     player doing everything the design asks for.
+
+     At 0.12 those holds still drained faster than a rebuilt army could return:
+     measured, a hold that reached 55% was back down to 22% two minutes later
+     and the second assault started from nothing.
+
+     THE DECISIVE MEASUREMENT. With the objective made almost free — one tower
+     offline for a full-rate meltdown — the good line STILL lost, peaking at 55%
+     and collapsing. So the objective was never what was stopping the player: a
+     42-unit army loses 31 units in thirty seconds inside the compound, and the
+     old permanent-kill design simply HID that, because damage banked forever
+     and you could lose three armies and still be ahead. Take the hiding place
+     away and the underlying army-versus-gun-line trade is what decides matches.
+
+     So heat banks too, at 0.03 — near-latching, deliberately the same shape as
+     scarFraction. A push that dies short still bought something, and the match
+     becomes a campaign against the Core across several assaults instead of one
+     perfect window nobody can hold. This does NOT fix the army trade; it stops
+     that trade from silently deciding the match on its own. */
+  coolRecovery:     0.03,
+  /* An offline tower welded back to this fraction of its (scarred) ceiling comes
+     back online and stops the meltdown.
+
+     RAISED from 0.30, which was far too cheap to be counterplay. At repair 16/s
+     a single technician brought a 330-ceiling tower back over a 30% bar in
+     about two seconds; measured, three of them relit BOTH downed towers inside
+     sixteen seconds and ended a hold at 20%. A tower that works again after two
+     seconds of welding is not a repair, it is a light switch, and it made the
+     hold impossible to sustain no matter how well the player fought for it.
+
+     At 0.85 the compound has to actually rebuild the thing, which takes long
+     enough that killing the welder is a real answer — and killing the welder is
+     the entire counterplay the meltdown is built around. */
+  coolantRelight:   0.85,
+  /* A tower that has just been knocked over cannot be relit for this long, no
+     matter how many technicians stand on it.
+
+     This is what makes SEQUENTIAL play possible, and without it the objective
+     was arithmetic nobody could do. "All three offline at once" sounds like one
+     requirement; with instant relighting it is really "deal 1350 damage spread
+     across three positions inside a defended compound before any of it decays",
+     and measured, a committed 35-unit army got two towers low and never touched
+     the third. The lockout turns that back into the thing a player actually
+     does: knock them over one at a time and chain the windows.
+
+     Deliberately SHORTER than meltdownSeconds. The first tower's lockout has
+     expired by the time the third goes down, so the technicians are free to
+     start relighting the moment the hold begins — the player gets a realistic
+     path to the all-down state and still has to fight to keep it. */
+  coolantLockout:   25,
+
+  /* --- Emergency response: what makes the hold a FIGHT and not a wait --------
+     The hold only asks a question if the compound is trying to break it. It was
+     not: technicians come from Security Depots and are capped at two, so a
+     player who razed the depots on the way in — which is the normal, correct
+     line, since depots delay sweeps — would face literally no repair response.
+     The ending would have been a 45-second wait with the outcome already known,
+     which is the exact failure mode this whole rework exists to remove.
+
+     So a meltdown triggers a response the player cannot pre-empt by demolition:
+
+     1. The Core itself dispatches technicians while it cooks. Slower than a
+        depot and hard-capped, so razing depots still MATTERS (it halves the
+        rate) without switching the counterplay off entirely.
+     2. Every raider in the field turns around.
+
+     (2) is the important one, and it is what makes the wave clock a tool rather
+     than a threat: start the hold just after a sweep leaves and you have most
+     of a minute before it can be back on top of you. Start it with a sweep
+     still mustering and you are holding against the whole compound. The HUD has
+     always shown "next sweep" and it has never once been something the player
+     could USE. Now the single most important decision in the match is read off
+     a number that was already on screen. */
+  emergencyEvery:   9,      // seconds between Core-dispatched technicians
+  emergencyTechs:   4,      // hard cap on live technicians during a meltdown
 
   /* How long a machine structure must go unhit before a Field Technician will
      weld it. Mirrors regenDelay, which is the player's own out-of-combat rule —
@@ -2292,9 +2467,11 @@ const G = {
   nextDetail: RULES.firstWaveAt * 0.55,   // the mid-cycle landscaping crew
   waveNum: 0,
 
-  coreExposed: false,
-  runawayAt: 0,               // G.time the last coolant died — starts the meltdown clock
-  runawaySaid: null,          // which meltdown countdown milestones have been announced
+  coreExposed: false,         // derived each frame: every coolant tower offline
+  heat: 0,                    // 0..1 meltdown progress; fills only while coreExposed
+  heatPeak: 0,                // high-water mark, so the HUD can show ground lost
+  heatSaid: null,             // which meltdown milestones have been announced
+  holdStartedAt: 0,           // G.time the current hold began (0 = not holding)
   depotsGoneToldOnce: false,
   over: false,
   paused: false,
@@ -6957,7 +7134,15 @@ const buildCoolant = () => {
     g.add(cyl(shell, 4.0 - i * 0.16, 1.9, 0, 1.6 + i * 1.9, 0));
   for (let i = 0; i < 3; i++)
     g.add(cyl(dark, 4.15 - i * 0.32, 0.3, 0, 3.4 + i * 3.8, 0));
-  g.add(cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0));
+  /* The band is the tower's ON light: it is how a player reads offline-vs-online
+     from across the valley, which is the single most important piece of state in
+     the endgame. Kept as its own reference so entity.js can douse it. */
+  const band = cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0);
+  /* Its OWN material. GLOW() hands back a cached instance shared by every cyan
+     glow in the scene, so dousing this one in place would darken the Core's
+     shield trim and the other two towers along with it. */
+  band.material = band.material.clone();
+  g.add(band);
   const fan = new THREE.Group(); fan.position.y = 13.2;
   for (let i = 0; i < 5; i++) {
     const b = box(M(0x8a949e, { metal: 0.6 }), 3.0, 0.12, 0.9, 0, 0, 0);
@@ -6968,7 +7153,7 @@ const buildCoolant = () => {
   }
   g.add(fan);
   g.add(cyl(dark, 3.4, 0.5, 0, 13.7, 0));
-  g.userData.anim = { kind: 'coolant', fan };
+  g.userData.anim = { kind: 'coolant', fan, band };
   return g;
 };
 
@@ -8100,6 +8285,9 @@ function updateShots(dt) {
 
 function applyDamage(target, amount, attacker) {
   if (!target || !target.alive || G.over) return;
+  /* Already offline. It is standing rubble with a technician's name on it, not
+     a target — without this, a swarm parks on a dead tower chewing zero. */
+  if (target.downed) return;
 
   /* The shield is the objective. Gating *acquisition* was not enough — an explicit
      right-click attack order writes order.target directly and bypassed it, which
@@ -8187,7 +8375,46 @@ function applyDamage(target, amount, attacker) {
                Math.min(1.6, dealt / Math.max(12, target.maxHp * 0.2)));
   } else if (def.wall || def.building) SFX.hitStone(target.pos);
   else SFX.hitMetal(target.pos);
-  if (target.hp <= 0) kill(target, attacker);
+  if (target.hp <= 0) {
+    if (def.downs) takeOffline(target, attacker);
+    else kill(target, attacker);
+  }
+}
+
+/* A structure that cannot be destroyed, only switched off. It keeps its mesh,
+   its collision and its place in G.obstacles — the compound is not smaller for
+   having lost it — but it stops doing its job until somebody welds it back to
+   RULES.coolantRelight of its remaining ceiling. Scarring means that ceiling
+   falls every time, so the fourth take-down is much cheaper than the first. */
+function takeOffline(e, killer) {
+  if (e.downed) return;
+  e.downed = true;
+  e.hp = 0;
+  e.downedAt = G.time;
+  /* Guaranteed downtime. See RULES.coolantLockout — this is what lets a player
+     chain three take-downs instead of needing all three at once. */
+  e.lockoutUntil = G.time + RULES.coolantLockout;
+  if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
+    killer.kills = (killer.kills || 0) + 1;
+    if (killer.refreshVeterancy) killer.refreshVeterancy();
+  }
+  const p = e.pos.clone(); p.y += 3;
+  SFX.boomBig(e.pos);
+  explode(p, 2.2, {});
+  /* Scored once, on the FIRST time it goes down. Relighting and re-killing a
+     tower is a real cost to the compound, but it is not repeatable points. */
+  if (!e.scoredOffline) { e.scoredOffline = true; addScore('structure', e.type, e.pos); }
+  e.onDowned && e.onDowned();
+}
+
+/* The weld that brings it back. Called from the technician's repair loop. */
+function bringOnline(e) {
+  if (!e.downed) return;
+  e.downed = false;
+  e.relitAt = G.time;
+  ring(e.pos, 0x39d7ea, 26, 1.2);
+  SFX.shieldPing(e.pos);
+  e.onRelit && e.onRelit();
 }
 
 function kill(e, killer) {
@@ -8580,9 +8807,15 @@ class Entity {
     }
 
     /* --- target validity & acquisition --- */
-    if (this.target && (!this.target.alive)) { this.target = null; this.leash = null; }
+    /* A tower that has been knocked offline counts as gone. MEASURED without
+       this: 27 bears stood on three dark towers dealing literally zero — an
+       explicit attack order outlives acquire()'s downed check — while four
+       technicians welded all three back up and stole a hold at 49%. The
+       counterplay to a relight is killing the welder, and the swarm has to be
+       free to notice the welder for that to be counterplay at all. */
+    if (this.target && (!this.target.alive || this.target.downed)) { this.target = null; this.leash = null; }
     const ot = this.order.type;
-    if (this.order.target && !this.order.target.alive) {
+    if (this.order.target && (!this.order.target.alive || this.order.target.downed)) {
       this.order.target = null;
       if (ot === 'attack') this.order.type = 'idle';
     }
@@ -8704,7 +8937,11 @@ class Entity {
       const d = dist2D(this.pos, o.pos);
       /* prefer things that are nearly dead -- saving a wall is worth less than
          saving the coolant tower the player has spent two minutes on */
-      const score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      let score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      /* A dark coolant tower is the whole match. Weighted hard enough to beat
+         distance across the compound, because a technician that wanders off to
+         patch a wall while the Core cooks is not counterplay, it is a bug. */
+      if (o.downed) score -= 400;
       if (score < bd) { bd = score; best = o; }
     }
 
@@ -8736,6 +8973,12 @@ class Entity {
              compound can ever be restored to. */
           const ceiling = best.maxHp - (best.scar || 0);
           if (best.hp < ceiling) best.hp = Math.min(ceiling, best.hp + this.def.repair * dt);
+          /* Relight. The tower comes back at a LOW fraction of what is left of
+             it, so the player's counterplay is killing the welder rather than
+             out-damaging the weld — and because scar lowers the ceiling every
+             time, each relight is a weaker tower than the one before. */
+          if (best.downed && best.hp >= ceiling * RULES.coolantRelight
+              && G.time >= (best.lockoutUntil || 0)) bringOnline(best);
         }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
@@ -8982,7 +9225,7 @@ class Entity {
        have put its lamp out permanently. */
     if (this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
-      if (this.target && !this.target.alive) this.target = null;
+      if (this.target && (!this.target.alive || this.target.downed)) this.target = null;
       /* Wind-up. See RULES.turretSpinUp: the gun gets stronger the longer it is
          allowed to keep firing, and goes cold quickly when it is not. Held on
          the turret rather than on the target, so switching victims inside one
@@ -9330,8 +9573,19 @@ class Entity {
         break;
       }
       case 'coolant': {
-        const h = this.hp / this.maxHp;
-        a.fan.rotation.y += dt * (0.6 + h * 5.5);
+        /* Offline: the fan coasts to a stop and the band goes out. Spun-down and
+           dark is the whole read — "is this tower cooling or not" is the state
+           the endgame turns on, and it has to be legible without the HUD. */
+        /* Spin eases toward its target rather than snapping, so a tower that
+           has just gone dark coasts down over a couple of seconds instead of
+           stopping dead — the read is "losing power", not "paused". */
+        const want = this.downed ? 0 : 0.11 + this.hp / Math.max(1, this.maxHp);
+        this._spin = (this._spin ?? want) + (want - (this._spin ?? want))
+                     * Math.min(1, dt * 1.4);
+        a.fan.rotation.y += dt * this._spin * 5.5;
+        /* The band is the ON light. Material is cloned per tower in
+           buildCoolant, so writing colour here touches only this one. */
+        if (a.band) a.band.visible = !this.downed;
         break;
       }
       case 'core': {
@@ -9517,6 +9771,9 @@ function acquire(e) {
     const o = list[i];
     if (!o.alive || o.team === e.team || o.team === TEAM.NEUTRAL) continue;
     if (o.type === 'core' && !G.coreExposed) continue;
+    /* An offline coolant tower is standing rubble. Left targetable, a swarm
+       parks on one dealing nothing while the technician relights the next. */
+    if (o.downed) continue;
     if (o === e._shunned && G.time < e._shunnedUntil) continue;
     const d = dist2D(e.pos, o.pos) - o.radius;
     if (d > range) continue;
@@ -10826,7 +11083,8 @@ function populate() {
   G.obstacles.push(core);
 
   /* Hologram shield: the visible reason the Core cannot be hurt yet. It tears and
-     flickers as coolant towers fall, then drops entirely on thermal runaway, so the
+     flickers as coolant towers go dark, then drops entirely while every one of
+     them is offline — and comes BACK if a technician relights one — so the
      objective reads without needing the HUD. */
   const shield = new THREE.Mesh(new THREE.SphereGeometry(17, 44, 30), makeShieldMaterial());
   shield.position.set(core.pos.x, core.pos.y + 5, core.pos.z);
@@ -10836,24 +11094,35 @@ function populate() {
 
   G.coolants = COOLANTS.map(([x, z]) => {
     const c = spawn('coolant', x, z);
-    c.onDeath = () => {
-      const left = G.coolants.filter(k => k.alive).length;
+    /* A tower goes OFFLINE, it does not die. See RULES.meltdownSeconds. */
+    c.onDowned = () => {
+      const left = coolantsOnline();
+      const down = G.coolants.length - left;
       ring(c.pos, 0x39d7ea, 26, 1.4);
-      if (left > 0) {
+      /* Announced on the THRESHOLD, not on the last tower. The meltdown starts
+         at RULES.meltdownAt, so firing this only when every tower is dark would
+         let the player cross the line that decides the match in silence. */
+      if (down < RULES.meltdownAt) {
         commsEvent('coolant');
-        toast(`Coolant tower down — ${left} remaining`, 'machine');
+        toast(`Coolant tower offline — ${left} still cooling`, 'machine');
+      } else if (down > RULES.meltdownAt) {
+        commsEvent('coolant');
+        SFX.alarm();
+        toast('The last tower is down — the Core is cooking at full rate', 'warn');
       } else {
         commsEvent('coreExposed');
-        G.coreExposed = true;
-        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        /* Say it in the unit the clock is actually in. At 240 this read "4
-           minutes"; at 90 the same expression rounded to "2 minutes", which is
-           both wrong and the sort of thing nobody notices for a year. */
-        toast('THERMAL RUNAWAY — the Core is exposed and cooking. '
-              + `${Math.round(RULES.runawaySeconds)}s before it melts itself — get there first.`, 'warn');
+        /* Name the shape of the ending, not just the fact of it. The player has
+           to know this is a HOLD — that walking away now gives it all back — or
+           they will do what every previous build trained them to do and leave. */
+        toast(`MELTDOWN — keep ${RULES.meltdownAt} towers offline and the Core cooks. `
+              + 'Take the last one down and it cooks twice as fast.', 'warn');
       }
+    };
+    c.onRelit = () => {
+      toast(`A technician relit a coolant tower — ${coolantsOnline()} cooling again`, 'machine');
+      commsEvent('coolant', 0.8);
     };
     G.obstacles.push(c);
     return c;
@@ -10951,6 +11220,14 @@ function populate() {
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
   }
+}
+
+/* How many coolant towers are actually cooling. A tower that has been knocked
+   offline is still ALIVE — it stands, it blocks, and a technician can relight
+   it — so `alive` is the wrong question everywhere the objective is concerned.
+   One place to ask it, because getting this wrong silently un-wins the match. */
+function coolantsOnline() {
+  return G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
 }
 
 /* Mission resolution: in a campaign, bank the result and route the end-screen
@@ -11123,53 +11400,63 @@ function updateWorld(dt) {
     }
   }
 
-  /* --- thermal runaway ---------------------------------------------------
-     The last coolant tower is the point of no return. Before this, killing all
-     three bought the player an exposed Core and a health bar that technicians
-     welded straight back to full — measured at 11m47s of assaulting a naked,
-     disarmed Core that ended the match at 3000/3000. Now the compound cooks
-     itself on a clock, so every coolant kill is permanent progress.
+  /* --- meltdown: the hold ---------------------------------------------------
+     The Core overheats only while every coolant tower is offline AT ONCE, which
+     is what turns the ending from a kill into a hold. See RULES.meltdownSeconds
+     for the measurement that made this necessary — in short, coolant kills used
+     to be permanent, so the match was a ratchet nobody could take a metre back
+     from, and an all-in with nobody home won every time.
 
-     It is deliberately slow. Bringing the Core down yourself is far quicker and
-     is still the ending the game wants; this only guarantees that a decided
-     match actually ENDS, and it gives the player something to race instead of
-     something to grind. */
-  if (G.coreExposed && G.core.alive && !G.over) {
-    const burn = G.core.maxHp / RULES.runawaySeconds;
-    G.core.hp -= burn * dt;
-    /* Milestones, because a bar creeping down is not a clock. */
-    const left = Math.max(0, G.core.hp / burn);
-    if (!G.runawaySaid) G.runawaySaid = {};
-    /* Milestones below the length of the clock, so a short runaway does not
-       silently skip straight past its own countdown. */
-    for (const mark of [180, 120, 60, 30].filter(m => m < RULES.runawaySeconds)) {
-      if (left <= mark && !G.runawaySaid[mark]) {
-        G.runawaySaid[mark] = true;
-        /* The clock is only interesting when the clock is the thing killing the
-           Core. Measured: with a swarm chewing the Core directly, all four
-           milestones fired inside thirteen real seconds because the burn-rate
-           divisor turns direct damage into "seconds remaining". Latch them so
-           they are not repeated later, but stay quiet while the player is
-           plainly winning the race by hand. */
-        if (G.time - (G.core.lastHitAt || -99) < 6) continue;
-        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
-        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
-           initiated our Thermal Resilience Journey"), which is exactly the
-           register a meltdown countdown wants, and it keeps the exposure
-           announcement from repeating itself four times on the way down. */
-        commsEvent('coolant', 0.7);
+     Heat bleeds back rather than resetting, so a hold broken at 80% is real
+     progress and not a wasted assault. */
+  if (G.core.alive && !G.over) {
+    const online = coolantsOnline();
+    const down = G.coolants.length - online;
+    const wasExposed = G.coreExposed;
+    /* Exposure is a THRESHOLD, not unanimity. See RULES.meltdownAt. */
+    G.coreExposed = down >= RULES.meltdownAt;
+    /* Full rate at meltdownFullAt, and ABOVE it the extra towers accelerate:
+       three-of-three cooks half again as fast as two-of-three. Capped so a map
+       with many towers cannot produce an instant win. */
+    const heatMult = G.coreExposed
+      ? Math.min(1.5, down / Math.max(1, RULES.meltdownFullAt)) : 0;
+
+    if (G.coreExposed && !wasExposed) G.holdStartedAt = G.time;
+    if (!G.coreExposed && wasExposed) {
+      G.holdStartedAt = 0;
+      /* Losing the hold is the compound's one win condition against the player,
+         so it gets said out loud. Silence here reads as a bug. */
+      if (G.heat > 0.08) toast(`Meltdown stalled at ${Math.round(G.heat * 100)}% — the Core is cooling again`, 'warn');
+    }
+
+    const rate = 1 / Math.max(1, RULES.meltdownSeconds);
+    if (G.coreExposed) G.heat = Math.min(1, G.heat + rate * heatMult * dt);
+    else               G.heat = Math.max(0, G.heat - rate * RULES.coolRecovery * dt);
+    G.heatPeak = Math.max(G.heatPeak, G.heat);
+
+    /* Milestones, because a bar creeping up is not a clock. Only while actually
+       holding — narrating a bar that is falling is just noise. */
+    if (!G.heatSaid) G.heatSaid = {};
+    if (G.coreExposed) {
+      for (const mark of [25, 50, 75, 90]) {
+        if (G.heat * 100 >= mark && !G.heatSaid[mark]) {
+          G.heatSaid[mark] = true;
+          const secsLeft = Math.round((1 - G.heat) * RULES.meltdownSeconds / Math.max(0.01, heatMult));
+          toast(`Core temperature ${mark}% — ${secsLeft}s of hold left`, 'warn');
+          commsEvent('coolant', 0.7);
+        }
       }
     }
-    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+
+    if (G.heat >= 1) kill(G.core, null);
   }
 
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
-    const alive = G.coolants.filter(c => c.alive).length;
     // it lives in the scene rather than under the core, so fog concealment has to
     // be forwarded explicitly or the objective is handed over before you scout
     G.coreShield.visible = !G.coreExposed && G.core.alive && G.core.mesh.visible;
-    G.coreShield.material.uniforms.wl_health.value = alive / G.coolants.length;
+    G.coreShield.material.uniforms.wl_health.value = coolantsOnline() / G.coolants.length;
   }
 
   /* --- income --- */
@@ -11486,7 +11773,15 @@ function updateAI(dt) {
     d.spawnTimer -= dt;
     if (d.spawnTimer <= 0) {
       d.spawnTimer = d.def.spawnEvery;
-      if (G.machinePop >= RULES.machinePopCap) continue;
+      /* The pop cap does not apply to a meltdown. MEASURED, and it is the whole
+         reason this exemption is written down: a sweep surges to waveCapMult of
+         the standing cap, so during the sweep that a smart player is holding
+         BEHIND, machinePop sits around 31 against a cap of 19 — and the plain
+         `>= cap` guard silently blocked every technician. The compound stood
+         thirty-one strong and watched its own Core melt with zero welders sent.
+         An emergency the defender is structurally unable to respond to is not a
+         hold, it is a cutscene. */
+      if (G.machinePop >= RULES.machinePopCap && !G.coreExposed) continue;
       /* Deterministic 1-in-4 cycle rather than a dice roll. Drones and guards are
          different threats, so rolling several drones early made a run materially
          harder for reasons the player could not see or plan around. */
@@ -11500,7 +11795,14 @@ function updateAI(dt) {
          %6 rota meant they effectively never appeared in real games. */
       const needsRepair = G.entities.some(e =>
         e.alive && e.isBuilding && e.team === TEAM.MACHINE && e.hp < e.maxHp * 0.9);
-      if (needsRepair && countMachine('tech') < 2) kind = 'tech';
+      /* The cap lifts while the Core is cooking. Two welders is the right number
+         for chip damage; it is not the right number when the compound is about
+         to melt. */
+      const techCap = G.coreExposed ? RULES.emergencyTechs : 2;
+      if ((needsRepair || G.coreExposed) && countMachine('tech') < techCap) kind = 'tech';
+      /* Over cap only a welder is worth the exemption — a meltdown must not
+         become a licence to print guards. */
+      else if (G.machinePop >= RULES.machinePopCap) continue;
       else if (d.spawnN % 4 === 0) kind = 'drone';
       const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
@@ -11526,6 +11828,8 @@ function updateAI(dt) {
     G.nextDetail = G.time + gap * 0.55;
     launchWave();
   }
+
+  emergencyResponse(dt);
 
   /* --- the mid-cycle landscaping detail --- */
   if (G.time >= G.nextDetail) {
@@ -11557,6 +11861,57 @@ function updateAI(dt) {
     if (!e.patrol) assignPatrol(e);
     e.patrolIdx = (e.patrolIdx + 1) % e.patrol.length;
     e.setOrder('attackmove', e.patrol[e.patrolIdx]);
+  }
+}
+
+/* MELTDOWN RESPONSE. See RULES.emergencyEvery for why this exists: without it
+   a player who had razed the Security Depots — the normal line — held an
+   uncontested Core for 45 seconds and the ending was a countdown with no game
+   attached to it.
+
+   Two parts. The Core dispatches its own technicians, at half a depot's rate
+   and hard-capped, so demolition still buys a slower response without buying a
+   free win. And every raider in the field turns around, which is what makes the
+   sweep clock on the HUD into a thing the player can spend. */
+function emergencyResponse(dt) {
+  if (!G.coreExposed || !G.core.alive) { G._recalled = false; return; }
+
+  /* --- the Core's own welders --- */
+  G._emergencyT = (G._emergencyT || 0) - dt;
+  if (G._emergencyT <= 0) {
+    G._emergencyT = RULES.emergencyEvery;
+    /* Deliberately NOT gated on machinePop — see the depot loop above. */
+    if (countMachine('tech') < RULES.emergencyTechs) {
+      const a = rand(0, Math.PI * 2), r = G.core.def.radius + 4;
+      spawn('tech', G.core.pos.x + Math.cos(a) * r, G.core.pos.z + Math.sin(a) * r);
+    }
+  }
+
+  /* --- everyone comes home, once per meltdown --- */
+  if (!G._recalled) {
+    G._recalled = true;
+    let n = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding || e.team !== TEAM.MACHINE) continue;
+      if (e.mission !== 'raid') continue;
+      e.mission = null;
+      e.raidHome = false;
+      e.flankUntil = 0;
+      e.target = null;
+      /* Sent to a DOWNED TOWER, not to the Core. The player is standing on the
+         towers — that is what holding the meltdown means — so this puts the
+         recall where the fight actually is instead of parking it on a building
+         nobody is hitting. */
+      const dark = G.coolants.filter(c => c.downed);
+      const to = dark.length ? dark[n % dark.length].pos : G.core.pos;
+      e.setOrder('attackmove', _v.set(to.x + rand(-6, 6), 0, to.z + rand(-6, 6)).clone());
+      n++;
+    }
+    if (n > 0) {
+      toast(`EMERGENCY RECALL — ${n} raider${n > 1 ? 's turn' : ' turns'} back for the compound`, 'warn');
+      commsEvent('coreExposed', 0.9);
+      SFX.alarm();
+    }
   }
 }
 
@@ -13754,12 +14109,12 @@ function fillPauseCard() {
   const el = document.getElementById('pzstats');
   if (!el) return;
   const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
-  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  const towers = G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
   el.innerHTML = `
     <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
     <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
     <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
-    <div><b>${towers}</b><span>towers left</span></div>`;
+    <div><b>${towers}</b><span>towers cooling</span></div>`;
 }
 
 function toggleHelp() {
@@ -13948,19 +14303,33 @@ function updateHUD() {
   }
 
   /* objective */
-  const left = G.coolants.filter(c => c.alive).length;
+  const left = coolantsOnline();
   const pips = el('objpips').children;
-  for (let i = 0; i < 3; i++) pips[i].className = 'pip ' + (G.coolants[i].alive ? 'alive' : 'dead');
+  for (let i = 0; i < 3; i++)
+    pips[i].className = 'pip ' + (G.coolants[i].downed ? 'dead' : 'alive');
   pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
-  /* Once the coolant towers are gone the objective is a RACE, so show the clock
-     rather than a sentence. The meltdown timer is the thing the player is now
-     playing against, and it is the only number that says how much of the match
-     is left. */
-  el('objtext').textContent = left > 0
-    ? `Destroy the Coolant Towers (${left} left)`
-    : G.core.alive
-      ? `Core melting down — ${fmt(Math.max(0, G.core.hp / (G.core.maxHp / RULES.runawaySeconds)))} · bring it down`
-      : 'The valley is quiet again';
+  /* The objective line has to carry the one thing that separates this ending
+     from every previous build: the towers coming back. "3 left" after you have
+     killed two reads as lost progress unless the line says who did it. */
+  const bar = el('heatbar'), wrap = el('heatwrap');
+  if (wrap) {
+    const showing = G.core.alive && (G.heat > 0.001 || G.coreExposed);
+    wrap.style.display = showing ? '' : 'none';
+    if (showing) {
+      bar.style.width = (G.heat * 100).toFixed(1) + '%';
+      /* Rising and falling have to look different, or a player cannot tell a
+         hold they are winning from one they have already lost. */
+      wrap.classList.toggle('cooling', !G.coreExposed);
+      el('heatnum').textContent = G.coreExposed
+        ? `${Math.max(0, Math.ceil((1 - G.heat) * RULES.meltdownSeconds))}s`
+        : 'cooling';
+    }
+  }
+  el('objtext').textContent = !G.core.alive
+    ? 'The valley is quiet again'
+    : left > 0
+      ? `Knock all 3 Coolant Towers offline (${left} still cooling)`
+      : 'HOLD — every tower offline, the Core is cooking';
 
   /* cards */
   for (const c of cards) {
@@ -14249,6 +14618,14 @@ function drawMinimap() {
 
 
 /* =================== src/main.js =================== */
+/* PRE-EXISTING BUG, found by a console check during the meltdown work: main.js
+   used musicPlay / musicState / updateMusic with no import at all. The flat
+   build hides it — build.mjs collapses every module into one scope, so
+   wildline.html worked fine — while the dev page threw
+   "updateMusic is not defined" on EVERY FRAME. Same class as the three earlier
+   missing-import bugs in this project; the flattened bundle is not a check. */
+
+
 const gameCanvas = document.getElementById('scene');
 window.G = G;                       // handy for tinkering from the console
 window.THREE = THREE;               // ditto — the flat build has no import map

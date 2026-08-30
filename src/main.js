@@ -14,7 +14,8 @@ import { updateWater, renderWaterReflection } from './water.js';
 import { initPost, renderPost, resizePost } from './post.js';
 import { SFX, updateListener, ambientVoices } from './audio.js';
 import { tickShaders } from './shaders.js';
-import { BASE, COMPOUND, RULES } from './config.js';
+import { BASE, COMPOUND, RULES, TEAM } from './config.js';
+import { updateCanopyFade } from './meshes.js';
 import { toast } from './ui.js';
 import { showSplash, splashReady } from './splash.js';
 import { vw, vh } from './utils.js';
@@ -25,6 +26,13 @@ import { loadMap, DEFAULT_MAP, validateAllMaps } from './maps.js';
 import { SITES, pendingMission, setPending, applyCampaignMods, campState, exportCode, importCode } from './campaign.js';
 import { initScore, updateScore, setProjector } from './score.js';
 import { initPerf, perfFrame } from './perf.js';
+/* PRE-EXISTING BUG, found by a console check during the meltdown work: main.js
+   used musicPlay / musicState / updateMusic with no import at all. The flat
+   build hides it — build.mjs collapses every module into one scope, so
+   wildline.html worked fine — while the dev page threw
+   "updateMusic is not defined" on EVERY FRAME. Same class as the three earlier
+   missing-import bugs in this project; the flattened bundle is not a check. */
+import { musicPlay, musicState, updateMusic, trackForMap } from './music.js';
 
 const gameCanvas = document.getElementById('scene');
 window.G = G;                       // handy for tinkering from the console

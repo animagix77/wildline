@@ -3,7 +3,7 @@ import { G, addEntity } from './state.js';
 import { DEFS, TEAM, RULES } from './config.js';
 import { BUILDERS, GLOW } from './meshes.js';
 import { terrainHeight, clamp, dist2D, rand } from './utils.js';
-import { fireProjectile, applyDamage, burst } from './combat.js';
+import { fireProjectile, applyDamage, burst, bringOnline } from './combat.js';
 import { lakeAt } from './water.js';
 import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip, threatMark } from './vfx.js';
 import { HALF } from './config.js';
@@ -342,9 +342,15 @@ export class Entity {
     }
 
     /* --- target validity & acquisition --- */
-    if (this.target && (!this.target.alive)) { this.target = null; this.leash = null; }
+    /* A tower that has been knocked offline counts as gone. MEASURED without
+       this: 27 bears stood on three dark towers dealing literally zero — an
+       explicit attack order outlives acquire()'s downed check — while four
+       technicians welded all three back up and stole a hold at 49%. The
+       counterplay to a relight is killing the welder, and the swarm has to be
+       free to notice the welder for that to be counterplay at all. */
+    if (this.target && (!this.target.alive || this.target.downed)) { this.target = null; this.leash = null; }
     const ot = this.order.type;
-    if (this.order.target && !this.order.target.alive) {
+    if (this.order.target && (!this.order.target.alive || this.order.target.downed)) {
       this.order.target = null;
       if (ot === 'attack') this.order.type = 'idle';
     }
@@ -466,7 +472,11 @@ export class Entity {
       const d = dist2D(this.pos, o.pos);
       /* prefer things that are nearly dead -- saving a wall is worth less than
          saving the coolant tower the player has spent two minutes on */
-      const score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      let score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      /* A dark coolant tower is the whole match. Weighted hard enough to beat
+         distance across the compound, because a technician that wanders off to
+         patch a wall while the Core cooks is not counterplay, it is a bug. */
+      if (o.downed) score -= 400;
       if (score < bd) { bd = score; best = o; }
     }
 
@@ -498,6 +508,12 @@ export class Entity {
              compound can ever be restored to. */
           const ceiling = best.maxHp - (best.scar || 0);
           if (best.hp < ceiling) best.hp = Math.min(ceiling, best.hp + this.def.repair * dt);
+          /* Relight. The tower comes back at a LOW fraction of what is left of
+             it, so the player's counterplay is killing the welder rather than
+             out-damaging the weld — and because scar lowers the ceiling every
+             time, each relight is a weaker tower than the one before. */
+          if (best.downed && best.hp >= ceiling * RULES.coolantRelight
+              && G.time >= (best.lockoutUntil || 0)) bringOnline(best);
         }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
@@ -744,7 +760,7 @@ export class Entity {
        have put its lamp out permanently. */
     if (this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
-      if (this.target && !this.target.alive) this.target = null;
+      if (this.target && (!this.target.alive || this.target.downed)) this.target = null;
       /* Wind-up. See RULES.turretSpinUp: the gun gets stronger the longer it is
          allowed to keep firing, and goes cold quickly when it is not. Held on
          the turret rather than on the target, so switching victims inside one
@@ -1092,8 +1108,19 @@ export class Entity {
         break;
       }
       case 'coolant': {
-        const h = this.hp / this.maxHp;
-        a.fan.rotation.y += dt * (0.6 + h * 5.5);
+        /* Offline: the fan coasts to a stop and the band goes out. Spun-down and
+           dark is the whole read — "is this tower cooling or not" is the state
+           the endgame turns on, and it has to be legible without the HUD. */
+        /* Spin eases toward its target rather than snapping, so a tower that
+           has just gone dark coasts down over a couple of seconds instead of
+           stopping dead — the read is "losing power", not "paused". */
+        const want = this.downed ? 0 : 0.11 + this.hp / Math.max(1, this.maxHp);
+        this._spin = (this._spin ?? want) + (want - (this._spin ?? want))
+                     * Math.min(1, dt * 1.4);
+        a.fan.rotation.y += dt * this._spin * 5.5;
+        /* The band is the ON light. Material is cloned per tower in
+           buildCoolant, so writing colour here touches only this one. */
+        if (a.band) a.band.visible = !this.downed;
         break;
       }
       case 'core': {
@@ -1279,6 +1306,9 @@ export function acquire(e) {
     const o = list[i];
     if (!o.alive || o.team === e.team || o.team === TEAM.NEUTRAL) continue;
     if (o.type === 'core' && !G.coreExposed) continue;
+    /* An offline coolant tower is standing rubble. Left targetable, a swarm
+       parks on one dealing nothing while the technician relights the next. */
+    if (o.downed) continue;
     if (o === e._shunned && G.time < e._shunnedUntil) continue;
     const d = dist2D(e.pos, o.pos) - o.radius;
     if (d > range) continue;

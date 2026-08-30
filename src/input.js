@@ -502,12 +502,12 @@ function fillPauseCard() {
   const el = document.getElementById('pzstats');
   if (!el) return;
   const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
-  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  const towers = G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
   el.innerHTML = `
     <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
     <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
     <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
-    <div><b>${towers}</b><span>towers left</span></div>`;
+    <div><b>${towers}</b><span>towers cooling</span></div>`;
 }
 
 function toggleHelp() {

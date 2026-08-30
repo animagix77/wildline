@@ -270,7 +270,8 @@ export function populate() {
   G.obstacles.push(core);
 
   /* Hologram shield: the visible reason the Core cannot be hurt yet. It tears and
-     flickers as coolant towers fall, then drops entirely on thermal runaway, so the
+     flickers as coolant towers go dark, then drops entirely while every one of
+     them is offline — and comes BACK if a technician relights one — so the
      objective reads without needing the HUD. */
   const shield = new THREE.Mesh(new THREE.SphereGeometry(17, 44, 30), makeShieldMaterial());
   shield.position.set(core.pos.x, core.pos.y + 5, core.pos.z);
@@ -280,24 +281,35 @@ export function populate() {
 
   G.coolants = COOLANTS.map(([x, z]) => {
     const c = spawn('coolant', x, z);
-    c.onDeath = () => {
-      const left = G.coolants.filter(k => k.alive).length;
+    /* A tower goes OFFLINE, it does not die. See RULES.meltdownSeconds. */
+    c.onDowned = () => {
+      const left = coolantsOnline();
+      const down = G.coolants.length - left;
       ring(c.pos, 0x39d7ea, 26, 1.4);
-      if (left > 0) {
+      /* Announced on the THRESHOLD, not on the last tower. The meltdown starts
+         at RULES.meltdownAt, so firing this only when every tower is dark would
+         let the player cross the line that decides the match in silence. */
+      if (down < RULES.meltdownAt) {
         commsEvent('coolant');
-        toast(`Coolant tower down — ${left} remaining`, 'machine');
+        toast(`Coolant tower offline — ${left} still cooling`, 'machine');
+      } else if (down > RULES.meltdownAt) {
+        commsEvent('coolant');
+        SFX.alarm();
+        toast('The last tower is down — the Core is cooking at full rate', 'warn');
       } else {
         commsEvent('coreExposed');
-        G.coreExposed = true;
-        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        /* Say it in the unit the clock is actually in. At 240 this read "4
-           minutes"; at 90 the same expression rounded to "2 minutes", which is
-           both wrong and the sort of thing nobody notices for a year. */
-        toast('THERMAL RUNAWAY — the Core is exposed and cooking. '
-              + `${Math.round(RULES.runawaySeconds)}s before it melts itself — get there first.`, 'warn');
+        /* Name the shape of the ending, not just the fact of it. The player has
+           to know this is a HOLD — that walking away now gives it all back — or
+           they will do what every previous build trained them to do and leave. */
+        toast(`MELTDOWN — keep ${RULES.meltdownAt} towers offline and the Core cooks. `
+              + 'Take the last one down and it cooks twice as fast.', 'warn');
       }
+    };
+    c.onRelit = () => {
+      toast(`A technician relit a coolant tower — ${coolantsOnline()} cooling again`, 'machine');
+      commsEvent('coolant', 0.8);
     };
     G.obstacles.push(c);
     return c;
@@ -395,6 +407,14 @@ export function populate() {
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
   }
+}
+
+/* How many coolant towers are actually cooling. A tower that has been knocked
+   offline is still ALIVE — it stands, it blocks, and a technician can relight
+   it — so `alive` is the wrong question everywhere the objective is concerned.
+   One place to ask it, because getting this wrong silently un-wins the match. */
+export function coolantsOnline() {
+  return G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
 }
 
 /* Mission resolution: in a campaign, bank the result and route the end-screen
@@ -567,53 +587,63 @@ export function updateWorld(dt) {
     }
   }
 
-  /* --- thermal runaway ---------------------------------------------------
-     The last coolant tower is the point of no return. Before this, killing all
-     three bought the player an exposed Core and a health bar that technicians
-     welded straight back to full — measured at 11m47s of assaulting a naked,
-     disarmed Core that ended the match at 3000/3000. Now the compound cooks
-     itself on a clock, so every coolant kill is permanent progress.
+  /* --- meltdown: the hold ---------------------------------------------------
+     The Core overheats only while every coolant tower is offline AT ONCE, which
+     is what turns the ending from a kill into a hold. See RULES.meltdownSeconds
+     for the measurement that made this necessary — in short, coolant kills used
+     to be permanent, so the match was a ratchet nobody could take a metre back
+     from, and an all-in with nobody home won every time.
 
-     It is deliberately slow. Bringing the Core down yourself is far quicker and
-     is still the ending the game wants; this only guarantees that a decided
-     match actually ENDS, and it gives the player something to race instead of
-     something to grind. */
-  if (G.coreExposed && G.core.alive && !G.over) {
-    const burn = G.core.maxHp / RULES.runawaySeconds;
-    G.core.hp -= burn * dt;
-    /* Milestones, because a bar creeping down is not a clock. */
-    const left = Math.max(0, G.core.hp / burn);
-    if (!G.runawaySaid) G.runawaySaid = {};
-    /* Milestones below the length of the clock, so a short runaway does not
-       silently skip straight past its own countdown. */
-    for (const mark of [180, 120, 60, 30].filter(m => m < RULES.runawaySeconds)) {
-      if (left <= mark && !G.runawaySaid[mark]) {
-        G.runawaySaid[mark] = true;
-        /* The clock is only interesting when the clock is the thing killing the
-           Core. Measured: with a swarm chewing the Core directly, all four
-           milestones fired inside thirteen real seconds because the burn-rate
-           divisor turns direct damage into "seconds remaining". Latch them so
-           they are not repeated later, but stay quiet while the player is
-           plainly winning the race by hand. */
-        if (G.time - (G.core.lastHitAt || -99) < 6) continue;
-        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
-        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
-           initiated our Thermal Resilience Journey"), which is exactly the
-           register a meltdown countdown wants, and it keeps the exposure
-           announcement from repeating itself four times on the way down. */
-        commsEvent('coolant', 0.7);
+     Heat bleeds back rather than resetting, so a hold broken at 80% is real
+     progress and not a wasted assault. */
+  if (G.core.alive && !G.over) {
+    const online = coolantsOnline();
+    const down = G.coolants.length - online;
+    const wasExposed = G.coreExposed;
+    /* Exposure is a THRESHOLD, not unanimity. See RULES.meltdownAt. */
+    G.coreExposed = down >= RULES.meltdownAt;
+    /* Full rate at meltdownFullAt, and ABOVE it the extra towers accelerate:
+       three-of-three cooks half again as fast as two-of-three. Capped so a map
+       with many towers cannot produce an instant win. */
+    const heatMult = G.coreExposed
+      ? Math.min(1.5, down / Math.max(1, RULES.meltdownFullAt)) : 0;
+
+    if (G.coreExposed && !wasExposed) G.holdStartedAt = G.time;
+    if (!G.coreExposed && wasExposed) {
+      G.holdStartedAt = 0;
+      /* Losing the hold is the compound's one win condition against the player,
+         so it gets said out loud. Silence here reads as a bug. */
+      if (G.heat > 0.08) toast(`Meltdown stalled at ${Math.round(G.heat * 100)}% — the Core is cooling again`, 'warn');
+    }
+
+    const rate = 1 / Math.max(1, RULES.meltdownSeconds);
+    if (G.coreExposed) G.heat = Math.min(1, G.heat + rate * heatMult * dt);
+    else               G.heat = Math.max(0, G.heat - rate * RULES.coolRecovery * dt);
+    G.heatPeak = Math.max(G.heatPeak, G.heat);
+
+    /* Milestones, because a bar creeping up is not a clock. Only while actually
+       holding — narrating a bar that is falling is just noise. */
+    if (!G.heatSaid) G.heatSaid = {};
+    if (G.coreExposed) {
+      for (const mark of [25, 50, 75, 90]) {
+        if (G.heat * 100 >= mark && !G.heatSaid[mark]) {
+          G.heatSaid[mark] = true;
+          const secsLeft = Math.round((1 - G.heat) * RULES.meltdownSeconds / Math.max(0.01, heatMult));
+          toast(`Core temperature ${mark}% — ${secsLeft}s of hold left`, 'warn');
+          commsEvent('coolant', 0.7);
+        }
       }
     }
-    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+
+    if (G.heat >= 1) kill(G.core, null);
   }
 
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
-    const alive = G.coolants.filter(c => c.alive).length;
     // it lives in the scene rather than under the core, so fog concealment has to
     // be forwarded explicitly or the objective is handed over before you scout
     G.coreShield.visible = !G.coreExposed && G.core.alive && G.core.mesh.visible;
-    G.coreShield.material.uniforms.wl_health.value = alive / G.coolants.length;
+    G.coreShield.material.uniforms.wl_health.value = coolantsOnline() / G.coolants.length;
   }
 
   /* --- income --- */

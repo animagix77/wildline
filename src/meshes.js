@@ -605,7 +605,15 @@ export const buildCoolant = () => {
     g.add(cyl(shell, 4.0 - i * 0.16, 1.9, 0, 1.6 + i * 1.9, 0));
   for (let i = 0; i < 3; i++)
     g.add(cyl(dark, 4.15 - i * 0.32, 0.3, 0, 3.4 + i * 3.8, 0));
-  g.add(cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0));
+  /* The band is the tower's ON light: it is how a player reads offline-vs-online
+     from across the valley, which is the single most important piece of state in
+     the endgame. Kept as its own reference so entity.js can douse it. */
+  const band = cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0);
+  /* Its OWN material. GLOW() hands back a cached instance shared by every cyan
+     glow in the scene, so dousing this one in place would darken the Core's
+     shield trim and the other two towers along with it. */
+  band.material = band.material.clone();
+  g.add(band);
   const fan = new THREE.Group(); fan.position.y = 13.2;
   for (let i = 0; i < 5; i++) {
     const b = box(M(0x8a949e, { metal: 0.6 }), 3.0, 0.12, 0.9, 0, 0, 0);
@@ -616,7 +624,7 @@ export const buildCoolant = () => {
   }
   g.add(fan);
   g.add(cyl(dark, 3.4, 0.5, 0, 13.7, 0));
-  g.userData.anim = { kind: 'coolant', fan };
+  g.userData.anim = { kind: 'coolant', fan, band };
   return g;
 };
 
