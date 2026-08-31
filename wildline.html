@@ -1046,6 +1046,37 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 .st .vet{ color:#ffe27a; }
 #waterres.rain #waterlvl{ color:#8fe8ff; }
 
+/* --- Meltdown hold meter -------------------------------------------------
+   The endgame is a hold the compound is actively trying to break, so the bar
+   has to say which way it is currently moving. Rising is hot and pulsing;
+   cooling is cyan and still — the same colour language the coolant towers and
+   the Core shield already use, so it reads without a legend. */
+.heat-wrap{ display:flex; align-items:center; gap:7px; margin-top:6px; }
+.heat-track{
+  flex:1; height:7px; border-radius:4px; overflow:hidden;
+  background:rgba(255,255,255,.10);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.heat-fill{
+  height:100%; width:0%; border-radius:4px;
+  background:linear-gradient(90deg,#ff9d3d,#ff4b2b);
+  box-shadow:0 0 10px rgba(255,90,45,.75);
+  transition:width .18s linear, background .3s ease;
+  animation:heatPulse 1.15s ease-in-out infinite;
+}
+.heat-num{
+  font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#ff8a5c; min-width:34px; text-align:right; letter-spacing:.4px;
+}
+/* Hold broken: the bar is draining and must not read as progress. */
+.heat-wrap.cooling .heat-fill{
+  background:linear-gradient(90deg,#2f7f8c,#39d7ea);
+  box-shadow:0 0 8px rgba(57,215,234,.5);
+  animation:none;
+}
+.heat-wrap.cooling .heat-num{ color:#6fb6c4; font-weight:600; }
+@keyframes heatPulse{ 50%{ filter:brightness(1.35); } }
+
 </style>
 </head>
 <body>
@@ -1083,8 +1114,12 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
     </div>
     <div id="objective">
       <div class="obj-title">OBJECTIVE</div>
-      <div class="obj-text" id="objtext">Destroy the Coolant Towers</div>
+      <div class="obj-text" id="objtext">Knock all 3 Coolant Towers offline</div>
       <div class="obj-pips" id="objpips"></div>
+      <div class="heat-wrap" id="heatwrap" style="display:none">
+        <div class="heat-track"><div class="heat-fill" id="heatbar"></div></div>
+        <span class="heat-num" id="heatnum">--</span>
+      </div>
     </div>
     <div class="res right">
       <span class="sub">TIME</span>
@@ -1692,13 +1727,13 @@ const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
+    armor: 2, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
     blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 2, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
+    armor: 3, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
@@ -1710,7 +1745,7 @@ const DEFS = {
   capybara: {
     name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
     hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
-    armor: 3, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    armor: 4, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
     /* Taunt biases enemy target selection toward this unit (see acquire()).
        Without it the capybara is merely tanky and the swarm still gets shot
        out from behind it; with it, putting capybaras in front is a real and
@@ -1721,7 +1756,7 @@ const DEFS = {
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
+    armor: 2, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
@@ -1744,7 +1779,7 @@ const DEFS = {
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
+    armor: 3, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
     blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
@@ -1819,7 +1854,28 @@ const DEFS = {
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
-    hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
+    /* CUT from 1300, and the cut is the direct consequence of the towers no
+       longer dying. At 1300 a tower was priced as a PERMANENT kill: pay it once,
+       bank it forever. The meltdown asks for all three down AT THE SAME TIME
+       instead, which is a different and much larger bill — measured, a 35-unit
+       army that had taken groves and left a garrison could put exactly ONE
+       tower down (to 186hp, 342 scar) before it was spent, and the technicians
+       had it back to 973 within thirty seconds. Three simultaneous kills at the
+       old price is not a hard objective, it is an impossible one.
+
+       CUT AGAIN, 650 -> 450, on a measurement rather than a feeling. At 650 the
+       bill for three simultaneous take-downs is 1950 tower-damage; a committed
+       34-unit army that had taken groves and left a ten-pop garrison delivered
+       about 1300 of it before it was spent — two towers to 0 and 21, and the
+       third never touched. 450 puts the bill at 1350, just inside what one
+       assault can carry, so the first push arrives with the hold in reach and
+       scarring makes the follow-up genuinely cheaper. */
+    hp: 450, radius: 4.6, armor: 2, building: true, critical: true,
+    /* Goes OFFLINE at zero instead of dying: the tower stays standing and dark,
+       and a technician can relight it. See RULES.meltdownSeconds for why the
+       objective stopped being a kill. */
+    downs: true,
+    blurb: 'Knock it offline and it stays down only as long as you hold the ground.'
   },
   core: {
     name: 'Server Core', team: TEAM.MACHINE, icon: '🧊',
@@ -1851,6 +1907,52 @@ const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 const RULES = {
   startBiomass:   200,
+  /* --- WHAT THE OUTCOME VARIANCE ACTUALLY IS (correction) -------------------
+     Commit 43a8905 concluded that outcomes are "dominated by compound layout --
+     where the third tower sits relative to the other two". THAT IS WRONG, and
+     it is recorded here rather than quietly dropped because the same commit
+     recommended a whole programme of work on the strength of it.
+
+     Quick battles always load DEFAULT_MAP, and coolant, turret, depot and grove
+     positions are authored literals in maps.js. Verified directly: seeds 2001
+     and 2006 -- which produced peak heat 0.00 and 0.76 -- have byte-identical
+     coolants [[26,-68],[26,-30],[86,-50]], identical turrets, identical groves.
+     The layout never varied at all. The seed moves garrison spawn scatter by a
+     few metres, unit spawn jitter, and patrol assignment. Nothing else.
+
+     So the real finding is worse and more interesting: a match swings from
+     never-starting-a-meltdown to 76% of one on the strength of where seven
+     guards happened to stand at t=0. That is chaotic sensitivity, not map
+     variety -- a knife-edge somewhere in the middle of the match amplifying a
+     few metres into the whole result. Fragility, not depth. */
+
+  /* --- Surge lanes: the comeback the economy did not have -------------------
+     Production lanes are one per two bloomed groves, capped at three. That
+     solved the rich case — see the note in world.js — and left the poor case
+     wide open, which turns out to be the same bug wearing a different hat.
+
+     MEASURED, and reported from a real session with a screenshot: 1148 banked
+     biomass, one grove, fourteen animals on the field. One grove is ONE lane,
+     so the player could not convert the bank no matter what they queued. That
+     is a doom loop with no exit: lose groves -> fewer lanes -> cannot rebuild
+     the army -> lose more groves. It is also precisely why no run ever fielded
+     a second assault, which is the thing blocking the meltdown rework.
+
+     A bank you cannot spend now opens a lane on its own. Self-correcting by
+     construction: the lane exists only while the surplus does, so it cannot be
+     farmed as a substitute for taking ground, and it disappears the moment the
+     player spends the bank down. Thresholds sit well clear of startBiomass so
+     the opening is unchanged. */
+  surgeLaneAt:   [420, 820],
+  /* Ceiling on parallel production lanes. Was hardcoded at 3 in world.js with a
+     note that four "was a promise the economy could not keep" — true at the
+     income of the time, when the player held two or three groves. A line that
+     actually defends its economy now holds five or six, and the measured
+     bottleneck moved: with popCap raised the army still peaked at 45 and
+     collapsed to 15 within thirty seconds of committing, never once reaching
+     the pop ceiling. Lanes, not population and not money, are what caps a
+     swarm's ability to replace losses mid-assault. */
+  maxLanes:       4,
   baseIncome:     0.7,      // per second from the Heart Tree
   grovIncome:     3.2,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
@@ -1872,7 +1974,41 @@ const RULES = {
      rule is trying to create keeps its price. */
   decapBase:      0.35,     // capture-seconds undone per second by ONE machine
   decapPerExtra:  0.22,     // ...and per additional machine, to a cap of 1.0
-  popCap:         96,
+  /* RAISED from 96. Measured back-to-back on the same bot: peak heat 0.44 ->
+     0.63, damage onto the coolant towers 934 -> 1248, match 5:18 -> 6:17. The
+     design brief is a swarm that is individually weaker and wins through
+     numbers; at 96, with an average pop cost near two, that swarm was 45
+     bodies. */
+  /* ARMOUR IS SUBTRACTIVE, so it bites hardest on exactly what was killing the
+     swarm. Measured: guards do 60% of all damage the player takes and they do
+     it in 1648 small hits; a point of armour is therefore worth far more
+     against the gun line than against anything else. Buffed on the MANY (wolf
+     0->2, raven 0->2, boar 2->3, capybara 3->4, beaver 2->3) and NOT on bear or
+     porcupine -- "individually weaker, wins through numbers" means the cheap
+     bodies stop evaporating, not that the big ones become unkillable. A test
+     arm that pushed bear to 9 left it taking the floor of 1 damage per guard
+     hit, which is a different game. */
+  /* RAISED AGAIN, 128 -> 280, from a PROFILE rather than a guess. Headless
+     frames are not render-gated -- __step runs the water reflection and the
+     whole post chain like any other frame -- so these are full frame costs:
+
+       100 wild units (159 entities)   3.45 ms/frame
+       200 wild units (259 entities)   6.29 ms/frame
+       300 wild units (361 entities)   9.18 ms/frame
+
+     Linear, about 0.029 ms per additional unit. At an average pop cost near
+     two, 280 buys roughly 140 animals for ~4.5 ms/frame, leaving most of a
+     60fps budget free even on hardware several times slower than this one.
+
+     CAVEAT, because it matters: performance.now() around a draw call measures
+     CPU submit time, not GPU completion, so this bounds the CPU side only. A
+     machine that struggles will be GPU fill- or draw-call-bound, which this
+     profile cannot see.
+
+     SEPARATELY: in bot runs the ECONOMY binds long before the pop cap does --
+     armies peaked at 45 units with the cap at 128 and never came near it.
+     Raising the ceiling does not raise the floor. */
+  popCap:         280,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
@@ -2167,29 +2303,196 @@ const RULES = {
   spellRadius:    16,
   spellDuration:  5,
 
-  /* --- Thermal runaway -----------------------------------------------------
-     Killing the last coolant tower used to hand the player an exposed Core and
-     nothing else: technicians welded it back to 3000/3000 faster than a swarm
-     could chew through armour 8, so the "objective" was a health bar that
-     regrew. Now the last coolant starts a clock. The Core cooks itself from
-     full in this many seconds, cannot be repaired, and the HUD counts it down —
-     so coolant kills are permanent progress and the endgame is a race the
-     player can see rather than an attrition slug they cannot win.
+  /* --- Meltdown: the Core dies to a HOLD, not to a kill ---------------------
+     THE PROBLEM THIS REPLACES. Coolant kills used to be permanent, so the whole
+     match was a one-way ratchet: three towers down, shield off forever, Core
+     cooks itself on a 90s clock. Nothing the compound did could take a metre
+     back. That is why the design's own premise never bound — "should I leave
+     some at home?" had no cost attached to saying no, because progress banked
+     while you were away could not be lost. Measured on the pinned clock: the
+     all-in guardrail (nobody home at all) WON at 5:17, and 15/15 offensive
+     variants won. The good line was unlosable.
 
-     Deliberately slower than a committed assault: killing it yourself is still
-     much faster and still the point. This only guarantees the match ENDS. */
-  /* CUT from 240. Measured on a full winning run: the last coolant fell at
-     12:51 — the loudest, best-earned moment of the match — and then the Core
-     ticked itself down from 2989 to 1857 across ninety seconds in which the
-     game asked the player for nothing at all, before the army walked over and
-     deleted the last 1,664 by hand. The four-minute countdown that was supposed
-     to be a finale functioned as dead air between the real climax and the real
-     ending, and was then mostly bypassed anyway.
+     A coolant tower now goes OFFLINE at zero rather than dying (def.downs). It
+     stays standing, dark, and a Field Technician can bring it back. The Core
+     overheats only while ALL of them are offline at once, so the ending is a
+     window the player has to hold open with the compound actively trying to
+     shut it — which is exactly when the valley is emptiest and the sweep that
+     splits off for the Heart Tree is landing. That is the question the design
+     was always selling and has never once asked.
 
-     At 90 the clock is a sprint the player races rather than a bar they wait
-     out, and it still is not the fast way to finish: a committed army kills a
-     naked Core in about thirty seconds. This only guarantees the match ENDS. */
-  runawaySeconds: 90,
+     Nothing is lost by failing the hold. Heat bleeds back at a fraction of the
+     fill rate (not instantly), and scarring means every take-down is cheaper
+     than the last, so a hold that breaks at 80% is real progress, not a reset.
+
+     meltdownSeconds is DELIBERATELY short. This is a climax, not an endurance
+     test: long enough that the compound gets to fight for it, short enough that
+     a player who has genuinely won the fight is not made to stand around.
+
+     LENGTH SET FROM WHAT AN ARMY CAN ACTUALLY HOLD, not from taste. Measured
+     across ten full runs: a player fields ONE assault army per match (peaks
+     around 45 units, then settles near 10 and never rebuilds to strike
+     strength), and that army holds the towers for 14-22 seconds before it is
+     spent. A 45-second hold at half rate is a 90-second bar. Nobody was ever
+     going to clear it, which is why every good-line run ended the same way — a
+     hold that began, reached 16-25%, and died. */
+  /* 30 -> 20, and this is the number that produced this project's first
+     measured WIN. Calibrated to what an army can actually hold, on a
+     zero-noise paired test: across every configuration tried, the swarm took
+     two towers, held them, and peaked at 0.58-0.66 heat before it was spent.
+     At meltdownSeconds 30 that is a ~20-second hold against a 30-second bar --
+     always short, and never by much. Pricing the bar at the measured hold
+     turns the same assault into a finish rather than a near miss.
+
+     PAIRED RESULT, three seeds, identical in every other respect:
+       baseline      heat 0 / 0    / 0.66   0 wins
+       meltdown 20   heat 0 / 0    / 1.00   1 win
+       + armour      heat 0 / 0.99 / 0.87   mean heat 0.22 -> 0.62 */
+  meltdownSeconds:  20,
+  /* How many towers must be offline before the Core starts cooking, and how
+     much faster it cooks once MORE of them are.
+
+     ALL THREE AT ONCE was the wrong bar and the measurement is unambiguous. It
+     prices the objective at 1350 tower-damage delivered simultaneously across
+     three positions inside a defended compound; a committed army that has taken
+     groves, kept beavers on the Heart Tree and cast Overgrowth measurably
+     delivers about 700 before it is spent. Every run stalled the same way — two
+     towers down and held, the third never touched — and the good line lost at
+     5:09, 6:03 and 8:03. A gate nobody can reach is not difficulty, it is a
+     wall with a countdown painted on it.
+
+     Two-of-three starts the meltdown at half rate: a real hold, reachable by a
+     real army, and still long enough (90s) that the compound gets to fight for
+     it. The third tower is then an ACCELERANT rather than a gate — taking it
+     doubles the rate and turns a grind into a finish — which is a much better
+     shape for the last tower anyway, because it makes the hardest one to reach
+     the one that actually decides the match. */
+  /* --- Cooling is CONTINUOUS, and this is the fix for the knife-edge --------
+     THE MEASUREMENT. Two seeds on the identical authored map, differing only in
+     where the garrison happened to spawn: their grove and income curves are
+     almost the same (both 6 -> 4 -> 3 -> 2 -> 1 -> 0), and at t111 one had 42
+     animals and the other 47. That five-unit gap produced peak heat 0.00 versus
+     0.76. One match never started a meltdown; the other got three quarters of
+     the way to winning.
+
+     The cause was a STEP FUNCTION. Cooling counted standing towers, so a tower
+     at 1hp cooled exactly as well as a tower at full and 90% of an assault paid
+     nothing at all. Being ten percent short of a threshold returned zero, which
+     is what turned a few metres of spawn scatter into the whole result -- and
+     it is the same "a failed push must leave a mark" principle as scarFraction,
+     which this violated at the level of the objective itself.
+
+     Cooling is now the sum of each tower's remaining health fraction. Damage
+     counts the instant it lands, the Core warms as the towers are worn down,
+     and taking one fully offline is simply the biggest single step available
+     rather than the only one that exists.
+
+     SET FROM MEASUREMENT, not from taste. Instrumented the lowest cooling
+     fraction an assault ever forces, across three out-of-sample seeds:
+
+       s2003  coolMin 0.603
+       s2001  coolMin 0.569
+       s2006  coolMin 0.333
+
+     So a committed swarm wrecks between a third and two thirds of the plant.
+     A line at 0.34 caught none of them and a line at 0.50 caught one; both were
+     step functions wearing a smaller costume. At 0.65 every one of those
+     assaults warms the Core, and because the rate scales with the DEPTH below
+     the line the reward is proportional: wrecking 40% of cooling is a slow
+     creep, stripping two thirds is a genuine race. Heat also barely bleeds off
+     (coolRecovery), so the creep accumulates across a long match instead of
+     being wasted. */
+  meltdownCool:     0.65,   // total cooling fraction below which the Core warms
+  meltdownAt:       2,      // (legacy) towers offline before the Core cooks
+  /* Full rate at TWO, not three — so the bar a single army can reach is the bar
+     that finishes the job. The third tower is still worth taking: the rate is
+     down/meltdownFullAt, so three-of-three cooks at 1.5x and turns a 30-second
+     hold into a 20-second one. Accelerant, not gate. */
+  meltdownFullAt:   2,
+  /* Heat barely bleeds off at all, and that is the single most important number
+     in the endgame. It makes the meltdown CUMULATIVE across a whole match
+     rather than a one-perfect-window puzzle.
+
+     MEASURED at 0.5: a competent line — groves taken, beavers mending the
+     Heart, Overgrowth cast on raiders, a fourteen-pop garrison — fought to wave
+     5 and 8:03, scarred all three towers, got every tower offline at once, and
+     peaked at 22% heat before the emergency welders relit one. Ten seconds of
+     hold. Then all of it drained away and the match was unwinnable despite the
+     player doing everything the design asks for.
+
+     At 0.12 those holds still drained faster than a rebuilt army could return:
+     measured, a hold that reached 55% was back down to 22% two minutes later
+     and the second assault started from nothing.
+
+     THE DECISIVE MEASUREMENT. With the objective made almost free — one tower
+     offline for a full-rate meltdown — the good line STILL lost, peaking at 55%
+     and collapsing. So the objective was never what was stopping the player: a
+     42-unit army loses 31 units in thirty seconds inside the compound, and the
+     old permanent-kill design simply HID that, because damage banked forever
+     and you could lose three armies and still be ahead. Take the hiding place
+     away and the underlying army-versus-gun-line trade is what decides matches.
+
+     So heat banks too, at 0.03 — near-latching, deliberately the same shape as
+     scarFraction. A push that dies short still bought something, and the match
+     becomes a campaign against the Core across several assaults instead of one
+     perfect window nobody can hold. This does NOT fix the army trade; it stops
+     that trade from silently deciding the match on its own. */
+  coolRecovery:     0.03,
+  /* An offline tower welded back to this fraction of its (scarred) ceiling comes
+     back online and stops the meltdown.
+
+     RAISED from 0.30, which was far too cheap to be counterplay. At repair 16/s
+     a single technician brought a 330-ceiling tower back over a 30% bar in
+     about two seconds; measured, three of them relit BOTH downed towers inside
+     sixteen seconds and ended a hold at 20%. A tower that works again after two
+     seconds of welding is not a repair, it is a light switch, and it made the
+     hold impossible to sustain no matter how well the player fought for it.
+
+     At 0.85 the compound has to actually rebuild the thing, which takes long
+     enough that killing the welder is a real answer — and killing the welder is
+     the entire counterplay the meltdown is built around. */
+  coolantRelight:   0.85,
+  /* A tower that has just been knocked over cannot be relit for this long, no
+     matter how many technicians stand on it.
+
+     This is what makes SEQUENTIAL play possible, and without it the objective
+     was arithmetic nobody could do. "All three offline at once" sounds like one
+     requirement; with instant relighting it is really "deal 1350 damage spread
+     across three positions inside a defended compound before any of it decays",
+     and measured, a committed 35-unit army got two towers low and never touched
+     the third. The lockout turns that back into the thing a player actually
+     does: knock them over one at a time and chain the windows.
+
+     Deliberately SHORTER than meltdownSeconds. The first tower's lockout has
+     expired by the time the third goes down, so the technicians are free to
+     start relighting the moment the hold begins — the player gets a realistic
+     path to the all-down state and still has to fight to keep it. */
+  coolantLockout:   25,
+
+  /* --- Emergency response: what makes the hold a FIGHT and not a wait --------
+     The hold only asks a question if the compound is trying to break it. It was
+     not: technicians come from Security Depots and are capped at two, so a
+     player who razed the depots on the way in — which is the normal, correct
+     line, since depots delay sweeps — would face literally no repair response.
+     The ending would have been a 45-second wait with the outcome already known,
+     which is the exact failure mode this whole rework exists to remove.
+
+     So a meltdown triggers a response the player cannot pre-empt by demolition:
+
+     1. The Core itself dispatches technicians while it cooks. Slower than a
+        depot and hard-capped, so razing depots still MATTERS (it halves the
+        rate) without switching the counterplay off entirely.
+     2. Every raider in the field turns around.
+
+     (2) is the important one, and it is what makes the wave clock a tool rather
+     than a threat: start the hold just after a sweep leaves and you have most
+     of a minute before it can be back on top of you. Start it with a sweep
+     still mustering and you are holding against the whole compound. The HUD has
+     always shown "next sweep" and it has never once been something the player
+     could USE. Now the single most important decision in the match is read off
+     a number that was already on screen. */
+  emergencyEvery:   9,      // seconds between Core-dispatched technicians
+  emergencyTechs:   4,      // hard cap on live technicians during a meltdown
 
   /* How long a machine structure must go unhit before a Field Technician will
      weld it. Mirrors regenDelay, which is the player's own out-of-combat rule —
@@ -2292,9 +2595,11 @@ const G = {
   nextDetail: RULES.firstWaveAt * 0.55,   // the mid-cycle landscaping crew
   waveNum: 0,
 
-  coreExposed: false,
-  runawayAt: 0,               // G.time the last coolant died — starts the meltdown clock
-  runawaySaid: null,          // which meltdown countdown milestones have been announced
+  coreExposed: false,         // derived each frame: every coolant tower offline
+  heat: 0,                    // 0..1 meltdown progress; fills only while coreExposed
+  heatPeak: 0,                // high-water mark, so the HUD can show ground lost
+  heatSaid: null,             // which meltdown milestones have been announced
+  holdStartedAt: 0,           // G.time the current hold began (0 = not holding)
   depotsGoneToldOnce: false,
   over: false,
   paused: false,
@@ -3951,7 +4256,14 @@ function buildMist(scene, strength) {
    should SLOW the loss, not cancel it, so killing pumps still matters. Break
    the intakes during a downpour and the lake actually climbs — which is the
    combination worth playing for. */
-const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.12, mist: 0.06, clear: 0 };
+/* Snow RAISED from 0.12. At that value snow was replenishment on paper only:
+   the band multiplier peaks near 1.18, so snow topped out at 0.14 of a lake's
+   drain rate — and, worse, it never cleared the isPouring() threshold, so the
+   water bar showed no tell at all. A player watching thick snow fall while the
+   lakes kept dropping was reading the game correctly; it just was not doing
+   anything. Snowmelt is slower than rain, so it sits below it, but it is now a
+   real contribution rather than a rounding error. */
+const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.35, mist: 0.06, clear: 0 };
 
 /** 0..1-ish multiplier of a lake's drain rate, currently falling as water. */
 function rainfall() {
@@ -3967,7 +4279,18 @@ function rainfall() {
 }
 
 /** True while it is coming down hard enough to be worth telling the player. */
-function isPouring() { return rainfall() > 0.42; }
+/* Threshold LOWERED from 0.42 so it means "water is coming back", which is
+   what the HUD uses it for, rather than "it is specifically raining hard".
+   At 0.42 snow could never trip it no matter how heavily it fell. */
+function isPouring() { return rainfall() > 0.24; }
+
+/* What to CALL it in the HUD. Snow replenishing a lake is snowmelt, and saying
+   "raining" over a blizzard is the kind of small lie that makes a player stop
+   trusting the readout. */
+function precipWord() {
+  const n = G.weather && G.weather.name;
+  return n === 'snow' ? 'snowmelt' : n === 'mist' ? 'mist' : 'raining';
+}
 
 function updateWeather(dt) {
   const cam = G.camera;
@@ -6957,7 +7280,15 @@ const buildCoolant = () => {
     g.add(cyl(shell, 4.0 - i * 0.16, 1.9, 0, 1.6 + i * 1.9, 0));
   for (let i = 0; i < 3; i++)
     g.add(cyl(dark, 4.15 - i * 0.32, 0.3, 0, 3.4 + i * 3.8, 0));
-  g.add(cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0));
+  /* The band is the tower's ON light: it is how a player reads offline-vs-online
+     from across the valley, which is the single most important piece of state in
+     the endgame. Kept as its own reference so entity.js can douse it. */
+  const band = cyl(GLOW(0x39d7ea), 3.1, 0.35, 0, 12.5, 0);
+  /* Its OWN material. GLOW() hands back a cached instance shared by every cyan
+     glow in the scene, so dousing this one in place would darken the Core's
+     shield trim and the other two towers along with it. */
+  band.material = band.material.clone();
+  g.add(band);
   const fan = new THREE.Group(); fan.position.y = 13.2;
   for (let i = 0; i < 5; i++) {
     const b = box(M(0x8a949e, { metal: 0.6 }), 3.0, 0.12, 0.9, 0, 0, 0);
@@ -6968,7 +7299,7 @@ const buildCoolant = () => {
   }
   g.add(fan);
   g.add(cyl(dark, 3.4, 0.5, 0, 13.7, 0));
-  g.userData.anim = { kind: 'coolant', fan };
+  g.userData.anim = { kind: 'coolant', fan, band };
   return g;
 };
 
@@ -7130,17 +7461,23 @@ const buildGrove = () => {
   const shaftGeo = new THREE.PlaneGeometry(SHAFT_W, SHAFT_H, SEG_X, SEG_Y);
   const sp = shaftGeo.attributes.position;
   const scol = new Float32Array(sp.count * 3);
-  const tint = new THREE.Color(0x8bffa0);
+  /* Falloff only — GREYSCALE, deliberately. The green used to be baked in here,
+     which meant material.color could never do anything useful: multiplying a red
+     tint through green vertices gives near-black, not red. With luminance in the
+     vertex colours and the hue in material.color, the beam can be recoloured at
+     runtime in one assignment, which is what lets a contested grove go amber and
+     a lost one go red. See groveTint() in world.js. */
   for (let i = 0; i < sp.count; i++) {
     const v = (sp.getY(i) + SHAFT_H / 2) / SHAFT_H;         // 0 base .. 1 tip
     const u = Math.abs(sp.getX(i)) / (SHAFT_W / 2);         // 0 centre .. 1 edge
     const vertical = Math.pow(1 - v, 2.0);                  // fades out toward the sky
     const across = Math.pow(1 - u, 1.6);                    // soft sides, no hard edge
     const k = vertical * across * 0.85 + 0.015;
-    scol[i * 3] = tint.r * k; scol[i * 3 + 1] = tint.g * k; scol[i * 3 + 2] = tint.b * k;
+    scol[i * 3] = k; scol[i * 3 + 1] = k; scol[i * 3 + 2] = k;
   }
   shaftGeo.setAttribute('color', new THREE.BufferAttribute(scol, 3));
   const pillar = new THREE.Mesh(shaftGeo, new THREE.MeshBasicMaterial({
+    color: 0x8bffa0,          // the hue lives here now; vertex colours are luminance
     vertexColors: true, transparent: true, opacity: 0.45,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     depthWrite: false, fog: true,
@@ -7217,9 +7554,24 @@ function makeForest(count, placeFn) {
      camera and a unit standing there — one position in four hides whatever is
      on it, which is how you end up being shot by something you cannot see or
      click. Each instance carries its own fade, driven from the CPU. */
+  /* THE TRUNK WAS NEVER FADED, and it is the half that stands at eye level.
+     MEASURED on a real match: 22.7% of machines shooting at the player's
+     animals were occluded from the camera, and 99 of those occlusions were
+     TRUNKS — geometry with no fade path at all, sitting in exactly the 0-4.4
+     band where units and shooters are. The canopy above it had been fading
+     politely out of the way for a year while the pole in front of the guard
+     stayed solid.
+
+     Trunk i and leaf i are the same tree, so ONE fade attribute drives both.
+     The buffer is shared by reference, which also means the two can never
+     drift apart and show a floating canopy over a solid trunk. */
   const fade = new Float32Array(n).fill(1);
-  leaves.geometry.setAttribute('aFade', new THREE.InstancedBufferAttribute(fade, 1));
+  const fadeAttr = new THREE.InstancedBufferAttribute(fade, 1);
+  leaves.geometry.setAttribute('aFade', fadeAttr);
+  trunks.geometry.setAttribute('aFade', fadeAttr);
   leaves.userData.fade = fade;
+  trunks.userData.fade = fade;
+  leaves.userData.twin = trunks;      // so updateCanopyFade can flag both dirty
   leaves.userData.pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     leaves.getMatrixAt(i, dummy.matrix);
@@ -7228,6 +7580,7 @@ function makeForest(count, placeFn) {
     leaves.userData.pos[i * 3 + 1] = dummy.position.y;
     leaves.userData.pos[i * 3 + 2] = dummy.position.z;
   }
+  trunks.userData.pos = leaves.userData.pos;
   return [trunks, leaves];
 }
 
@@ -7235,7 +7588,8 @@ function makeForest(count, placeFn) {
    world.js clones every scenic material through applyFogMask(), which would
    silently drop an onBeforeCompile set at construction time. Composes with
    whatever hook is already on the material rather than replacing it. */
-function enableCanopyFade(leaves) {
+function enableCanopyFade(leaves, trunks) {
+  if (trunks) enableCanopyFade(trunks);      // same hook, same shared attribute
   const mat = leaves.material;
   if (!mat || mat.userData.canopyFade) return;
   mat.userData.canopyFade = true;
@@ -7271,15 +7625,28 @@ function updateCanopyFade(leaves, camera, watchers, dt) {
     if (wDist < 0.01) continue;
     _cu.divideScalar(wDist);
     for (let i = 0; i < n; i++) {
-      if (want[i] < 0.35) continue;                     // already fully faded
-      const tx = pos[i * 3], ty = pos[i * 3 + 1] + 6.7, tz = pos[i * 3 + 2];
-      _cf.set(tx - camX, ty - camY, tz - camZ);
-      const along = _cf.dot(_cu);
-      if (along <= 0 || along >= wDist) continue;       // behind camera, or behind the unit
-      /* perpendicular distance from the camera->unit ray */
-      const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
-      if (perp < 3.2) want[i] = Math.min(want[i], 0.3);
-      else if (perp < 4.6) want[i] = Math.min(want[i], 0.62);
+      if (want[i] <= 0.16) continue;                    // already fully faded
+      const tx = pos[i * 3], tz = pos[i * 3 + 2];
+      const by = pos[i * 3 + 1];
+      /* TWO SAMPLES PER TREE: the canopy mass at +6.7 and the trunk at +2.2.
+         Testing only the canopy meant a trunk squarely between the camera and
+         a shooter never triggered a fade at all — which is most of the 22.7%
+         of shooters measured as occluded, because the trunk occupies exactly
+         the 0-4.4 band that units and shooters stand in. */
+      let best = 1e9;
+      for (let h = 0; h < 2; h++) {
+        _cf.set(tx - camX, by + (h ? 2.2 : 6.7) - camY, tz - camZ);
+        const along = _cf.dot(_cu);
+        if (along <= 0 || along >= wDist) continue;     // behind camera, or behind the unit
+        /* perpendicular distance from the camera->unit ray */
+        const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
+        if (perp < best) best = perp;
+      }
+      /* Inner band goes to 0.15, not 0.3. Three faded canopies at 0.3 still
+         composite to two-thirds opaque, which is a wall you can see a shape
+         moving behind but cannot identify or click. */
+      if (best < 3.2) want[i] = Math.min(want[i], 0.15);
+      else if (best < 4.6) want[i] = Math.min(want[i], 0.5);
     }
   }
   /* Ease, so canopies dissolve rather than blink as units walk under them. */
@@ -7289,7 +7656,12 @@ function updateCanopyFade(leaves, camera, watchers, dt) {
     const d = want[i] - fade[i];
     if (Math.abs(d) > 0.002) { fade[i] += d * k; dirty = true; }
   }
-  if (dirty) leaves.geometry.getAttribute('aFade').needsUpdate = true;
+  if (dirty) {
+    leaves.geometry.getAttribute('aFade').needsUpdate = true;
+    /* Same buffer object, but three.js tracks upload state per geometry. */
+    const twin = leaves.userData.twin;
+    if (twin) twin.geometry.getAttribute('aFade').needsUpdate = true;
+  }
 }
 
 function makeScatter(geo, material, count, placeFn, scaleRange = [0.6, 1.6]) {
@@ -8100,6 +8472,9 @@ function updateShots(dt) {
 
 function applyDamage(target, amount, attacker) {
   if (!target || !target.alive || G.over) return;
+  /* Already offline. It is standing rubble with a technician's name on it, not
+     a target — without this, a swarm parks on a dead tower chewing zero. */
+  if (target.downed) return;
 
   /* The shield is the objective. Gating *acquisition* was not enough — an explicit
      right-click attack order writes order.target directly and bypassed it, which
@@ -8118,6 +8493,12 @@ function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  /* Balance instrumentation. Off unless a harness installs G.__dmgLog, so it
+     costs one property read per hit in a normal game. Worth keeping: every
+     balance question this project has asked -- "what is actually killing the
+     army", "is the gun line or the garrison doing the work" -- was previously
+     answered by staring at unit counts and guessing, and guessed wrong. */
+  if (G.__dmgLog) G.__dmgLog(attacker, target, dealt, amount);
   /* Machine structures scar. See RULES.scarFraction — this is what makes a
      failed assault worth something instead of worth nothing. Only machine
      buildings: the Heart Tree has no repair-negation problem to solve, and
@@ -8187,7 +8568,46 @@ function applyDamage(target, amount, attacker) {
                Math.min(1.6, dealt / Math.max(12, target.maxHp * 0.2)));
   } else if (def.wall || def.building) SFX.hitStone(target.pos);
   else SFX.hitMetal(target.pos);
-  if (target.hp <= 0) kill(target, attacker);
+  if (target.hp <= 0) {
+    if (def.downs) takeOffline(target, attacker);
+    else kill(target, attacker);
+  }
+}
+
+/* A structure that cannot be destroyed, only switched off. It keeps its mesh,
+   its collision and its place in G.obstacles — the compound is not smaller for
+   having lost it — but it stops doing its job until somebody welds it back to
+   RULES.coolantRelight of its remaining ceiling. Scarring means that ceiling
+   falls every time, so the fourth take-down is much cheaper than the first. */
+function takeOffline(e, killer) {
+  if (e.downed) return;
+  e.downed = true;
+  e.hp = 0;
+  e.downedAt = G.time;
+  /* Guaranteed downtime. See RULES.coolantLockout — this is what lets a player
+     chain three take-downs instead of needing all three at once. */
+  e.lockoutUntil = G.time + RULES.coolantLockout;
+  if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
+    killer.kills = (killer.kills || 0) + 1;
+    if (killer.refreshVeterancy) killer.refreshVeterancy();
+  }
+  const p = e.pos.clone(); p.y += 3;
+  SFX.boomBig(e.pos);
+  explode(p, 2.2, {});
+  /* Scored once, on the FIRST time it goes down. Relighting and re-killing a
+     tower is a real cost to the compound, but it is not repeatable points. */
+  if (!e.scoredOffline) { e.scoredOffline = true; addScore('structure', e.type, e.pos); }
+  e.onDowned && e.onDowned();
+}
+
+/* The weld that brings it back. Called from the technician's repair loop. */
+function bringOnline(e) {
+  if (!e.downed) return;
+  e.downed = false;
+  e.relitAt = G.time;
+  ring(e.pos, 0x39d7ea, 26, 1.2);
+  SFX.shieldPing(e.pos);
+  e.onRelit && e.onRelit();
 }
 
 function kill(e, killer) {
@@ -8580,9 +9000,15 @@ class Entity {
     }
 
     /* --- target validity & acquisition --- */
-    if (this.target && (!this.target.alive)) { this.target = null; this.leash = null; }
+    /* A tower that has been knocked offline counts as gone. MEASURED without
+       this: 27 bears stood on three dark towers dealing literally zero — an
+       explicit attack order outlives acquire()'s downed check — while four
+       technicians welded all three back up and stole a hold at 49%. The
+       counterplay to a relight is killing the welder, and the swarm has to be
+       free to notice the welder for that to be counterplay at all. */
+    if (this.target && (!this.target.alive || this.target.downed)) { this.target = null; this.leash = null; }
     const ot = this.order.type;
-    if (this.order.target && !this.order.target.alive) {
+    if (this.order.target && (!this.order.target.alive || this.order.target.downed)) {
       this.order.target = null;
       if (ot === 'attack') this.order.type = 'idle';
     }
@@ -8704,7 +9130,11 @@ class Entity {
       const d = dist2D(this.pos, o.pos);
       /* prefer things that are nearly dead -- saving a wall is worth less than
          saving the coolant tower the player has spent two minutes on */
-      const score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      let score = d * (0.35 + 0.65 * (o.hp / o.maxHp));
+      /* A dark coolant tower is the whole match. Weighted hard enough to beat
+         distance across the compound, because a technician that wanders off to
+         patch a wall while the Core cooks is not counterplay, it is a bug. */
+      if (o.downed) score -= 400;
       if (score < bd) { bd = score; best = o; }
     }
 
@@ -8736,6 +9166,12 @@ class Entity {
              compound can ever be restored to. */
           const ceiling = best.maxHp - (best.scar || 0);
           if (best.hp < ceiling) best.hp = Math.min(ceiling, best.hp + this.def.repair * dt);
+          /* Relight. The tower comes back at a LOW fraction of what is left of
+             it, so the player's counterplay is killing the welder rather than
+             out-damaging the weld — and because scar lowers the ceiling every
+             time, each relight is a weaker tower than the one before. */
+          if (best.downed && best.hp >= ceiling * RULES.coolantRelight
+              && G.time >= (best.lockoutUntil || 0)) bringOnline(best);
         }
         this.repairing = best.hp > before;
         /* one spark per half second, not per frame */
@@ -8982,7 +9418,7 @@ class Entity {
        have put its lamp out permanently. */
     if (this.anim && this.anim.glow) this.anim.glow.visible = true;
     if (def.ranged) {
-      if (this.target && !this.target.alive) this.target = null;
+      if (this.target && (!this.target.alive || this.target.downed)) this.target = null;
       /* Wind-up. See RULES.turretSpinUp: the gun gets stronger the longer it is
          allowed to keep firing, and goes cold quickly when it is not. Held on
          the turret rather than on the target, so switching victims inside one
@@ -9313,7 +9749,25 @@ class Entity {
         a.legs[0].position.y = 0.52 + Math.max(0, Math.sin(ph)) * 0.09 * rel;
         a.legs[1].position.y = 0.52 + Math.max(0, -Math.sin(ph)) * 0.09 * rel;
         a.torso.rotation.y = Math.sin(ph) * 0.08 * rel;
-        if (a.gun) a.gun.position.z = 0.5 - Math.max(0, this.recoil || 0) * 0.35;
+
+        /* ENGAGED STANCE. Recoil alone is a 0.125s twitch once every 0.65s on a
+           unit whose legs are still because it is standing to shoot — so a Local
+           holding a firing line looked exactly like a Local doing nothing, which
+           is what it was reported as. Shouldering the rifle is a pose that lasts
+           as long as the fight does, so "these are in combat" reads at a glance
+           and from across the valley, with the recoil kick on top of it. */
+        const engaged = !!(this.target && this.target.alive) ? 1 : 0;
+        this._aim = (this._aim ?? 0) + (engaged - (this._aim ?? 0)) * Math.min(1, dt * 7);
+        const aim = this._aim;
+        if (a.gun) {
+          a.gun.position.z = 0.5 + aim * 0.22 - Math.max(0, this.recoil || 0) * 0.35;
+          a.gun.position.y = 1.5 + aim * 0.1;
+          a.gun.rotation.x = -aim * 0.16 + Math.max(0, this.recoil || 0) * 0.25;
+          a.gun.position.x = 0.5 - aim * 0.16;      // brought in to the shoulder
+        }
+        /* Squared up to the target rather than strolling. */
+        a.torso.rotation.y += aim * 0.22;
+        a.torso.rotation.x = -aim * 0.07;
         break;
       }
       case 'bird': {
@@ -9330,8 +9784,19 @@ class Entity {
         break;
       }
       case 'coolant': {
-        const h = this.hp / this.maxHp;
-        a.fan.rotation.y += dt * (0.6 + h * 5.5);
+        /* Offline: the fan coasts to a stop and the band goes out. Spun-down and
+           dark is the whole read — "is this tower cooling or not" is the state
+           the endgame turns on, and it has to be legible without the HUD. */
+        /* Spin eases toward its target rather than snapping, so a tower that
+           has just gone dark coasts down over a couple of seconds instead of
+           stopping dead — the read is "losing power", not "paused". */
+        const want = this.downed ? 0 : 0.11 + this.hp / Math.max(1, this.maxHp);
+        this._spin = (this._spin ?? want) + (want - (this._spin ?? want))
+                     * Math.min(1, dt * 1.4);
+        a.fan.rotation.y += dt * this._spin * 5.5;
+        /* The band is the ON light. Material is cloned per tower in
+           buildCoolant, so writing colour here touches only this one. */
+        if (a.band) a.band.visible = !this.downed;
         break;
       }
       case 'core': {
@@ -9517,6 +9982,9 @@ function acquire(e) {
     const o = list[i];
     if (!o.alive || o.team === e.team || o.team === TEAM.NEUTRAL) continue;
     if (o.type === 'core' && !G.coreExposed) continue;
+    /* An offline coolant tower is standing rubble. Left targetable, a swarm
+       parks on one dealing nothing while the technician relights the next. */
+    if (o.downed) continue;
     if (o === e._shunned && G.time < e._shunnedUntil) continue;
     const d = dist2D(e.pos, o.pos) - o.radius;
     if (d > range) continue;
@@ -10711,7 +11179,7 @@ function buildProps(scene) {
   const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
-  enableCanopyFade(leaves);          // must follow the material swap, not precede it
+  enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
   G.canopy = leaves;
   scene.add(trunks); scene.add(leaves);
 
@@ -10826,7 +11294,8 @@ function populate() {
   G.obstacles.push(core);
 
   /* Hologram shield: the visible reason the Core cannot be hurt yet. It tears and
-     flickers as coolant towers fall, then drops entirely on thermal runaway, so the
+     flickers as coolant towers go dark, then drops entirely while every one of
+     them is offline — and comes BACK if a technician relights one — so the
      objective reads without needing the HUD. */
   const shield = new THREE.Mesh(new THREE.SphereGeometry(17, 44, 30), makeShieldMaterial());
   shield.position.set(core.pos.x, core.pos.y + 5, core.pos.z);
@@ -10836,24 +11305,35 @@ function populate() {
 
   G.coolants = COOLANTS.map(([x, z]) => {
     const c = spawn('coolant', x, z);
-    c.onDeath = () => {
-      const left = G.coolants.filter(k => k.alive).length;
+    /* A tower goes OFFLINE, it does not die. See RULES.meltdownSeconds. */
+    c.onDowned = () => {
+      const left = coolantsOnline();
+      const down = G.coolants.length - left;
       ring(c.pos, 0x39d7ea, 26, 1.4);
-      if (left > 0) {
+      /* Cooling is continuous now, so a tower going fully offline is a big step
+         rather than a threshold crossing. Announce it as capacity lost, and
+         save the alarm for the moment the Core actually starts to warm. */
+      if (!G.coreExposed) {
         commsEvent('coolant');
-        toast(`Coolant tower down — ${left} remaining`, 'machine');
+        toast(`Coolant tower offline — ${left} still cooling`, 'machine');
+      } else if (down > 1) {
+        commsEvent('coolant');
+        SFX.alarm();
+        toast(`Another tower down — the Core is cooking ${down >= G.coolants.length ? 'at full rate' : 'faster'}`, 'warn');
       } else {
         commsEvent('coreExposed');
-        G.coreExposed = true;
-        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        /* Say it in the unit the clock is actually in. At 240 this read "4
-           minutes"; at 90 the same expression rounded to "2 minutes", which is
-           both wrong and the sort of thing nobody notices for a year. */
-        toast('THERMAL RUNAWAY — the Core is exposed and cooking. '
-              + `${Math.round(RULES.runawaySeconds)}s before it melts itself — get there first.`, 'warn');
+        /* Name the shape of the ending, not just the fact of it. The player has
+           to know this is a HOLD — that walking away now gives it all back — or
+           they will do what every previous build trained them to do and leave. */
+        toast('MELTDOWN — the Core is cooking. Keep the coolant towers down and '
+              + 'wrecked; every one you let them rebuild slows it.', 'warn');
       }
+    };
+    c.onRelit = () => {
+      toast(`A technician relit a coolant tower — ${coolantsOnline()} cooling again`, 'machine');
+      commsEvent('coolant', 0.8);
     };
     G.obstacles.push(c);
     return c;
@@ -10953,6 +11433,59 @@ function populate() {
   }
 }
 
+/* How many coolant towers are actually cooling. A tower that has been knocked
+   offline is still ALIVE — it stands, it blocks, and a technician can relight
+   it — so `alive` is the wrong question everywhere the objective is concerned.
+   One place to ask it, because getting this wrong silently un-wins the match. */
+function coolantsOnline() {
+  return G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
+}
+
+/* GROVE STATE, IN COLOUR.
+
+   The tells for losing a grove used to be an opacity change (0.75 -> 0.18) and
+   a toast. Opacity is a terrible carrier for "this is being taken from you":
+   it reads as distance or weather, it is invisible against a bright sky, and at
+   an RTS camera pitch the beam is foreshortened anyway. Players watched groves
+   flip without noticing, which matters because a lost grove costs the income,
+   the recapture AND 18 seconds of dormancy in which it cannot be retaken.
+
+   Hue is unambiguous and reads at any size:
+     green   yours, paying
+     white   neutral, free to take
+     amber   CONTESTED — machines on it, progress draining, go now
+     red     lost, and dormant: nothing you do here works yet
+   Amber and red also pulse, because a static colour reads as decoration. */
+const GROVE_TINT = {
+  owned:     0x8bffa0,
+  neutral:   0xbfe8cf,
+  contested: 0xffb03a,
+  lost:      0xff4b3a,
+};
+
+function groveTint(g, t) {
+  const a = g.anim;
+  if (!a || !a.pillar) return;
+  const dormant = G.time < (g.dormantUntil || 0);
+  const key = g.losing ? 'contested' : dormant ? 'lost' : g.owned ? 'owned' : 'neutral';
+
+  if (a._tintKey !== key) {
+    a._tintKey = key;
+    a.pillar.material.color.setHex(GROVE_TINT[key]);
+    if (a.beaconRing) a.beaconRing.material.color.setHex(GROVE_TINT[key]);
+  }
+
+  /* Base opacity per state, then a pulse on the two that want attention. The
+     pulse is on OPACITY rather than colour so it survives the additive blend
+     without washing the hue out. */
+  const base = key === 'owned' ? 0.75 : key === 'contested' ? 0.85
+             : key === 'lost'  ? 0.55 : 0.45;
+  const urgent = key === 'contested' || key === 'lost';
+  const pulse = urgent ? 0.78 + 0.22 * Math.sin(t * (key === 'contested' ? 7.5 : 3.4)) : 1;
+  a.pillar.material.opacity = base * pulse;
+  if (a.beaconRing && a.beaconRing.visible) a.beaconRing.material.opacity = 0.46 * pulse;
+}
+
 /* Mission resolution: in a campaign, bank the result and route the end-screen
    button back to the territory map; in a quick battle, just offer a rerun. */
 function endMission(win) {
@@ -11037,7 +11570,7 @@ function updateWorld(dt) {
        worth doing — see RULES.groveDormant. */
     if (g.dormantUntil && G.time >= g.dormantUntil) {
       g.dormantUntil = 0;
-      g.anim.pillar.material.opacity = 0.45;
+      /* opacity/colour are groveTint's job now — it reads dormantUntil directly */
       toast('The trampled ground has recovered — that grove can be taken again');
     }
     let wild = 0, machine = 0;
@@ -11062,7 +11595,7 @@ function updateWorld(dt) {
     if (g.losing && !g._warned) {
       g._warned = true;
       SFX.heartAlarm();
-      toast('A grove is being trampled — send something', 'warn');
+      toast('A grove is being trampled — its light has turned AMBER. Send something', 'warn');
     } else if (!g.losing && g._warned && dir >= 0) g._warned = false;
     if (dir !== 0) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
@@ -11070,7 +11603,6 @@ function updateWorld(dt) {
         g.owned = true;
         g.bloomAt = G.time;      // income ramps in — see below
         g.anim.bloom.visible = true;
-        g.anim.pillar.material.opacity = 0.75;
         g.anim.water.material.uniforms.wl_bloom.value = 1;
         SFX.bloom();
         ring(g.pos, 0x9bff6a, 9, 1.1);
@@ -11082,11 +11614,11 @@ function updateWorld(dt) {
         g.owned = false;
         g.dormantUntil = G.time + RULES.groveDormant;
         g.anim.bloom.visible = false;
-        g.anim.pillar.material.opacity = 0.18;   // the dim pillar IS the dormancy tell
         g.anim.water.material.uniforms.wl_bloom.value = 0;
-        toast(`A grove has been trampled — the ground will not take a bloom for ${RULES.groveDormant}s`, 'warn');
+        toast(`A grove has been trampled — its light turns RED and will not take a bloom for ${RULES.groveDormant}s`, 'warn');
       }
     }
+    groveTint(g, G.time);
     if (g.owned) bloomed++;
   }
   /* A new lane is a real step up in throughput, so it gets its own chime --
@@ -11123,53 +11655,71 @@ function updateWorld(dt) {
     }
   }
 
-  /* --- thermal runaway ---------------------------------------------------
-     The last coolant tower is the point of no return. Before this, killing all
-     three bought the player an exposed Core and a health bar that technicians
-     welded straight back to full — measured at 11m47s of assaulting a naked,
-     disarmed Core that ended the match at 3000/3000. Now the compound cooks
-     itself on a clock, so every coolant kill is permanent progress.
+  /* --- meltdown: the hold ---------------------------------------------------
+     The Core overheats only while every coolant tower is offline AT ONCE, which
+     is what turns the ending from a kill into a hold. See RULES.meltdownSeconds
+     for the measurement that made this necessary — in short, coolant kills used
+     to be permanent, so the match was a ratchet nobody could take a metre back
+     from, and an all-in with nobody home won every time.
 
-     It is deliberately slow. Bringing the Core down yourself is far quicker and
-     is still the ending the game wants; this only guarantees that a decided
-     match actually ENDS, and it gives the player something to race instead of
-     something to grind. */
-  if (G.coreExposed && G.core.alive && !G.over) {
-    const burn = G.core.maxHp / RULES.runawaySeconds;
-    G.core.hp -= burn * dt;
-    /* Milestones, because a bar creeping down is not a clock. */
-    const left = Math.max(0, G.core.hp / burn);
-    if (!G.runawaySaid) G.runawaySaid = {};
-    /* Milestones below the length of the clock, so a short runaway does not
-       silently skip straight past its own countdown. */
-    for (const mark of [180, 120, 60, 30].filter(m => m < RULES.runawaySeconds)) {
-      if (left <= mark && !G.runawaySaid[mark]) {
-        G.runawaySaid[mark] = true;
-        /* The clock is only interesting when the clock is the thing killing the
-           Core. Measured: with a swarm chewing the Core directly, all four
-           milestones fired inside thirteen real seconds because the burn-rate
-           divisor turns direct damage into "seconds remaining". Latch them so
-           they are not repeated later, but stay quiet while the player is
-           plainly winning the race by hand. */
-        if (G.time - (G.core.lastHitAt || -99) < 6) continue;
-        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
-        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
-           initiated our Thermal Resilience Journey"), which is exactly the
-           register a meltdown countdown wants, and it keeps the exposure
-           announcement from repeating itself four times on the way down. */
-        commsEvent('coolant', 0.7);
+     Heat bleeds back rather than resetting, so a hold broken at 80% is real
+     progress and not a wasted assault. */
+  if (G.core.alive && !G.over) {
+    /* COOLING IS CONTINUOUS, not a count of standing towers. This is the fix
+       for the knife-edge — see RULES.meltdownCool. A tower cools in proportion
+       to how intact it is, so every point of damage counts the moment it lands
+       instead of counting for nothing until the tower falls over. */
+    let cap = 0;
+    for (const c of G.coolants) {
+      if (!c.alive || c.downed) continue;
+      cap += Math.max(0, c.hp) / Math.max(1, c.maxHp);
+    }
+    const cool = cap / Math.max(1, G.coolants.length);   // 1 = fully cooled
+    const wasExposed = G.coreExposed;
+    G.coreExposed = cool < RULES.meltdownCool;
+    /* Rate scales with how far cooling has been pushed below the line, so
+       stripping the last tower still finishes markedly faster than sitting at
+       the threshold. */
+    const heatMult = G.coreExposed
+      ? Math.min(1, (RULES.meltdownCool - cool) / Math.max(0.01, RULES.meltdownCool)) : 0;
+    G.coolFrac = cool;
+
+    if (G.coreExposed && !wasExposed) G.holdStartedAt = G.time;
+    if (!G.coreExposed && wasExposed) {
+      G.holdStartedAt = 0;
+      /* Losing the hold is the compound's one win condition against the player,
+         so it gets said out loud. Silence here reads as a bug. */
+      if (G.heat > 0.08) toast(`Meltdown stalled at ${Math.round(G.heat * 100)}% — the Core is cooling again`, 'warn');
+    }
+
+    const rate = 1 / Math.max(1, RULES.meltdownSeconds);
+    if (G.coreExposed) G.heat = Math.min(1, G.heat + rate * heatMult * dt);
+    else               G.heat = Math.max(0, G.heat - rate * RULES.coolRecovery * dt);
+    G.heatPeak = Math.max(G.heatPeak, G.heat);
+
+    /* Milestones, because a bar creeping up is not a clock. Only while actually
+       holding — narrating a bar that is falling is just noise. */
+    if (!G.heatSaid) G.heatSaid = {};
+    if (G.coreExposed) {
+      for (const mark of [25, 50, 75, 90]) {
+        if (G.heat * 100 >= mark && !G.heatSaid[mark]) {
+          G.heatSaid[mark] = true;
+          const secsLeft = Math.round((1 - G.heat) * RULES.meltdownSeconds / Math.max(0.01, heatMult));
+          toast(`Core temperature ${mark}% — ${secsLeft}s of hold left`, 'warn');
+          commsEvent('coolant', 0.7);
+        }
       }
     }
-    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+
+    if (G.heat >= 1) kill(G.core, null);
   }
 
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
-    const alive = G.coolants.filter(c => c.alive).length;
     // it lives in the scene rather than under the core, so fog concealment has to
     // be forwarded explicitly or the objective is handed over before you scout
     G.coreShield.visible = !G.coreExposed && G.core.alive && G.core.mesh.visible;
-    G.coreShield.material.uniforms.wl_health.value = alive / G.coolants.length;
+    G.coreShield.material.uniforms.wl_health.value = coolantsOnline() / G.coolants.length;
   }
 
   /* --- income --- */
@@ -11231,6 +11781,14 @@ function updateWorld(dt) {
   }
   G.pop = pop; G.machinePop = mpop;
 
+  /* Lanes from groves, or from a bank the player cannot otherwise spend --
+     whichever is greater. See RULES.surgeLaneAt for the doom loop this exits. */
+  function laneCount() {
+    const fromGroves = 1 + Math.floor((G.bloomed || 0) / 2);
+    const surge = (RULES.surgeLaneAt || []).filter(t => G.biomass >= t).length;
+    return Math.min(RULES.maxLanes || 3, Math.max(fromGroves, 1 + surge));
+  }
+
   /* --- production queue -----------------------------------------------------
      Parallel lanes, one per bloomed grove. This is the single change that makes
      a swarm actually a swarm: a serial queue caps sustained spend at roughly one
@@ -11243,7 +11801,7 @@ function updateWorld(dt) {
        economy could not keep: saturating one lane costs ~8.2 biomass/s and
        maximum income is ~19.9/s, so lanes 3 and 4 sat idle all game. Raising
        income to feed four instead flooded the player to the pop cap by 1:30. */
-    const lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+    const lanes = laneCount();
     G.lanes = lanes;
     for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
       const item = G.queue[i];
@@ -11257,7 +11815,7 @@ function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+  } else G.lanes = laneCount();
 }
 
 /* =========================================================================
@@ -11486,7 +12044,15 @@ function updateAI(dt) {
     d.spawnTimer -= dt;
     if (d.spawnTimer <= 0) {
       d.spawnTimer = d.def.spawnEvery;
-      if (G.machinePop >= RULES.machinePopCap) continue;
+      /* The pop cap does not apply to a meltdown. MEASURED, and it is the whole
+         reason this exemption is written down: a sweep surges to waveCapMult of
+         the standing cap, so during the sweep that a smart player is holding
+         BEHIND, machinePop sits around 31 against a cap of 19 — and the plain
+         `>= cap` guard silently blocked every technician. The compound stood
+         thirty-one strong and watched its own Core melt with zero welders sent.
+         An emergency the defender is structurally unable to respond to is not a
+         hold, it is a cutscene. */
+      if (G.machinePop >= RULES.machinePopCap && !G.coreExposed) continue;
       /* Deterministic 1-in-4 cycle rather than a dice roll. Drones and guards are
          different threats, so rolling several drones early made a run materially
          harder for reasons the player could not see or plan around. */
@@ -11500,7 +12066,14 @@ function updateAI(dt) {
          %6 rota meant they effectively never appeared in real games. */
       const needsRepair = G.entities.some(e =>
         e.alive && e.isBuilding && e.team === TEAM.MACHINE && e.hp < e.maxHp * 0.9);
-      if (needsRepair && countMachine('tech') < 2) kind = 'tech';
+      /* The cap lifts while the Core is cooking. Two welders is the right number
+         for chip damage; it is not the right number when the compound is about
+         to melt. */
+      const techCap = G.coreExposed ? RULES.emergencyTechs : 2;
+      if ((needsRepair || G.coreExposed) && countMachine('tech') < techCap) kind = 'tech';
+      /* Over cap only a welder is worth the exemption — a meltdown must not
+         become a licence to print guards. */
+      else if (G.machinePop >= RULES.machinePopCap) continue;
       else if (d.spawnN % 4 === 0) kind = 'drone';
       const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
@@ -11526,6 +12099,8 @@ function updateAI(dt) {
     G.nextDetail = G.time + gap * 0.55;
     launchWave();
   }
+
+  emergencyResponse(dt);
 
   /* --- the mid-cycle landscaping detail --- */
   if (G.time >= G.nextDetail) {
@@ -11557,6 +12132,57 @@ function updateAI(dt) {
     if (!e.patrol) assignPatrol(e);
     e.patrolIdx = (e.patrolIdx + 1) % e.patrol.length;
     e.setOrder('attackmove', e.patrol[e.patrolIdx]);
+  }
+}
+
+/* MELTDOWN RESPONSE. See RULES.emergencyEvery for why this exists: without it
+   a player who had razed the Security Depots — the normal line — held an
+   uncontested Core for 45 seconds and the ending was a countdown with no game
+   attached to it.
+
+   Two parts. The Core dispatches its own technicians, at half a depot's rate
+   and hard-capped, so demolition still buys a slower response without buying a
+   free win. And every raider in the field turns around, which is what makes the
+   sweep clock on the HUD into a thing the player can spend. */
+function emergencyResponse(dt) {
+  if (!G.coreExposed || !G.core.alive) { G._recalled = false; return; }
+
+  /* --- the Core's own welders --- */
+  G._emergencyT = (G._emergencyT || 0) - dt;
+  if (G._emergencyT <= 0) {
+    G._emergencyT = RULES.emergencyEvery;
+    /* Deliberately NOT gated on machinePop — see the depot loop above. */
+    if (countMachine('tech') < RULES.emergencyTechs) {
+      const a = rand(0, Math.PI * 2), r = G.core.def.radius + 4;
+      spawn('tech', G.core.pos.x + Math.cos(a) * r, G.core.pos.z + Math.sin(a) * r);
+    }
+  }
+
+  /* --- everyone comes home, once per meltdown --- */
+  if (!G._recalled) {
+    G._recalled = true;
+    let n = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding || e.team !== TEAM.MACHINE) continue;
+      if (e.mission !== 'raid') continue;
+      e.mission = null;
+      e.raidHome = false;
+      e.flankUntil = 0;
+      e.target = null;
+      /* Sent to a DOWNED TOWER, not to the Core. The player is standing on the
+         towers — that is what holding the meltdown means — so this puts the
+         recall where the fight actually is instead of parking it on a building
+         nobody is hitting. */
+      const dark = G.coolants.filter(c => c.downed);
+      const to = dark.length ? dark[n % dark.length].pos : G.core.pos;
+      e.setOrder('attackmove', _v.set(to.x + rand(-6, 6), 0, to.z + rand(-6, 6)).clone());
+      n++;
+    }
+    if (n > 0) {
+      toast(`EMERGENCY RECALL — ${n} raider${n > 1 ? 's turn' : ' turns'} back for the compound`, 'warn');
+      commsEvent('coreExposed', 0.9);
+      SFX.alarm();
+    }
   }
 }
 
@@ -13272,7 +13898,7 @@ const _p = new THREE.Vector3();
 let canvas, rts;
 let down = null;          // {x,y,button}
 let dragging = false;
-let lastClickAt = 0, lastClickEnt = null;
+let lastClickAt = 0, lastClickType = null;
 let lastGroupKey = { key: null, at: 0 };
 
 function initInput(canvasEl, rtsCam) {
@@ -13473,16 +14099,28 @@ function clickSelect(x, y, additive, screenOnly) {
 
   /* Double-click grabs the whole species, not just what is on screen —
      on-screen-only silently left half the pack behind at 96 pop. Ctrl+double
-     restores the narrow behaviour when you do want just what you can see. */
-  if (ent === lastClickEnt && now - lastClickAt < 340 && !ent.isBuilding) {
+     restores the narrow behaviour when you do want just what you can see.
+
+     MATCHED ON TYPE, NOT ON IDENTITY, and that is the whole fix. The test used
+     to be `ent === lastClickEnt`: the exact same animal had to be under the
+     cursor both times. Animals move. A wolf travelling at 10.5 units/second
+     clears its own 0.6-unit radius in about 60ms, so across a 340ms window the
+     second click almost always landed on a different wolf — or on the grass
+     where that wolf used to be — and the feature quietly did nothing in the one
+     situation anybody wants it in, which is a pack on the move. Reported as
+     missing rather than broken, which is exactly how it would feel.
+
+     Window widened to 450ms too; 340 was well under the ~500ms most systems
+     use, so even a stationary target needed an unusually brisk double-click. */
+  if (lastClickType && ent.type === lastClickType && now - lastClickAt < 450 && !ent.isBuilding) {
     const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
       && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
     SFX.select(); voiceFor(G.selection, 'select');
-    lastClickEnt = null;
+    lastClickType = null;
     return;
   }
-  lastClickEnt = ent; lastClickAt = now;
+  lastClickType = ent.isBuilding ? null : ent.type; lastClickAt = now;
 
   if (additive && ent.team === TEAM.WILD) {
     const i = G.selection.indexOf(ent);
@@ -13754,12 +14392,12 @@ function fillPauseCard() {
   const el = document.getElementById('pzstats');
   if (!el) return;
   const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
-  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  const towers = G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
   el.innerHTML = `
     <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
     <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
     <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
-    <div><b>${towers}</b><span>towers left</span></div>`;
+    <div><b>${towers}</b><span>towers cooling</span></div>`;
 }
 
 function toggleHelp() {
@@ -13934,7 +14572,7 @@ function updateHUD() {
       /* These used to share one slot and hide each other. Show whichever the
          player can act on, and say when the sky is helping. */
       const bits = [];
-      if (isPouring()) bits.push('raining');
+      if (isPouring()) bits.push(precipWord());
       if (n) bits.push(`${n} watered`);
       /* On a map whose sky is on a timetable, the front is the single most
          plannable thing on the board — it is fixed, it is known, and pushing
@@ -13948,19 +14586,37 @@ function updateHUD() {
   }
 
   /* objective */
-  const left = G.coolants.filter(c => c.alive).length;
+  const left = coolantsOnline();
   const pips = el('objpips').children;
-  for (let i = 0; i < 3; i++) pips[i].className = 'pip ' + (G.coolants[i].alive ? 'alive' : 'dead');
+  for (let i = 0; i < 3; i++)
+    pips[i].className = 'pip ' + (G.coolants[i].downed ? 'dead' : 'alive');
   pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
-  /* Once the coolant towers are gone the objective is a RACE, so show the clock
-     rather than a sentence. The meltdown timer is the thing the player is now
-     playing against, and it is the only number that says how much of the match
-     is left. */
-  el('objtext').textContent = left > 0
-    ? `Destroy the Coolant Towers (${left} left)`
-    : G.core.alive
-      ? `Core melting down — ${fmt(Math.max(0, G.core.hp / (G.core.maxHp / RULES.runawaySeconds)))} · bring it down`
-      : 'The valley is quiet again';
+  /* The objective line has to carry the one thing that separates this ending
+     from every previous build: the towers coming back. "3 left" after you have
+     killed two reads as lost progress unless the line says who did it. */
+  const bar = el('heatbar'), wrap = el('heatwrap');
+  if (wrap) {
+    const showing = G.core.alive && (G.heat > 0.001 || G.coreExposed);
+    wrap.style.display = showing ? '' : 'none';
+    if (showing) {
+      bar.style.width = (G.heat * 100).toFixed(1) + '%';
+      /* Rising and falling have to look different, or a player cannot tell a
+         hold they are winning from one they have already lost. */
+      wrap.classList.toggle('cooling', !G.coreExposed);
+      el('heatnum').textContent = G.coreExposed
+        ? `${Math.max(0, Math.ceil((1 - G.heat) * RULES.meltdownSeconds))}s`
+        : 'cooling';
+    }
+  }
+  /* Cooling is continuous, so the objective reads as capacity, not a count:
+     "wear them down" is the true instruction and a tower at 20% is real
+     progress the player should be able to see. */
+  const coolPct = Math.round((G.coolFrac !== undefined ? G.coolFrac : 1) * 100);
+  el('objtext').textContent = !G.core.alive
+    ? 'The valley is quiet again'
+    : G.coreExposed
+      ? 'HOLD — the Core is cooking. Do not let them repair'
+      : `Wreck the Coolant Towers — cooling at ${coolPct}%`;
 
   /* cards */
   for (const c of cards) {
@@ -14249,6 +14905,14 @@ function drawMinimap() {
 
 
 /* =================== src/main.js =================== */
+/* PRE-EXISTING BUG, found by a console check during the meltdown work: main.js
+   used musicPlay / musicState / updateMusic with no import at all. The flat
+   build hides it — build.mjs collapses every module into one scope, so
+   wildline.html worked fine — while the dev page threw
+   "updateMusic is not defined" on EVERY FRAME. Same class as the three earlier
+   missing-import bugs in this project; the flattened bundle is not a check. */
+
+
 const gameCanvas = document.getElementById('scene');
 window.G = G;                       // handy for tinkering from the console
 window.THREE = THREE;               // ditto — the flat build has no import map
@@ -14430,7 +15094,7 @@ if (HEADLESS) {
     /* The live tuning tables. Balance work needs an A/B on the SAME build —
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */
-    RULES, spawn,
+    RULES, spawn, DEFS,
   };
 }
 

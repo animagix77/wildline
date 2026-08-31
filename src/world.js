@@ -155,7 +155,7 @@ function buildProps(scene) {
   const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
-  enableCanopyFade(leaves);          // must follow the material swap, not precede it
+  enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
   G.canopy = leaves;
   scene.add(trunks); scene.add(leaves);
 
@@ -270,7 +270,8 @@ export function populate() {
   G.obstacles.push(core);
 
   /* Hologram shield: the visible reason the Core cannot be hurt yet. It tears and
-     flickers as coolant towers fall, then drops entirely on thermal runaway, so the
+     flickers as coolant towers go dark, then drops entirely while every one of
+     them is offline — and comes BACK if a technician relights one — so the
      objective reads without needing the HUD. */
   const shield = new THREE.Mesh(new THREE.SphereGeometry(17, 44, 30), makeShieldMaterial());
   shield.position.set(core.pos.x, core.pos.y + 5, core.pos.z);
@@ -280,24 +281,35 @@ export function populate() {
 
   G.coolants = COOLANTS.map(([x, z]) => {
     const c = spawn('coolant', x, z);
-    c.onDeath = () => {
-      const left = G.coolants.filter(k => k.alive).length;
+    /* A tower goes OFFLINE, it does not die. See RULES.meltdownSeconds. */
+    c.onDowned = () => {
+      const left = coolantsOnline();
+      const down = G.coolants.length - left;
       ring(c.pos, 0x39d7ea, 26, 1.4);
-      if (left > 0) {
+      /* Cooling is continuous now, so a tower going fully offline is a big step
+         rather than a threshold crossing. Announce it as capacity lost, and
+         save the alarm for the moment the Core actually starts to warm. */
+      if (!G.coreExposed) {
         commsEvent('coolant');
-        toast(`Coolant tower down — ${left} remaining`, 'machine');
+        toast(`Coolant tower offline — ${left} still cooling`, 'machine');
+      } else if (down > 1) {
+        commsEvent('coolant');
+        SFX.alarm();
+        toast(`Another tower down — the Core is cooking ${down >= G.coolants.length ? 'at full rate' : 'faster'}`, 'warn');
       } else {
         commsEvent('coreExposed');
-        G.coreExposed = true;
-        G.runawayAt = G.time;
         SFX.shieldDown();
         SFX.alarm();
-        /* Say it in the unit the clock is actually in. At 240 this read "4
-           minutes"; at 90 the same expression rounded to "2 minutes", which is
-           both wrong and the sort of thing nobody notices for a year. */
-        toast('THERMAL RUNAWAY — the Core is exposed and cooking. '
-              + `${Math.round(RULES.runawaySeconds)}s before it melts itself — get there first.`, 'warn');
+        /* Name the shape of the ending, not just the fact of it. The player has
+           to know this is a HOLD — that walking away now gives it all back — or
+           they will do what every previous build trained them to do and leave. */
+        toast('MELTDOWN — the Core is cooking. Keep the coolant towers down and '
+              + 'wrecked; every one you let them rebuild slows it.', 'warn');
       }
+    };
+    c.onRelit = () => {
+      toast(`A technician relit a coolant tower — ${coolantsOnline()} cooling again`, 'machine');
+      commsEvent('coolant', 0.8);
     };
     G.obstacles.push(c);
     return c;
@@ -397,6 +409,59 @@ export function populate() {
   }
 }
 
+/* How many coolant towers are actually cooling. A tower that has been knocked
+   offline is still ALIVE — it stands, it blocks, and a technician can relight
+   it — so `alive` is the wrong question everywhere the objective is concerned.
+   One place to ask it, because getting this wrong silently un-wins the match. */
+export function coolantsOnline() {
+  return G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
+}
+
+/* GROVE STATE, IN COLOUR.
+
+   The tells for losing a grove used to be an opacity change (0.75 -> 0.18) and
+   a toast. Opacity is a terrible carrier for "this is being taken from you":
+   it reads as distance or weather, it is invisible against a bright sky, and at
+   an RTS camera pitch the beam is foreshortened anyway. Players watched groves
+   flip without noticing, which matters because a lost grove costs the income,
+   the recapture AND 18 seconds of dormancy in which it cannot be retaken.
+
+   Hue is unambiguous and reads at any size:
+     green   yours, paying
+     white   neutral, free to take
+     amber   CONTESTED — machines on it, progress draining, go now
+     red     lost, and dormant: nothing you do here works yet
+   Amber and red also pulse, because a static colour reads as decoration. */
+const GROVE_TINT = {
+  owned:     0x8bffa0,
+  neutral:   0xbfe8cf,
+  contested: 0xffb03a,
+  lost:      0xff4b3a,
+};
+
+function groveTint(g, t) {
+  const a = g.anim;
+  if (!a || !a.pillar) return;
+  const dormant = G.time < (g.dormantUntil || 0);
+  const key = g.losing ? 'contested' : dormant ? 'lost' : g.owned ? 'owned' : 'neutral';
+
+  if (a._tintKey !== key) {
+    a._tintKey = key;
+    a.pillar.material.color.setHex(GROVE_TINT[key]);
+    if (a.beaconRing) a.beaconRing.material.color.setHex(GROVE_TINT[key]);
+  }
+
+  /* Base opacity per state, then a pulse on the two that want attention. The
+     pulse is on OPACITY rather than colour so it survives the additive blend
+     without washing the hue out. */
+  const base = key === 'owned' ? 0.75 : key === 'contested' ? 0.85
+             : key === 'lost'  ? 0.55 : 0.45;
+  const urgent = key === 'contested' || key === 'lost';
+  const pulse = urgent ? 0.78 + 0.22 * Math.sin(t * (key === 'contested' ? 7.5 : 3.4)) : 1;
+  a.pillar.material.opacity = base * pulse;
+  if (a.beaconRing && a.beaconRing.visible) a.beaconRing.material.opacity = 0.46 * pulse;
+}
+
 /* Mission resolution: in a campaign, bank the result and route the end-screen
    button back to the territory map; in a quick battle, just offer a rerun. */
 function endMission(win) {
@@ -481,7 +546,7 @@ export function updateWorld(dt) {
        worth doing — see RULES.groveDormant. */
     if (g.dormantUntil && G.time >= g.dormantUntil) {
       g.dormantUntil = 0;
-      g.anim.pillar.material.opacity = 0.45;
+      /* opacity/colour are groveTint's job now — it reads dormantUntil directly */
       toast('The trampled ground has recovered — that grove can be taken again');
     }
     let wild = 0, machine = 0;
@@ -506,7 +571,7 @@ export function updateWorld(dt) {
     if (g.losing && !g._warned) {
       g._warned = true;
       SFX.heartAlarm();
-      toast('A grove is being trampled — send something', 'warn');
+      toast('A grove is being trampled — its light has turned AMBER. Send something', 'warn');
     } else if (!g.losing && g._warned && dir >= 0) g._warned = false;
     if (dir !== 0) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
@@ -514,7 +579,6 @@ export function updateWorld(dt) {
         g.owned = true;
         g.bloomAt = G.time;      // income ramps in — see below
         g.anim.bloom.visible = true;
-        g.anim.pillar.material.opacity = 0.75;
         g.anim.water.material.uniforms.wl_bloom.value = 1;
         SFX.bloom();
         ring(g.pos, 0x9bff6a, 9, 1.1);
@@ -526,11 +590,11 @@ export function updateWorld(dt) {
         g.owned = false;
         g.dormantUntil = G.time + RULES.groveDormant;
         g.anim.bloom.visible = false;
-        g.anim.pillar.material.opacity = 0.18;   // the dim pillar IS the dormancy tell
         g.anim.water.material.uniforms.wl_bloom.value = 0;
-        toast(`A grove has been trampled — the ground will not take a bloom for ${RULES.groveDormant}s`, 'warn');
+        toast(`A grove has been trampled — its light turns RED and will not take a bloom for ${RULES.groveDormant}s`, 'warn');
       }
     }
+    groveTint(g, G.time);
     if (g.owned) bloomed++;
   }
   /* A new lane is a real step up in throughput, so it gets its own chime --
@@ -567,53 +631,71 @@ export function updateWorld(dt) {
     }
   }
 
-  /* --- thermal runaway ---------------------------------------------------
-     The last coolant tower is the point of no return. Before this, killing all
-     three bought the player an exposed Core and a health bar that technicians
-     welded straight back to full — measured at 11m47s of assaulting a naked,
-     disarmed Core that ended the match at 3000/3000. Now the compound cooks
-     itself on a clock, so every coolant kill is permanent progress.
+  /* --- meltdown: the hold ---------------------------------------------------
+     The Core overheats only while every coolant tower is offline AT ONCE, which
+     is what turns the ending from a kill into a hold. See RULES.meltdownSeconds
+     for the measurement that made this necessary — in short, coolant kills used
+     to be permanent, so the match was a ratchet nobody could take a metre back
+     from, and an all-in with nobody home won every time.
 
-     It is deliberately slow. Bringing the Core down yourself is far quicker and
-     is still the ending the game wants; this only guarantees that a decided
-     match actually ENDS, and it gives the player something to race instead of
-     something to grind. */
-  if (G.coreExposed && G.core.alive && !G.over) {
-    const burn = G.core.maxHp / RULES.runawaySeconds;
-    G.core.hp -= burn * dt;
-    /* Milestones, because a bar creeping down is not a clock. */
-    const left = Math.max(0, G.core.hp / burn);
-    if (!G.runawaySaid) G.runawaySaid = {};
-    /* Milestones below the length of the clock, so a short runaway does not
-       silently skip straight past its own countdown. */
-    for (const mark of [180, 120, 60, 30].filter(m => m < RULES.runawaySeconds)) {
-      if (left <= mark && !G.runawaySaid[mark]) {
-        G.runawaySaid[mark] = true;
-        /* The clock is only interesting when the clock is the thing killing the
-           Core. Measured: with a swarm chewing the Core directly, all four
-           milestones fired inside thirteen real seconds because the burn-rate
-           divisor turns direct damage into "seconds remaining". Latch them so
-           they are not repeated later, but stay quiet while the player is
-           plainly winning the race by hand. */
-        if (G.time - (G.core.lastHitAt || -99) < 6) continue;
-        toast(`Core temperature critical — ${mark}s to meltdown`, 'warn');
-        /* 'coolant', not 'coreExposed': those are the thermal lines ("We have
-           initiated our Thermal Resilience Journey"), which is exactly the
-           register a meltdown countdown wants, and it keeps the exposure
-           announcement from repeating itself four times on the way down. */
-        commsEvent('coolant', 0.7);
+     Heat bleeds back rather than resetting, so a hold broken at 80% is real
+     progress and not a wasted assault. */
+  if (G.core.alive && !G.over) {
+    /* COOLING IS CONTINUOUS, not a count of standing towers. This is the fix
+       for the knife-edge — see RULES.meltdownCool. A tower cools in proportion
+       to how intact it is, so every point of damage counts the moment it lands
+       instead of counting for nothing until the tower falls over. */
+    let cap = 0;
+    for (const c of G.coolants) {
+      if (!c.alive || c.downed) continue;
+      cap += Math.max(0, c.hp) / Math.max(1, c.maxHp);
+    }
+    const cool = cap / Math.max(1, G.coolants.length);   // 1 = fully cooled
+    const wasExposed = G.coreExposed;
+    G.coreExposed = cool < RULES.meltdownCool;
+    /* Rate scales with how far cooling has been pushed below the line, so
+       stripping the last tower still finishes markedly faster than sitting at
+       the threshold. */
+    const heatMult = G.coreExposed
+      ? Math.min(1, (RULES.meltdownCool - cool) / Math.max(0.01, RULES.meltdownCool)) : 0;
+    G.coolFrac = cool;
+
+    if (G.coreExposed && !wasExposed) G.holdStartedAt = G.time;
+    if (!G.coreExposed && wasExposed) {
+      G.holdStartedAt = 0;
+      /* Losing the hold is the compound's one win condition against the player,
+         so it gets said out loud. Silence here reads as a bug. */
+      if (G.heat > 0.08) toast(`Meltdown stalled at ${Math.round(G.heat * 100)}% — the Core is cooling again`, 'warn');
+    }
+
+    const rate = 1 / Math.max(1, RULES.meltdownSeconds);
+    if (G.coreExposed) G.heat = Math.min(1, G.heat + rate * heatMult * dt);
+    else               G.heat = Math.max(0, G.heat - rate * RULES.coolRecovery * dt);
+    G.heatPeak = Math.max(G.heatPeak, G.heat);
+
+    /* Milestones, because a bar creeping up is not a clock. Only while actually
+       holding — narrating a bar that is falling is just noise. */
+    if (!G.heatSaid) G.heatSaid = {};
+    if (G.coreExposed) {
+      for (const mark of [25, 50, 75, 90]) {
+        if (G.heat * 100 >= mark && !G.heatSaid[mark]) {
+          G.heatSaid[mark] = true;
+          const secsLeft = Math.round((1 - G.heat) * RULES.meltdownSeconds / Math.max(0.01, heatMult));
+          toast(`Core temperature ${mark}% — ${secsLeft}s of hold left`, 'warn');
+          commsEvent('coolant', 0.7);
+        }
       }
     }
-    if (G.core.hp <= 0) { G.core.hp = 0; kill(G.core, null); }
+
+    if (G.heat >= 1) kill(G.core, null);
   }
 
   /* --- core shield tracks the coolant towers --- */
   if (G.coreShield) {
-    const alive = G.coolants.filter(c => c.alive).length;
     // it lives in the scene rather than under the core, so fog concealment has to
     // be forwarded explicitly or the objective is handed over before you scout
     G.coreShield.visible = !G.coreExposed && G.core.alive && G.core.mesh.visible;
-    G.coreShield.material.uniforms.wl_health.value = alive / G.coolants.length;
+    G.coreShield.material.uniforms.wl_health.value = coolantsOnline() / G.coolants.length;
   }
 
   /* --- income --- */
@@ -675,6 +757,14 @@ export function updateWorld(dt) {
   }
   G.pop = pop; G.machinePop = mpop;
 
+  /* Lanes from groves, or from a bank the player cannot otherwise spend --
+     whichever is greater. See RULES.surgeLaneAt for the doom loop this exits. */
+  function laneCount() {
+    const fromGroves = 1 + Math.floor((G.bloomed || 0) / 2);
+    const surge = (RULES.surgeLaneAt || []).filter(t => G.biomass >= t).length;
+    return Math.min(RULES.maxLanes || 3, Math.max(fromGroves, 1 + surge));
+  }
+
   /* --- production queue -----------------------------------------------------
      Parallel lanes, one per bloomed grove. This is the single change that makes
      a swarm actually a swarm: a serial queue caps sustained spend at roughly one
@@ -687,7 +777,7 @@ export function updateWorld(dt) {
        economy could not keep: saturating one lane costs ~8.2 biomass/s and
        maximum income is ~19.9/s, so lanes 3 and 4 sat idle all game. Raising
        income to feed four instead flooded the player to the pop cap by 1:30. */
-    const lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+    const lanes = laneCount();
     G.lanes = lanes;
     for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
       const item = G.queue[i];
@@ -701,7 +791,7 @@ export function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+  } else G.lanes = laneCount();
 }
 
 /* =========================================================================

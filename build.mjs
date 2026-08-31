@@ -121,6 +121,90 @@ function aliasGuard() {
   if (bad.length) throw new Error('aliased imports do not survive the flat build:\n' + bad.join('\n'));
 }
 
+/* THE FIFTH OCCURRENCE OF THIS BUG is what bought this guard. A module can use
+   a name that another module exports and simply never import it: the flat build
+   collapses everything into one scope so wildline.html works perfectly, the
+   parse check passes, and only the unbundled dev page throws — on every frame,
+   in code nobody was looking at. main.js had TWO (updateMusic, TEAM) and had
+   been shipping them for a while.
+
+   The check: for each module, any bare identifier that some OTHER module
+   exports, which this module neither imports nor declares itself, is a missing
+   import. Exported names are distinctive enough that this is precise in
+   practice, and it is deliberately conservative — comments, strings, property
+   accesses (`x.TEAM`) and object keys (`TEAM:`) are all stripped first. */
+function missingImportGuard() {
+  const exportsOf = new Map();          // name -> module that exports it
+  const bodies = new Map();
+  for (const f of MODULES) {
+    if (!exists(f)) continue;
+    const src = read(f);
+    bodies.set(f, src);
+    for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)/gm))
+      exportsOf.set(m[1], f);
+    for (const m of src.matchAll(/^export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm))
+      exportsOf.set(m[1], f);
+  }
+
+  const bad = [];
+  for (const [f, raw] of bodies) {
+    /* Strip what must not be scanned, in this order. */
+    const src = raw
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')          // block comments
+      .replace(/\/\/[^\n]*/g, ' ')                // line comments
+      .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '``')  // template literals
+      .replace(/'(?:\\.|[^'\\])*'/g, "''")
+      .replace(/"(?:\\.|[^"\\])*"/g, '""');
+
+    const imported = new Set();
+    for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from/g))
+      for (const part of m[1].split(',')) {
+        const id = part.trim().split(/\s+as\s+/).pop().trim();
+        if (id) imported.add(id);
+      }
+    for (const m of src.matchAll(/import\s+(?:\*\s+as\s+)?([A-Za-z_$][\w$]*)\s+from/g))
+      imported.add(m[1]);
+
+    /* Anything declared anywhere in this file, at any depth. Broad on purpose:
+       a false NEGATIVE here just means we miss one, a false positive breaks the
+       build for the user. */
+    const declared = new Set();
+    for (const re of [
+      /(?:^|[^.\w$])(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g,
+      /(?:^|[^.\w$])function\s*\*?\s*([A-Za-z_$][\w$]*)/g,
+      /(?:^|[^.\w$])class\s+([A-Za-z_$][\w$]*)/g,
+      /(?:^|[^.\w$])(?:catch|for)\s*\(\s*(?:const|let|var)?\s*([A-Za-z_$][\w$]*)/g,
+    ]) for (const m of src.matchAll(re)) declared.add(m[1]);
+    /* destructuring and parameter lists, conservatively */
+    for (const m of src.matchAll(/\{([^{}]*)\}\s*=/g))
+      for (const part of m[1].split(',')) {
+        const id = part.trim().split(':').pop().trim().match(/^([A-Za-z_$][\w$]*)/);
+        if (id) declared.add(id[1]);
+      }
+    for (const m of src.matchAll(/\(([^()]*)\)\s*=>/g))
+      for (const part of m[1].split(',')) {
+        const id = part.trim().match(/^([A-Za-z_$][\w$]*)/);
+        if (id) declared.add(id[1]);
+      }
+    for (const m of src.matchAll(/function[^(]*\(([^()]*)\)/g))
+      for (const part of m[1].split(',')) {
+        const id = part.trim().match(/^([A-Za-z_$][\w$]*)/);
+        if (id) declared.add(id[1]);
+      }
+
+    for (const [name, from] of exportsOf) {
+      if (from === f || imported.has(name) || declared.has(name)) continue;
+      /* Bare use only: not `.name`, not `name:` in an object literal. */
+      const use = new RegExp(`(^|[^.\\w$])${name}\\s*(?![\\w$]|\\s*:)`, 'm');
+      if (use.test(src)) bad.push(`  ${f}: uses "${name}" but never imports it (exported by ${from})`);
+    }
+  }
+  if (bad.length) {
+    throw new Error('missing imports -- these work in the flat build and throw in the dev page:\n'
+      + bad.join('\n'));
+  }
+}
+
 function collisionGuard(sources) {
   const owner = new Map();
   const clashes = [];
@@ -188,6 +272,7 @@ ${safeJs}
 /* ------------------------------------------------------------------ main -- */
 const sources = MODULES.map(file => ({ file, src: stripModuleSyntax(read(file), file) }));
 aliasGuard();
+missingImportGuard();
 const bindings = collisionGuard(sources);
 
 /* The regex guard below is a fast, friendly first pass, but regexes cannot reliably

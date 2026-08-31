@@ -31,7 +31,15 @@ export function updateAI(dt) {
     d.spawnTimer -= dt;
     if (d.spawnTimer <= 0) {
       d.spawnTimer = d.def.spawnEvery;
-      if (G.machinePop >= RULES.machinePopCap) continue;
+      /* The pop cap does not apply to a meltdown. MEASURED, and it is the whole
+         reason this exemption is written down: a sweep surges to waveCapMult of
+         the standing cap, so during the sweep that a smart player is holding
+         BEHIND, machinePop sits around 31 against a cap of 19 — and the plain
+         `>= cap` guard silently blocked every technician. The compound stood
+         thirty-one strong and watched its own Core melt with zero welders sent.
+         An emergency the defender is structurally unable to respond to is not a
+         hold, it is a cutscene. */
+      if (G.machinePop >= RULES.machinePopCap && !G.coreExposed) continue;
       /* Deterministic 1-in-4 cycle rather than a dice roll. Drones and guards are
          different threats, so rolling several drones early made a run materially
          harder for reasons the player could not see or plan around. */
@@ -45,7 +53,14 @@ export function updateAI(dt) {
          %6 rota meant they effectively never appeared in real games. */
       const needsRepair = G.entities.some(e =>
         e.alive && e.isBuilding && e.team === TEAM.MACHINE && e.hp < e.maxHp * 0.9);
-      if (needsRepair && countMachine('tech') < 2) kind = 'tech';
+      /* The cap lifts while the Core is cooking. Two welders is the right number
+         for chip damage; it is not the right number when the compound is about
+         to melt. */
+      const techCap = G.coreExposed ? RULES.emergencyTechs : 2;
+      if ((needsRepair || G.coreExposed) && countMachine('tech') < techCap) kind = 'tech';
+      /* Over cap only a welder is worth the exemption — a meltdown must not
+         become a licence to print guards. */
+      else if (G.machinePop >= RULES.machinePopCap) continue;
       else if (d.spawnN % 4 === 0) kind = 'drone';
       const g = spawn(kind,
         d.pos.x + rand(-7, 7), d.pos.z + (d.mesh.rotation.y ? -7 : 7));
@@ -71,6 +86,8 @@ export function updateAI(dt) {
     G.nextDetail = G.time + gap * 0.55;
     launchWave();
   }
+
+  emergencyResponse(dt);
 
   /* --- the mid-cycle landscaping detail --- */
   if (G.time >= G.nextDetail) {
@@ -102,6 +119,57 @@ export function updateAI(dt) {
     if (!e.patrol) assignPatrol(e);
     e.patrolIdx = (e.patrolIdx + 1) % e.patrol.length;
     e.setOrder('attackmove', e.patrol[e.patrolIdx]);
+  }
+}
+
+/* MELTDOWN RESPONSE. See RULES.emergencyEvery for why this exists: without it
+   a player who had razed the Security Depots — the normal line — held an
+   uncontested Core for 45 seconds and the ending was a countdown with no game
+   attached to it.
+
+   Two parts. The Core dispatches its own technicians, at half a depot's rate
+   and hard-capped, so demolition still buys a slower response without buying a
+   free win. And every raider in the field turns around, which is what makes the
+   sweep clock on the HUD into a thing the player can spend. */
+function emergencyResponse(dt) {
+  if (!G.coreExposed || !G.core.alive) { G._recalled = false; return; }
+
+  /* --- the Core's own welders --- */
+  G._emergencyT = (G._emergencyT || 0) - dt;
+  if (G._emergencyT <= 0) {
+    G._emergencyT = RULES.emergencyEvery;
+    /* Deliberately NOT gated on machinePop — see the depot loop above. */
+    if (countMachine('tech') < RULES.emergencyTechs) {
+      const a = rand(0, Math.PI * 2), r = G.core.def.radius + 4;
+      spawn('tech', G.core.pos.x + Math.cos(a) * r, G.core.pos.z + Math.sin(a) * r);
+    }
+  }
+
+  /* --- everyone comes home, once per meltdown --- */
+  if (!G._recalled) {
+    G._recalled = true;
+    let n = 0;
+    for (const e of G.entities) {
+      if (!e.alive || e.isBuilding || e.team !== TEAM.MACHINE) continue;
+      if (e.mission !== 'raid') continue;
+      e.mission = null;
+      e.raidHome = false;
+      e.flankUntil = 0;
+      e.target = null;
+      /* Sent to a DOWNED TOWER, not to the Core. The player is standing on the
+         towers — that is what holding the meltdown means — so this puts the
+         recall where the fight actually is instead of parking it on a building
+         nobody is hitting. */
+      const dark = G.coolants.filter(c => c.downed);
+      const to = dark.length ? dark[n % dark.length].pos : G.core.pos;
+      e.setOrder('attackmove', _v.set(to.x + rand(-6, 6), 0, to.z + rand(-6, 6)).clone());
+      n++;
+    }
+    if (n > 0) {
+      toast(`EMERGENCY RECALL — ${n} raider${n > 1 ? 's turn' : ' turns'} back for the compound`, 'warn');
+      commsEvent('coreExposed', 0.9);
+      SFX.alarm();
+    }
   }
 }
 

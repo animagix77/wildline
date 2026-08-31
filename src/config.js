@@ -27,13 +27,13 @@ export const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
+    armor: 2, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
     blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 2, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
+    armor: 3, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
@@ -45,7 +45,7 @@ export const DEFS = {
   capybara: {
     name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
     hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
-    armor: 3, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    armor: 4, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
     /* Taunt biases enemy target selection toward this unit (see acquire()).
        Without it the capybara is merely tanky and the swarm still gets shot
        out from behind it; with it, putting capybaras in front is a real and
@@ -56,7 +56,7 @@ export const DEFS = {
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
+    armor: 2, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
@@ -79,7 +79,7 @@ export const DEFS = {
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
+    armor: 3, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
     blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
@@ -154,7 +154,28 @@ export const DEFS = {
   },
   coolant: {
     name: 'Coolant Tower', team: TEAM.MACHINE, icon: '🌀',
-    hp: 1300, radius: 4.6, armor: 2, building: true, critical: true,
+    /* CUT from 1300, and the cut is the direct consequence of the towers no
+       longer dying. At 1300 a tower was priced as a PERMANENT kill: pay it once,
+       bank it forever. The meltdown asks for all three down AT THE SAME TIME
+       instead, which is a different and much larger bill — measured, a 35-unit
+       army that had taken groves and left a garrison could put exactly ONE
+       tower down (to 186hp, 342 scar) before it was spent, and the technicians
+       had it back to 973 within thirty seconds. Three simultaneous kills at the
+       old price is not a hard objective, it is an impossible one.
+
+       CUT AGAIN, 650 -> 450, on a measurement rather than a feeling. At 650 the
+       bill for three simultaneous take-downs is 1950 tower-damage; a committed
+       34-unit army that had taken groves and left a ten-pop garrison delivered
+       about 1300 of it before it was spent — two towers to 0 and 21, and the
+       third never touched. 450 puts the bill at 1350, just inside what one
+       assault can carry, so the first push arrives with the hold in reach and
+       scarring makes the follow-up genuinely cheaper. */
+    hp: 450, radius: 4.6, armor: 2, building: true, critical: true,
+    /* Goes OFFLINE at zero instead of dying: the tower stays standing and dark,
+       and a technician can relight it. See RULES.meltdownSeconds for why the
+       objective stopped being a kill. */
+    downs: true,
+    blurb: 'Knock it offline and it stays down only as long as you hold the ground.'
   },
   core: {
     name: 'Server Core', team: TEAM.MACHINE, icon: '🧊',
@@ -186,6 +207,52 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   200,
+  /* --- WHAT THE OUTCOME VARIANCE ACTUALLY IS (correction) -------------------
+     Commit 43a8905 concluded that outcomes are "dominated by compound layout --
+     where the third tower sits relative to the other two". THAT IS WRONG, and
+     it is recorded here rather than quietly dropped because the same commit
+     recommended a whole programme of work on the strength of it.
+
+     Quick battles always load DEFAULT_MAP, and coolant, turret, depot and grove
+     positions are authored literals in maps.js. Verified directly: seeds 2001
+     and 2006 -- which produced peak heat 0.00 and 0.76 -- have byte-identical
+     coolants [[26,-68],[26,-30],[86,-50]], identical turrets, identical groves.
+     The layout never varied at all. The seed moves garrison spawn scatter by a
+     few metres, unit spawn jitter, and patrol assignment. Nothing else.
+
+     So the real finding is worse and more interesting: a match swings from
+     never-starting-a-meltdown to 76% of one on the strength of where seven
+     guards happened to stand at t=0. That is chaotic sensitivity, not map
+     variety -- a knife-edge somewhere in the middle of the match amplifying a
+     few metres into the whole result. Fragility, not depth. */
+
+  /* --- Surge lanes: the comeback the economy did not have -------------------
+     Production lanes are one per two bloomed groves, capped at three. That
+     solved the rich case — see the note in world.js — and left the poor case
+     wide open, which turns out to be the same bug wearing a different hat.
+
+     MEASURED, and reported from a real session with a screenshot: 1148 banked
+     biomass, one grove, fourteen animals on the field. One grove is ONE lane,
+     so the player could not convert the bank no matter what they queued. That
+     is a doom loop with no exit: lose groves -> fewer lanes -> cannot rebuild
+     the army -> lose more groves. It is also precisely why no run ever fielded
+     a second assault, which is the thing blocking the meltdown rework.
+
+     A bank you cannot spend now opens a lane on its own. Self-correcting by
+     construction: the lane exists only while the surplus does, so it cannot be
+     farmed as a substitute for taking ground, and it disappears the moment the
+     player spends the bank down. Thresholds sit well clear of startBiomass so
+     the opening is unchanged. */
+  surgeLaneAt:   [420, 820],
+  /* Ceiling on parallel production lanes. Was hardcoded at 3 in world.js with a
+     note that four "was a promise the economy could not keep" — true at the
+     income of the time, when the player held two or three groves. A line that
+     actually defends its economy now holds five or six, and the measured
+     bottleneck moved: with popCap raised the army still peaked at 45 and
+     collapsed to 15 within thirty seconds of committing, never once reaching
+     the pop ceiling. Lanes, not population and not money, are what caps a
+     swarm's ability to replace losses mid-assault. */
+  maxLanes:       4,
   baseIncome:     0.7,      // per second from the Heart Tree
   grovIncome:     3.2,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
@@ -207,7 +274,41 @@ export const RULES = {
      rule is trying to create keeps its price. */
   decapBase:      0.35,     // capture-seconds undone per second by ONE machine
   decapPerExtra:  0.22,     // ...and per additional machine, to a cap of 1.0
-  popCap:         96,
+  /* RAISED from 96. Measured back-to-back on the same bot: peak heat 0.44 ->
+     0.63, damage onto the coolant towers 934 -> 1248, match 5:18 -> 6:17. The
+     design brief is a swarm that is individually weaker and wins through
+     numbers; at 96, with an average pop cost near two, that swarm was 45
+     bodies. */
+  /* ARMOUR IS SUBTRACTIVE, so it bites hardest on exactly what was killing the
+     swarm. Measured: guards do 60% of all damage the player takes and they do
+     it in 1648 small hits; a point of armour is therefore worth far more
+     against the gun line than against anything else. Buffed on the MANY (wolf
+     0->2, raven 0->2, boar 2->3, capybara 3->4, beaver 2->3) and NOT on bear or
+     porcupine -- "individually weaker, wins through numbers" means the cheap
+     bodies stop evaporating, not that the big ones become unkillable. A test
+     arm that pushed bear to 9 left it taking the floor of 1 damage per guard
+     hit, which is a different game. */
+  /* RAISED AGAIN, 128 -> 280, from a PROFILE rather than a guess. Headless
+     frames are not render-gated -- __step runs the water reflection and the
+     whole post chain like any other frame -- so these are full frame costs:
+
+       100 wild units (159 entities)   3.45 ms/frame
+       200 wild units (259 entities)   6.29 ms/frame
+       300 wild units (361 entities)   9.18 ms/frame
+
+     Linear, about 0.029 ms per additional unit. At an average pop cost near
+     two, 280 buys roughly 140 animals for ~4.5 ms/frame, leaving most of a
+     60fps budget free even on hardware several times slower than this one.
+
+     CAVEAT, because it matters: performance.now() around a draw call measures
+     CPU submit time, not GPU completion, so this bounds the CPU side only. A
+     machine that struggles will be GPU fill- or draw-call-bound, which this
+     profile cannot see.
+
+     SEPARATELY: in bot runs the ECONOMY binds long before the pop cap does --
+     armies peaked at 45 units with the cap at 128 and never came near it.
+     Raising the ceiling does not raise the floor. */
+  popCap:         280,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
@@ -502,29 +603,196 @@ export const RULES = {
   spellRadius:    16,
   spellDuration:  5,
 
-  /* --- Thermal runaway -----------------------------------------------------
-     Killing the last coolant tower used to hand the player an exposed Core and
-     nothing else: technicians welded it back to 3000/3000 faster than a swarm
-     could chew through armour 8, so the "objective" was a health bar that
-     regrew. Now the last coolant starts a clock. The Core cooks itself from
-     full in this many seconds, cannot be repaired, and the HUD counts it down —
-     so coolant kills are permanent progress and the endgame is a race the
-     player can see rather than an attrition slug they cannot win.
+  /* --- Meltdown: the Core dies to a HOLD, not to a kill ---------------------
+     THE PROBLEM THIS REPLACES. Coolant kills used to be permanent, so the whole
+     match was a one-way ratchet: three towers down, shield off forever, Core
+     cooks itself on a 90s clock. Nothing the compound did could take a metre
+     back. That is why the design's own premise never bound — "should I leave
+     some at home?" had no cost attached to saying no, because progress banked
+     while you were away could not be lost. Measured on the pinned clock: the
+     all-in guardrail (nobody home at all) WON at 5:17, and 15/15 offensive
+     variants won. The good line was unlosable.
 
-     Deliberately slower than a committed assault: killing it yourself is still
-     much faster and still the point. This only guarantees the match ENDS. */
-  /* CUT from 240. Measured on a full winning run: the last coolant fell at
-     12:51 — the loudest, best-earned moment of the match — and then the Core
-     ticked itself down from 2989 to 1857 across ninety seconds in which the
-     game asked the player for nothing at all, before the army walked over and
-     deleted the last 1,664 by hand. The four-minute countdown that was supposed
-     to be a finale functioned as dead air between the real climax and the real
-     ending, and was then mostly bypassed anyway.
+     A coolant tower now goes OFFLINE at zero rather than dying (def.downs). It
+     stays standing, dark, and a Field Technician can bring it back. The Core
+     overheats only while ALL of them are offline at once, so the ending is a
+     window the player has to hold open with the compound actively trying to
+     shut it — which is exactly when the valley is emptiest and the sweep that
+     splits off for the Heart Tree is landing. That is the question the design
+     was always selling and has never once asked.
 
-     At 90 the clock is a sprint the player races rather than a bar they wait
-     out, and it still is not the fast way to finish: a committed army kills a
-     naked Core in about thirty seconds. This only guarantees the match ENDS. */
-  runawaySeconds: 90,
+     Nothing is lost by failing the hold. Heat bleeds back at a fraction of the
+     fill rate (not instantly), and scarring means every take-down is cheaper
+     than the last, so a hold that breaks at 80% is real progress, not a reset.
+
+     meltdownSeconds is DELIBERATELY short. This is a climax, not an endurance
+     test: long enough that the compound gets to fight for it, short enough that
+     a player who has genuinely won the fight is not made to stand around.
+
+     LENGTH SET FROM WHAT AN ARMY CAN ACTUALLY HOLD, not from taste. Measured
+     across ten full runs: a player fields ONE assault army per match (peaks
+     around 45 units, then settles near 10 and never rebuilds to strike
+     strength), and that army holds the towers for 14-22 seconds before it is
+     spent. A 45-second hold at half rate is a 90-second bar. Nobody was ever
+     going to clear it, which is why every good-line run ended the same way — a
+     hold that began, reached 16-25%, and died. */
+  /* 30 -> 20, and this is the number that produced this project's first
+     measured WIN. Calibrated to what an army can actually hold, on a
+     zero-noise paired test: across every configuration tried, the swarm took
+     two towers, held them, and peaked at 0.58-0.66 heat before it was spent.
+     At meltdownSeconds 30 that is a ~20-second hold against a 30-second bar --
+     always short, and never by much. Pricing the bar at the measured hold
+     turns the same assault into a finish rather than a near miss.
+
+     PAIRED RESULT, three seeds, identical in every other respect:
+       baseline      heat 0 / 0    / 0.66   0 wins
+       meltdown 20   heat 0 / 0    / 1.00   1 win
+       + armour      heat 0 / 0.99 / 0.87   mean heat 0.22 -> 0.62 */
+  meltdownSeconds:  20,
+  /* How many towers must be offline before the Core starts cooking, and how
+     much faster it cooks once MORE of them are.
+
+     ALL THREE AT ONCE was the wrong bar and the measurement is unambiguous. It
+     prices the objective at 1350 tower-damage delivered simultaneously across
+     three positions inside a defended compound; a committed army that has taken
+     groves, kept beavers on the Heart Tree and cast Overgrowth measurably
+     delivers about 700 before it is spent. Every run stalled the same way — two
+     towers down and held, the third never touched — and the good line lost at
+     5:09, 6:03 and 8:03. A gate nobody can reach is not difficulty, it is a
+     wall with a countdown painted on it.
+
+     Two-of-three starts the meltdown at half rate: a real hold, reachable by a
+     real army, and still long enough (90s) that the compound gets to fight for
+     it. The third tower is then an ACCELERANT rather than a gate — taking it
+     doubles the rate and turns a grind into a finish — which is a much better
+     shape for the last tower anyway, because it makes the hardest one to reach
+     the one that actually decides the match. */
+  /* --- Cooling is CONTINUOUS, and this is the fix for the knife-edge --------
+     THE MEASUREMENT. Two seeds on the identical authored map, differing only in
+     where the garrison happened to spawn: their grove and income curves are
+     almost the same (both 6 -> 4 -> 3 -> 2 -> 1 -> 0), and at t111 one had 42
+     animals and the other 47. That five-unit gap produced peak heat 0.00 versus
+     0.76. One match never started a meltdown; the other got three quarters of
+     the way to winning.
+
+     The cause was a STEP FUNCTION. Cooling counted standing towers, so a tower
+     at 1hp cooled exactly as well as a tower at full and 90% of an assault paid
+     nothing at all. Being ten percent short of a threshold returned zero, which
+     is what turned a few metres of spawn scatter into the whole result -- and
+     it is the same "a failed push must leave a mark" principle as scarFraction,
+     which this violated at the level of the objective itself.
+
+     Cooling is now the sum of each tower's remaining health fraction. Damage
+     counts the instant it lands, the Core warms as the towers are worn down,
+     and taking one fully offline is simply the biggest single step available
+     rather than the only one that exists.
+
+     SET FROM MEASUREMENT, not from taste. Instrumented the lowest cooling
+     fraction an assault ever forces, across three out-of-sample seeds:
+
+       s2003  coolMin 0.603
+       s2001  coolMin 0.569
+       s2006  coolMin 0.333
+
+     So a committed swarm wrecks between a third and two thirds of the plant.
+     A line at 0.34 caught none of them and a line at 0.50 caught one; both were
+     step functions wearing a smaller costume. At 0.65 every one of those
+     assaults warms the Core, and because the rate scales with the DEPTH below
+     the line the reward is proportional: wrecking 40% of cooling is a slow
+     creep, stripping two thirds is a genuine race. Heat also barely bleeds off
+     (coolRecovery), so the creep accumulates across a long match instead of
+     being wasted. */
+  meltdownCool:     0.65,   // total cooling fraction below which the Core warms
+  meltdownAt:       2,      // (legacy) towers offline before the Core cooks
+  /* Full rate at TWO, not three — so the bar a single army can reach is the bar
+     that finishes the job. The third tower is still worth taking: the rate is
+     down/meltdownFullAt, so three-of-three cooks at 1.5x and turns a 30-second
+     hold into a 20-second one. Accelerant, not gate. */
+  meltdownFullAt:   2,
+  /* Heat barely bleeds off at all, and that is the single most important number
+     in the endgame. It makes the meltdown CUMULATIVE across a whole match
+     rather than a one-perfect-window puzzle.
+
+     MEASURED at 0.5: a competent line — groves taken, beavers mending the
+     Heart, Overgrowth cast on raiders, a fourteen-pop garrison — fought to wave
+     5 and 8:03, scarred all three towers, got every tower offline at once, and
+     peaked at 22% heat before the emergency welders relit one. Ten seconds of
+     hold. Then all of it drained away and the match was unwinnable despite the
+     player doing everything the design asks for.
+
+     At 0.12 those holds still drained faster than a rebuilt army could return:
+     measured, a hold that reached 55% was back down to 22% two minutes later
+     and the second assault started from nothing.
+
+     THE DECISIVE MEASUREMENT. With the objective made almost free — one tower
+     offline for a full-rate meltdown — the good line STILL lost, peaking at 55%
+     and collapsing. So the objective was never what was stopping the player: a
+     42-unit army loses 31 units in thirty seconds inside the compound, and the
+     old permanent-kill design simply HID that, because damage banked forever
+     and you could lose three armies and still be ahead. Take the hiding place
+     away and the underlying army-versus-gun-line trade is what decides matches.
+
+     So heat banks too, at 0.03 — near-latching, deliberately the same shape as
+     scarFraction. A push that dies short still bought something, and the match
+     becomes a campaign against the Core across several assaults instead of one
+     perfect window nobody can hold. This does NOT fix the army trade; it stops
+     that trade from silently deciding the match on its own. */
+  coolRecovery:     0.03,
+  /* An offline tower welded back to this fraction of its (scarred) ceiling comes
+     back online and stops the meltdown.
+
+     RAISED from 0.30, which was far too cheap to be counterplay. At repair 16/s
+     a single technician brought a 330-ceiling tower back over a 30% bar in
+     about two seconds; measured, three of them relit BOTH downed towers inside
+     sixteen seconds and ended a hold at 20%. A tower that works again after two
+     seconds of welding is not a repair, it is a light switch, and it made the
+     hold impossible to sustain no matter how well the player fought for it.
+
+     At 0.85 the compound has to actually rebuild the thing, which takes long
+     enough that killing the welder is a real answer — and killing the welder is
+     the entire counterplay the meltdown is built around. */
+  coolantRelight:   0.85,
+  /* A tower that has just been knocked over cannot be relit for this long, no
+     matter how many technicians stand on it.
+
+     This is what makes SEQUENTIAL play possible, and without it the objective
+     was arithmetic nobody could do. "All three offline at once" sounds like one
+     requirement; with instant relighting it is really "deal 1350 damage spread
+     across three positions inside a defended compound before any of it decays",
+     and measured, a committed 35-unit army got two towers low and never touched
+     the third. The lockout turns that back into the thing a player actually
+     does: knock them over one at a time and chain the windows.
+
+     Deliberately SHORTER than meltdownSeconds. The first tower's lockout has
+     expired by the time the third goes down, so the technicians are free to
+     start relighting the moment the hold begins — the player gets a realistic
+     path to the all-down state and still has to fight to keep it. */
+  coolantLockout:   25,
+
+  /* --- Emergency response: what makes the hold a FIGHT and not a wait --------
+     The hold only asks a question if the compound is trying to break it. It was
+     not: technicians come from Security Depots and are capped at two, so a
+     player who razed the depots on the way in — which is the normal, correct
+     line, since depots delay sweeps — would face literally no repair response.
+     The ending would have been a 45-second wait with the outcome already known,
+     which is the exact failure mode this whole rework exists to remove.
+
+     So a meltdown triggers a response the player cannot pre-empt by demolition:
+
+     1. The Core itself dispatches technicians while it cooks. Slower than a
+        depot and hard-capped, so razing depots still MATTERS (it halves the
+        rate) without switching the counterplay off entirely.
+     2. Every raider in the field turns around.
+
+     (2) is the important one, and it is what makes the wave clock a tool rather
+     than a threat: start the hold just after a sweep leaves and you have most
+     of a minute before it can be back on top of you. Start it with a sweep
+     still mustering and you are holding against the whole compound. The HUD has
+     always shown "next sweep" and it has never once been something the player
+     could USE. Now the single most important decision in the match is read off
+     a number that was already on screen. */
+  emergencyEvery:   9,      // seconds between Core-dispatched technicians
+  emergencyTechs:   4,      // hard cap on live technicians during a meltdown
 
   /* How long a machine structure must go unhit before a Field Technician will
      weld it. Mirrors regenDelay, which is the player's own out-of-combat rule —

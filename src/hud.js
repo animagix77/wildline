@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
-import { fmt, queuedPop, rootsPrice, rootsMaxed } from './world.js';
+import { fmt, queuedPop, rootsPrice, rootsMaxed, coolantsOnline } from './world.js';
 import { waterLevel, lakeCount } from './water.js';
-import { isPouring, nextFront } from './weather.js';
+import { isPouring, nextFront, precipWord } from './weather.js';
 import { setSelection, syncHoverTip, refreshRootsCard } from './input.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
@@ -66,7 +66,7 @@ export function updateHUD() {
       /* These used to share one slot and hide each other. Show whichever the
          player can act on, and say when the sky is helping. */
       const bits = [];
-      if (isPouring()) bits.push('raining');
+      if (isPouring()) bits.push(precipWord());
       if (n) bits.push(`${n} watered`);
       /* On a map whose sky is on a timetable, the front is the single most
          plannable thing on the board — it is fixed, it is known, and pushing
@@ -80,19 +80,37 @@ export function updateHUD() {
   }
 
   /* objective */
-  const left = G.coolants.filter(c => c.alive).length;
+  const left = coolantsOnline();
   const pips = el('objpips').children;
-  for (let i = 0; i < 3; i++) pips[i].className = 'pip ' + (G.coolants[i].alive ? 'alive' : 'dead');
+  for (let i = 0; i < 3; i++)
+    pips[i].className = 'pip ' + (G.coolants[i].downed ? 'dead' : 'alive');
   pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
-  /* Once the coolant towers are gone the objective is a RACE, so show the clock
-     rather than a sentence. The meltdown timer is the thing the player is now
-     playing against, and it is the only number that says how much of the match
-     is left. */
-  el('objtext').textContent = left > 0
-    ? `Destroy the Coolant Towers (${left} left)`
-    : G.core.alive
-      ? `Core melting down — ${fmt(Math.max(0, G.core.hp / (G.core.maxHp / RULES.runawaySeconds)))} · bring it down`
-      : 'The valley is quiet again';
+  /* The objective line has to carry the one thing that separates this ending
+     from every previous build: the towers coming back. "3 left" after you have
+     killed two reads as lost progress unless the line says who did it. */
+  const bar = el('heatbar'), wrap = el('heatwrap');
+  if (wrap) {
+    const showing = G.core.alive && (G.heat > 0.001 || G.coreExposed);
+    wrap.style.display = showing ? '' : 'none';
+    if (showing) {
+      bar.style.width = (G.heat * 100).toFixed(1) + '%';
+      /* Rising and falling have to look different, or a player cannot tell a
+         hold they are winning from one they have already lost. */
+      wrap.classList.toggle('cooling', !G.coreExposed);
+      el('heatnum').textContent = G.coreExposed
+        ? `${Math.max(0, Math.ceil((1 - G.heat) * RULES.meltdownSeconds))}s`
+        : 'cooling';
+    }
+  }
+  /* Cooling is continuous, so the objective reads as capacity, not a count:
+     "wear them down" is the true instruction and a tower at 20% is real
+     progress the player should be able to see. */
+  const coolPct = Math.round((G.coolFrac !== undefined ? G.coolFrac : 1) * 100);
+  el('objtext').textContent = !G.core.alive
+    ? 'The valley is quiet again'
+    : G.coreExposed
+      ? 'HOLD — the Core is cooking. Do not let them repair'
+      : `Wreck the Coolant Towers — cooling at ${coolPct}%`;
 
   /* cards */
   for (const c of cards) {

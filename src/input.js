@@ -20,7 +20,7 @@ const _p = new THREE.Vector3();
 let canvas, rts;
 let down = null;          // {x,y,button}
 let dragging = false;
-let lastClickAt = 0, lastClickEnt = null;
+let lastClickAt = 0, lastClickType = null;
 let lastGroupKey = { key: null, at: 0 };
 
 export function initInput(canvasEl, rtsCam) {
@@ -221,16 +221,28 @@ function clickSelect(x, y, additive, screenOnly) {
 
   /* Double-click grabs the whole species, not just what is on screen —
      on-screen-only silently left half the pack behind at 96 pop. Ctrl+double
-     restores the narrow behaviour when you do want just what you can see. */
-  if (ent === lastClickEnt && now - lastClickAt < 340 && !ent.isBuilding) {
+     restores the narrow behaviour when you do want just what you can see.
+
+     MATCHED ON TYPE, NOT ON IDENTITY, and that is the whole fix. The test used
+     to be `ent === lastClickEnt`: the exact same animal had to be under the
+     cursor both times. Animals move. A wolf travelling at 10.5 units/second
+     clears its own 0.6-unit radius in about 60ms, so across a 340ms window the
+     second click almost always landed on a different wolf — or on the grass
+     where that wolf used to be — and the feature quietly did nothing in the one
+     situation anybody wants it in, which is a pack on the move. Reported as
+     missing rather than broken, which is exactly how it would feel.
+
+     Window widened to 450ms too; 340 was well under the ~500ms most systems
+     use, so even a stationary target needed an unusually brisk double-click. */
+  if (lastClickType && ent.type === lastClickType && now - lastClickAt < 450 && !ent.isBuilding) {
     const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
       && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
     SFX.select(); voiceFor(G.selection, 'select');
-    lastClickEnt = null;
+    lastClickType = null;
     return;
   }
-  lastClickEnt = ent; lastClickAt = now;
+  lastClickType = ent.isBuilding ? null : ent.type; lastClickAt = now;
 
   if (additive && ent.team === TEAM.WILD) {
     const i = G.selection.indexOf(ent);
@@ -502,12 +514,12 @@ function fillPauseCard() {
   const el = document.getElementById('pzstats');
   if (!el) return;
   const mins = Math.floor(G.time / 60), secs = Math.floor(G.time % 60);
-  const towers = G.coolants ? G.coolants.filter(c => c.alive).length : 0;
+  const towers = G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
   el.innerHTML = `
     <div><b>${mins}:${String(secs).padStart(2, '0')}</b><span>elapsed</span></div>
     <div><b>${G.pop}<i>/${G.popCap}</i></b><span>wildlife</span></div>
     <div><b>${G.bloomed || 0}<i>/${G.groves.length}</i></b><span>groves</span></div>
-    <div><b>${towers}</b><span>towers left</span></div>`;
+    <div><b>${towers}</b><span>towers cooling</span></div>`;
 }
 
 function toggleHelp() {

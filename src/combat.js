@@ -178,6 +178,9 @@ function updateShots(dt) {
 
 export function applyDamage(target, amount, attacker) {
   if (!target || !target.alive || G.over) return;
+  /* Already offline. It is standing rubble with a technician's name on it, not
+     a target — without this, a swarm parks on a dead tower chewing zero. */
+  if (target.downed) return;
 
   /* The shield is the objective. Gating *acquisition* was not enough — an explicit
      right-click attack order writes order.target directly and bypassed it, which
@@ -196,6 +199,12 @@ export function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  /* Balance instrumentation. Off unless a harness installs G.__dmgLog, so it
+     costs one property read per hit in a normal game. Worth keeping: every
+     balance question this project has asked -- "what is actually killing the
+     army", "is the gun line or the garrison doing the work" -- was previously
+     answered by staring at unit counts and guessing, and guessed wrong. */
+  if (G.__dmgLog) G.__dmgLog(attacker, target, dealt, amount);
   /* Machine structures scar. See RULES.scarFraction — this is what makes a
      failed assault worth something instead of worth nothing. Only machine
      buildings: the Heart Tree has no repair-negation problem to solve, and
@@ -265,7 +274,46 @@ export function applyDamage(target, amount, attacker) {
                Math.min(1.6, dealt / Math.max(12, target.maxHp * 0.2)));
   } else if (def.wall || def.building) SFX.hitStone(target.pos);
   else SFX.hitMetal(target.pos);
-  if (target.hp <= 0) kill(target, attacker);
+  if (target.hp <= 0) {
+    if (def.downs) takeOffline(target, attacker);
+    else kill(target, attacker);
+  }
+}
+
+/* A structure that cannot be destroyed, only switched off. It keeps its mesh,
+   its collision and its place in G.obstacles — the compound is not smaller for
+   having lost it — but it stops doing its job until somebody welds it back to
+   RULES.coolantRelight of its remaining ceiling. Scarring means that ceiling
+   falls every time, so the fourth take-down is much cheaper than the first. */
+export function takeOffline(e, killer) {
+  if (e.downed) return;
+  e.downed = true;
+  e.hp = 0;
+  e.downedAt = G.time;
+  /* Guaranteed downtime. See RULES.coolantLockout — this is what lets a player
+     chain three take-downs instead of needing all three at once. */
+  e.lockoutUntil = G.time + RULES.coolantLockout;
+  if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
+    killer.kills = (killer.kills || 0) + 1;
+    if (killer.refreshVeterancy) killer.refreshVeterancy();
+  }
+  const p = e.pos.clone(); p.y += 3;
+  SFX.boomBig(e.pos);
+  explode(p, 2.2, {});
+  /* Scored once, on the FIRST time it goes down. Relighting and re-killing a
+     tower is a real cost to the compound, but it is not repeatable points. */
+  if (!e.scoredOffline) { e.scoredOffline = true; addScore('structure', e.type, e.pos); }
+  e.onDowned && e.onDowned();
+}
+
+/* The weld that brings it back. Called from the technician's repair loop. */
+export function bringOnline(e) {
+  if (!e.downed) return;
+  e.downed = false;
+  e.relitAt = G.time;
+  ring(e.pos, 0x39d7ea, 26, 1.2);
+  SFX.shieldPing(e.pos);
+  e.onRelit && e.onRelit();
 }
 
 export function kill(e, killer) {

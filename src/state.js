@@ -29,9 +29,11 @@ export const G = {
   nextDetail: RULES.firstWaveAt * 0.55,   // the mid-cycle landscaping crew
   waveNum: 0,
 
-  coreExposed: false,
-  runawayAt: 0,               // G.time the last coolant died — starts the meltdown clock
-  runawaySaid: null,          // which meltdown countdown milestones have been announced
+  coreExposed: false,         // derived each frame: every coolant tower offline
+  heat: 0,                    // 0..1 meltdown progress; fills only while coreExposed
+  heatPeak: 0,                // high-water mark, so the HUD can show ground lost
+  heatSaid: null,             // which meltdown milestones have been announced
+  holdStartedAt: 0,           // G.time the current hold began (0 = not holding)
   depotsGoneToldOnce: false,
   over: false,
   paused: false,
