@@ -199,6 +199,12 @@ export function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  /* Balance instrumentation. Off unless a harness installs G.__dmgLog, so it
+     costs one property read per hit in a normal game. Worth keeping: every
+     balance question this project has asked -- "what is actually killing the
+     army", "is the gun line or the garrison doing the work" -- was previously
+     answered by staring at unit counts and guessing, and guessed wrong. */
+  if (G.__dmgLog) G.__dmgLog(attacker, target, dealt, amount);
   /* Machine structures scar. See RULES.scarFraction — this is what makes a
      failed assault worth something instead of worth nothing. Only machine
      buildings: the Heart Tree has no repair-negation problem to solve, and

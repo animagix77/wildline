@@ -749,6 +749,14 @@ export function updateWorld(dt) {
   }
   G.pop = pop; G.machinePop = mpop;
 
+  /* Lanes from groves, or from a bank the player cannot otherwise spend --
+     whichever is greater. See RULES.surgeLaneAt for the doom loop this exits. */
+  function laneCount() {
+    const fromGroves = 1 + Math.floor((G.bloomed || 0) / 2);
+    const surge = (RULES.surgeLaneAt || []).filter(t => G.biomass >= t).length;
+    return Math.min(RULES.maxLanes || 3, Math.max(fromGroves, 1 + surge));
+  }
+
   /* --- production queue -----------------------------------------------------
      Parallel lanes, one per bloomed grove. This is the single change that makes
      a swarm actually a swarm: a serial queue caps sustained spend at roughly one
@@ -761,7 +769,7 @@ export function updateWorld(dt) {
        economy could not keep: saturating one lane costs ~8.2 biomass/s and
        maximum income is ~19.9/s, so lanes 3 and 4 sat idle all game. Raising
        income to feed four instead flooded the player to the pop cap by 1:30. */
-    const lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+    const lanes = laneCount();
     G.lanes = lanes;
     for (let i = Math.min(lanes, G.queue.length) - 1; i >= 0; i--) {
       const item = G.queue[i];
@@ -775,7 +783,7 @@ export function updateWorld(dt) {
       SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
-  } else G.lanes = Math.min(3, 1 + Math.floor((G.bloomed || 0) / 2));
+  } else G.lanes = laneCount();
 }
 
 /* =========================================================================

@@ -207,6 +207,33 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   200,
+  /* --- Surge lanes: the comeback the economy did not have -------------------
+     Production lanes are one per two bloomed groves, capped at three. That
+     solved the rich case — see the note in world.js — and left the poor case
+     wide open, which turns out to be the same bug wearing a different hat.
+
+     MEASURED, and reported from a real session with a screenshot: 1148 banked
+     biomass, one grove, fourteen animals on the field. One grove is ONE lane,
+     so the player could not convert the bank no matter what they queued. That
+     is a doom loop with no exit: lose groves -> fewer lanes -> cannot rebuild
+     the army -> lose more groves. It is also precisely why no run ever fielded
+     a second assault, which is the thing blocking the meltdown rework.
+
+     A bank you cannot spend now opens a lane on its own. Self-correcting by
+     construction: the lane exists only while the surplus does, so it cannot be
+     farmed as a substitute for taking ground, and it disappears the moment the
+     player spends the bank down. Thresholds sit well clear of startBiomass so
+     the opening is unchanged. */
+  surgeLaneAt:   [420, 820],
+  /* Ceiling on parallel production lanes. Was hardcoded at 3 in world.js with a
+     note that four "was a promise the economy could not keep" — true at the
+     income of the time, when the player held two or three groves. A line that
+     actually defends its economy now holds five or six, and the measured
+     bottleneck moved: with popCap raised the army still peaked at 45 and
+     collapsed to 15 within thirty seconds of committing, never once reaching
+     the pop ceiling. Lanes, not population and not money, are what caps a
+     swarm's ability to replace losses mid-assault. */
+  maxLanes:       4,
   baseIncome:     0.7,      // per second from the Heart Tree
   grovIncome:     3.2,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
@@ -228,7 +255,12 @@ export const RULES = {
      rule is trying to create keeps its price. */
   decapBase:      0.35,     // capture-seconds undone per second by ONE machine
   decapPerExtra:  0.22,     // ...and per additional machine, to a cap of 1.0
-  popCap:         96,
+  /* RAISED from 96. Measured back-to-back on the same bot: peak heat 0.44 ->
+     0.63, damage onto the coolant towers 934 -> 1248, match 5:18 -> 6:17. The
+     design brief is a swarm that is individually weaker and wins through
+     numbers; at 96, with an average pop cost near two, that swarm was 45
+     bodies. */
+  popCap:         128,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
