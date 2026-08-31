@@ -288,7 +288,27 @@ export const RULES = {
      bodies stop evaporating, not that the big ones become unkillable. A test
      arm that pushed bear to 9 left it taking the floor of 1 damage per guard
      hit, which is a different game. */
-  popCap:         128,
+  /* RAISED AGAIN, 128 -> 280, from a PROFILE rather than a guess. Headless
+     frames are not render-gated -- __step runs the water reflection and the
+     whole post chain like any other frame -- so these are full frame costs:
+
+       100 wild units (159 entities)   3.45 ms/frame
+       200 wild units (259 entities)   6.29 ms/frame
+       300 wild units (361 entities)   9.18 ms/frame
+
+     Linear, about 0.029 ms per additional unit. At an average pop cost near
+     two, 280 buys roughly 140 animals for ~4.5 ms/frame, leaving most of a
+     60fps budget free even on hardware several times slower than this one.
+
+     CAVEAT, because it matters: performance.now() around a draw call measures
+     CPU submit time, not GPU completion, so this bounds the CPU side only. A
+     machine that struggles will be GPU fill- or draw-call-bound, which this
+     profile cannot see.
+
+     SEPARATELY: in bot runs the ECONOMY binds long before the pop cap does --
+     armies peaked at 45 units with the cap at 128 and never came near it.
+     Raising the ceiling does not raise the floor. */
+  popCap:         280,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
   garrisonDrones: 3,
