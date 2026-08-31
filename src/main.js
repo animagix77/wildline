@@ -14,7 +14,7 @@ import { updateWater, renderWaterReflection } from './water.js';
 import { initPost, renderPost, resizePost } from './post.js';
 import { SFX, updateListener, ambientVoices } from './audio.js';
 import { tickShaders } from './shaders.js';
-import { BASE, COMPOUND, RULES, TEAM } from './config.js';
+import { BASE, COMPOUND, RULES, TEAM, DEFS } from './config.js';
 import { updateCanopyFade } from './meshes.js';
 import { toast } from './ui.js';
 import { showSplash, splashReady } from './splash.js';
@@ -215,7 +215,7 @@ if (HEADLESS) {
     /* The live tuning tables. Balance work needs an A/B on the SAME build —
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */
-    RULES, spawn,
+    RULES, spawn, DEFS,
   };
 }
 

@@ -27,13 +27,13 @@ export const DEFS = {
   wolf: {
     name: 'Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z',
     hp: 56, dmg: 10, rate: 0.70, range: 2.6, speed: 10.5, radius: 1.0,
-    armor: 0, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
+    armor: 2, vision: 26, cost: 13, build: 2.1, pop: 1, death: 'topple',
     blurb: 'Loses to a rifle. Beats three. Bring more than three.'
   },
   boar: {
     name: 'Boar', team: TEAM.WILD, icon: '🐗', key: 'X',
     hp: 125, dmg: 22, rate: 1.25, range: 2.8, speed: 8.0, radius: 1.25,
-    armor: 2, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
+    armor: 3, vision: 25, cost: 24, build: 3.4, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Armoured battering ram. Shrugs off rifles.'
   },
   bear: {
@@ -45,7 +45,7 @@ export const DEFS = {
   capybara: {
     name: 'Capybara', team: TEAM.WILD, icon: '🦛', key: 'R',
     hp: 200, dmg: 6, rate: 1.4, range: 2.6, speed: 6.2, radius: 1.35,
-    armor: 3, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
+    armor: 4, vision: 25, cost: 20, build: 3.0, pop: 2, death: 'topple',
     /* Taunt biases enemy target selection toward this unit (see acquire()).
        Without it the capybara is merely tanky and the swarm still gets shot
        out from behind it; with it, putting capybaras in front is a real and
@@ -56,7 +56,7 @@ export const DEFS = {
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
     hp: 48, dmg: 12, rate: 0.55, range: 10, speed: 14, radius: 0.9,
-    armor: 0, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
+    armor: 2, vision: 30, cost: 26, build: 3.2, pop: 1, flying: true, ranged: true, death: 'fall',
     projectile: { color: 0xdff0c0, speed: 60, size: 0.22 },
     blurb: 'Flies over walls. Ignores the perimeter entirely.'
   },
@@ -79,7 +79,7 @@ export const DEFS = {
   beaver: {
     name: 'Beaver', team: TEAM.WILD, icon: '🦫', key: 'N',
     hp: 105, dmg: 12, rate: 1.0, range: 2.8, speed: 5.4, radius: 1.05,
-    armor: 2, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
+    armor: 3, vision: 25, cost: 32, build: 4.5, pop: 2, siege: 1.8, death: 'topple',
     mend: 14, mendRange: 7,
     blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
@@ -260,6 +260,15 @@ export const RULES = {
      design brief is a swarm that is individually weaker and wins through
      numbers; at 96, with an average pop cost near two, that swarm was 45
      bodies. */
+  /* ARMOUR IS SUBTRACTIVE, so it bites hardest on exactly what was killing the
+     swarm. Measured: guards do 60% of all damage the player takes and they do
+     it in 1648 small hits; a point of armour is therefore worth far more
+     against the gun line than against anything else. Buffed on the MANY (wolf
+     0->2, raven 0->2, boar 2->3, capybara 3->4, beaver 2->3) and NOT on bear or
+     porcupine -- "individually weaker, wins through numbers" means the cheap
+     bodies stop evaporating, not that the big ones become unkillable. A test
+     arm that pushed bear to 9 left it taking the floor of 1 damage per guard
+     hit, which is a different game. */
   popCap:         128,
   machinePopCap:  16,
   garrisonGuards: 7,        // scaled by difficulty alongside machinePopCap
@@ -588,7 +597,19 @@ export const RULES = {
      spent. A 45-second hold at half rate is a 90-second bar. Nobody was ever
      going to clear it, which is why every good-line run ended the same way — a
      hold that began, reached 16-25%, and died. */
-  meltdownSeconds:  30,
+  /* 30 -> 20, and this is the number that produced this project's first
+     measured WIN. Calibrated to what an army can actually hold, on a
+     zero-noise paired test: across every configuration tried, the swarm took
+     two towers, held them, and peaked at 0.58-0.66 heat before it was spent.
+     At meltdownSeconds 30 that is a ~20-second hold against a 30-second bar --
+     always short, and never by much. Pricing the bar at the measured hold
+     turns the same assault into a finish rather than a near miss.
+
+     PAIRED RESULT, three seeds, identical in every other respect:
+       baseline      heat 0 / 0    / 0.66   0 wins
+       meltdown 20   heat 0 / 0    / 1.00   1 win
+       + armour      heat 0 / 0.99 / 0.87   mean heat 0.22 -> 0.62 */
+  meltdownSeconds:  20,
   /* How many towers must be offline before the Core starts cooking, and how
      much faster it cooks once MORE of them are.
 
