@@ -207,6 +207,25 @@ export const DEFS = {
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
   startBiomass:   200,
+  /* --- WHAT THE OUTCOME VARIANCE ACTUALLY IS (correction) -------------------
+     Commit 43a8905 concluded that outcomes are "dominated by compound layout --
+     where the third tower sits relative to the other two". THAT IS WRONG, and
+     it is recorded here rather than quietly dropped because the same commit
+     recommended a whole programme of work on the strength of it.
+
+     Quick battles always load DEFAULT_MAP, and coolant, turret, depot and grove
+     positions are authored literals in maps.js. Verified directly: seeds 2001
+     and 2006 -- which produced peak heat 0.00 and 0.76 -- have byte-identical
+     coolants [[26,-68],[26,-30],[86,-50]], identical turrets, identical groves.
+     The layout never varied at all. The seed moves garrison spawn scatter by a
+     few metres, unit spawn jitter, and patrol assignment. Nothing else.
+
+     So the real finding is worse and more interesting: a match swings from
+     never-starting-a-meltdown to 76% of one on the strength of where seven
+     guards happened to stand at t=0. That is chaotic sensitivity, not map
+     variety -- a knife-edge somewhere in the middle of the match amplifying a
+     few metres into the whole result. Fragility, not depth. */
+
   /* --- Surge lanes: the comeback the economy did not have -------------------
      Production lanes are one per two bloomed groves, capped at three. That
      solved the rich case — see the note in world.js — and left the poor case
@@ -628,7 +647,43 @@ export const RULES = {
      doubles the rate and turns a grind into a finish — which is a much better
      shape for the last tower anyway, because it makes the hardest one to reach
      the one that actually decides the match. */
-  meltdownAt:       2,      // towers offline before the Core cooks at all
+  /* --- Cooling is CONTINUOUS, and this is the fix for the knife-edge --------
+     THE MEASUREMENT. Two seeds on the identical authored map, differing only in
+     where the garrison happened to spawn: their grove and income curves are
+     almost the same (both 6 -> 4 -> 3 -> 2 -> 1 -> 0), and at t111 one had 42
+     animals and the other 47. That five-unit gap produced peak heat 0.00 versus
+     0.76. One match never started a meltdown; the other got three quarters of
+     the way to winning.
+
+     The cause was a STEP FUNCTION. Cooling counted standing towers, so a tower
+     at 1hp cooled exactly as well as a tower at full and 90% of an assault paid
+     nothing at all. Being ten percent short of a threshold returned zero, which
+     is what turned a few metres of spawn scatter into the whole result -- and
+     it is the same "a failed push must leave a mark" principle as scarFraction,
+     which this violated at the level of the objective itself.
+
+     Cooling is now the sum of each tower's remaining health fraction. Damage
+     counts the instant it lands, the Core warms as the towers are worn down,
+     and taking one fully offline is simply the biggest single step available
+     rather than the only one that exists.
+
+     SET FROM MEASUREMENT, not from taste. Instrumented the lowest cooling
+     fraction an assault ever forces, across three out-of-sample seeds:
+
+       s2003  coolMin 0.603
+       s2001  coolMin 0.569
+       s2006  coolMin 0.333
+
+     So a committed swarm wrecks between a third and two thirds of the plant.
+     A line at 0.34 caught none of them and a line at 0.50 caught one; both were
+     step functions wearing a smaller costume. At 0.65 every one of those
+     assaults warms the Core, and because the rate scales with the DEPTH below
+     the line the reward is proportional: wrecking 40% of cooling is a slow
+     creep, stripping two thirds is a genuine race. Heat also barely bleeds off
+     (coolRecovery), so the creep accumulates across a long match instead of
+     being wasted. */
+  meltdownCool:     0.65,   // total cooling fraction below which the Core warms
+  meltdownAt:       2,      // (legacy) towers offline before the Core cooks
   /* Full rate at TWO, not three — so the bar a single army can reach is the bar
      that finishes the job. The third tower is still worth taking: the rate is
      down/meltdownFullAt, so three-of-three cooks at 1.5x and turns a 30-second

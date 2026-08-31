@@ -102,11 +102,15 @@ export function updateHUD() {
         : 'cooling';
     }
   }
+  /* Cooling is continuous, so the objective reads as capacity, not a count:
+     "wear them down" is the true instruction and a tower at 20% is real
+     progress the player should be able to see. */
+  const coolPct = Math.round((G.coolFrac !== undefined ? G.coolFrac : 1) * 100);
   el('objtext').textContent = !G.core.alive
     ? 'The valley is quiet again'
-    : left > 0
-      ? `Knock all 3 Coolant Towers offline (${left} still cooling)`
-      : 'HOLD — every tower offline, the Core is cooking';
+    : G.coreExposed
+      ? 'HOLD — the Core is cooking. Do not let them repair'
+      : `Wreck the Coolant Towers — cooling at ${coolPct}%`;
 
   /* cards */
   for (const c of cards) {

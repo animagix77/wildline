@@ -286,16 +286,16 @@ export function populate() {
       const left = coolantsOnline();
       const down = G.coolants.length - left;
       ring(c.pos, 0x39d7ea, 26, 1.4);
-      /* Announced on the THRESHOLD, not on the last tower. The meltdown starts
-         at RULES.meltdownAt, so firing this only when every tower is dark would
-         let the player cross the line that decides the match in silence. */
-      if (down < RULES.meltdownAt) {
+      /* Cooling is continuous now, so a tower going fully offline is a big step
+         rather than a threshold crossing. Announce it as capacity lost, and
+         save the alarm for the moment the Core actually starts to warm. */
+      if (!G.coreExposed) {
         commsEvent('coolant');
         toast(`Coolant tower offline — ${left} still cooling`, 'machine');
-      } else if (down > RULES.meltdownAt) {
+      } else if (down > 1) {
         commsEvent('coolant');
         SFX.alarm();
-        toast('The last tower is down — the Core is cooking at full rate', 'warn');
+        toast(`Another tower down — the Core is cooking ${down >= G.coolants.length ? 'at full rate' : 'faster'}`, 'warn');
       } else {
         commsEvent('coreExposed');
         SFX.shieldDown();
@@ -303,8 +303,8 @@ export function populate() {
         /* Name the shape of the ending, not just the fact of it. The player has
            to know this is a HOLD — that walking away now gives it all back — or
            they will do what every previous build trained them to do and leave. */
-        toast(`MELTDOWN — keep ${RULES.meltdownAt} towers offline and the Core cooks. `
-              + 'Take the last one down and it cooks twice as fast.', 'warn');
+        toast('MELTDOWN — the Core is cooking. Keep the coolant towers down and '
+              + 'wrecked; every one you let them rebuild slows it.', 'warn');
       }
     };
     c.onRelit = () => {
@@ -641,16 +641,24 @@ export function updateWorld(dt) {
      Heat bleeds back rather than resetting, so a hold broken at 80% is real
      progress and not a wasted assault. */
   if (G.core.alive && !G.over) {
-    const online = coolantsOnline();
-    const down = G.coolants.length - online;
+    /* COOLING IS CONTINUOUS, not a count of standing towers. This is the fix
+       for the knife-edge — see RULES.meltdownCool. A tower cools in proportion
+       to how intact it is, so every point of damage counts the moment it lands
+       instead of counting for nothing until the tower falls over. */
+    let cap = 0;
+    for (const c of G.coolants) {
+      if (!c.alive || c.downed) continue;
+      cap += Math.max(0, c.hp) / Math.max(1, c.maxHp);
+    }
+    const cool = cap / Math.max(1, G.coolants.length);   // 1 = fully cooled
     const wasExposed = G.coreExposed;
-    /* Exposure is a THRESHOLD, not unanimity. See RULES.meltdownAt. */
-    G.coreExposed = down >= RULES.meltdownAt;
-    /* Full rate at meltdownFullAt, and ABOVE it the extra towers accelerate:
-       three-of-three cooks half again as fast as two-of-three. Capped so a map
-       with many towers cannot produce an instant win. */
+    G.coreExposed = cool < RULES.meltdownCool;
+    /* Rate scales with how far cooling has been pushed below the line, so
+       stripping the last tower still finishes markedly faster than sitting at
+       the threshold. */
     const heatMult = G.coreExposed
-      ? Math.min(1.5, down / Math.max(1, RULES.meltdownFullAt)) : 0;
+      ? Math.min(1, (RULES.meltdownCool - cool) / Math.max(0.01, RULES.meltdownCool)) : 0;
+    G.coolFrac = cool;
 
     if (G.coreExposed && !wasExposed) G.holdStartedAt = G.time;
     if (!G.coreExposed && wasExposed) {
