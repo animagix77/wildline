@@ -238,7 +238,14 @@ function buildMist(scene, strength) {
    should SLOW the loss, not cancel it, so killing pumps still matters. Break
    the intakes during a downpour and the lake actually climbs — which is the
    combination worth playing for. */
-const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.12, mist: 0.06, clear: 0 };
+/* Snow RAISED from 0.12. At that value snow was replenishment on paper only:
+   the band multiplier peaks near 1.18, so snow topped out at 0.14 of a lake's
+   drain rate — and, worse, it never cleared the isPouring() threshold, so the
+   water bar showed no tell at all. A player watching thick snow fall while the
+   lakes kept dropping was reading the game correctly; it just was not doing
+   anything. Snowmelt is slower than rain, so it sits below it, but it is now a
+   real contribution rather than a rounding error. */
+const RAINFALL = { storm: 0.75, rain: 0.5, snow: 0.35, mist: 0.06, clear: 0 };
 
 /** 0..1-ish multiplier of a lake's drain rate, currently falling as water. */
 export function rainfall() {
@@ -254,7 +261,18 @@ export function rainfall() {
 }
 
 /** True while it is coming down hard enough to be worth telling the player. */
-export function isPouring() { return rainfall() > 0.42; }
+/* Threshold LOWERED from 0.42 so it means "water is coming back", which is
+   what the HUD uses it for, rather than "it is specifically raining hard".
+   At 0.42 snow could never trip it no matter how heavily it fell. */
+export function isPouring() { return rainfall() > 0.24; }
+
+/* What to CALL it in the HUD. Snow replenishing a lake is snowmelt, and saying
+   "raining" over a blizzard is the kind of small lie that makes a player stop
+   trusting the readout. */
+export function precipWord() {
+  const n = G.weather && G.weather.name;
+  return n === 'snow' ? 'snowmelt' : n === 'mist' ? 'mist' : 'raining';
+}
 
 export function updateWeather(dt) {
   const cam = G.camera;

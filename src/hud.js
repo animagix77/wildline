@@ -3,7 +3,7 @@ import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
 import { fmt, queuedPop, rootsPrice, rootsMaxed, coolantsOnline } from './world.js';
 import { waterLevel, lakeCount } from './water.js';
-import { isPouring, nextFront } from './weather.js';
+import { isPouring, nextFront, precipWord } from './weather.js';
 import { setSelection, syncHoverTip, refreshRootsCard } from './input.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
@@ -66,7 +66,7 @@ export function updateHUD() {
       /* These used to share one slot and hide each other. Show whichever the
          player can act on, and say when the sky is helping. */
       const bits = [];
-      if (isPouring()) bits.push('raining');
+      if (isPouring()) bits.push(precipWord());
       if (n) bits.push(`${n} watered`);
       /* On a map whose sky is on a timetable, the front is the single most
          plannable thing on the board — it is fixed, it is known, and pushing

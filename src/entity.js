@@ -1091,7 +1091,25 @@ export class Entity {
         a.legs[0].position.y = 0.52 + Math.max(0, Math.sin(ph)) * 0.09 * rel;
         a.legs[1].position.y = 0.52 + Math.max(0, -Math.sin(ph)) * 0.09 * rel;
         a.torso.rotation.y = Math.sin(ph) * 0.08 * rel;
-        if (a.gun) a.gun.position.z = 0.5 - Math.max(0, this.recoil || 0) * 0.35;
+
+        /* ENGAGED STANCE. Recoil alone is a 0.125s twitch once every 0.65s on a
+           unit whose legs are still because it is standing to shoot — so a Local
+           holding a firing line looked exactly like a Local doing nothing, which
+           is what it was reported as. Shouldering the rifle is a pose that lasts
+           as long as the fight does, so "these are in combat" reads at a glance
+           and from across the valley, with the recoil kick on top of it. */
+        const engaged = !!(this.target && this.target.alive) ? 1 : 0;
+        this._aim = (this._aim ?? 0) + (engaged - (this._aim ?? 0)) * Math.min(1, dt * 7);
+        const aim = this._aim;
+        if (a.gun) {
+          a.gun.position.z = 0.5 + aim * 0.22 - Math.max(0, this.recoil || 0) * 0.35;
+          a.gun.position.y = 1.5 + aim * 0.1;
+          a.gun.rotation.x = -aim * 0.16 + Math.max(0, this.recoil || 0) * 0.25;
+          a.gun.position.x = 0.5 - aim * 0.16;      // brought in to the shoulder
+        }
+        /* Squared up to the target rather than strolling. */
+        a.torso.rotation.y += aim * 0.22;
+        a.torso.rotation.x = -aim * 0.07;
         break;
       }
       case 'bird': {

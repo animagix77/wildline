@@ -786,17 +786,23 @@ export const buildGrove = () => {
   const shaftGeo = new THREE.PlaneGeometry(SHAFT_W, SHAFT_H, SEG_X, SEG_Y);
   const sp = shaftGeo.attributes.position;
   const scol = new Float32Array(sp.count * 3);
-  const tint = new THREE.Color(0x8bffa0);
+  /* Falloff only — GREYSCALE, deliberately. The green used to be baked in here,
+     which meant material.color could never do anything useful: multiplying a red
+     tint through green vertices gives near-black, not red. With luminance in the
+     vertex colours and the hue in material.color, the beam can be recoloured at
+     runtime in one assignment, which is what lets a contested grove go amber and
+     a lost one go red. See groveTint() in world.js. */
   for (let i = 0; i < sp.count; i++) {
     const v = (sp.getY(i) + SHAFT_H / 2) / SHAFT_H;         // 0 base .. 1 tip
     const u = Math.abs(sp.getX(i)) / (SHAFT_W / 2);         // 0 centre .. 1 edge
     const vertical = Math.pow(1 - v, 2.0);                  // fades out toward the sky
     const across = Math.pow(1 - u, 1.6);                    // soft sides, no hard edge
     const k = vertical * across * 0.85 + 0.015;
-    scol[i * 3] = tint.r * k; scol[i * 3 + 1] = tint.g * k; scol[i * 3 + 2] = tint.b * k;
+    scol[i * 3] = k; scol[i * 3 + 1] = k; scol[i * 3 + 2] = k;
   }
   shaftGeo.setAttribute('color', new THREE.BufferAttribute(scol, 3));
   const pillar = new THREE.Mesh(shaftGeo, new THREE.MeshBasicMaterial({
+    color: 0x8bffa0,          // the hue lives here now; vertex colours are luminance
     vertexColors: true, transparent: true, opacity: 0.45,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     depthWrite: false, fog: true,
@@ -873,9 +879,24 @@ export function makeForest(count, placeFn) {
      camera and a unit standing there — one position in four hides whatever is
      on it, which is how you end up being shot by something you cannot see or
      click. Each instance carries its own fade, driven from the CPU. */
+  /* THE TRUNK WAS NEVER FADED, and it is the half that stands at eye level.
+     MEASURED on a real match: 22.7% of machines shooting at the player's
+     animals were occluded from the camera, and 99 of those occlusions were
+     TRUNKS — geometry with no fade path at all, sitting in exactly the 0-4.4
+     band where units and shooters are. The canopy above it had been fading
+     politely out of the way for a year while the pole in front of the guard
+     stayed solid.
+
+     Trunk i and leaf i are the same tree, so ONE fade attribute drives both.
+     The buffer is shared by reference, which also means the two can never
+     drift apart and show a floating canopy over a solid trunk. */
   const fade = new Float32Array(n).fill(1);
-  leaves.geometry.setAttribute('aFade', new THREE.InstancedBufferAttribute(fade, 1));
+  const fadeAttr = new THREE.InstancedBufferAttribute(fade, 1);
+  leaves.geometry.setAttribute('aFade', fadeAttr);
+  trunks.geometry.setAttribute('aFade', fadeAttr);
   leaves.userData.fade = fade;
+  trunks.userData.fade = fade;
+  leaves.userData.twin = trunks;      // so updateCanopyFade can flag both dirty
   leaves.userData.pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     leaves.getMatrixAt(i, dummy.matrix);
@@ -884,6 +905,7 @@ export function makeForest(count, placeFn) {
     leaves.userData.pos[i * 3 + 1] = dummy.position.y;
     leaves.userData.pos[i * 3 + 2] = dummy.position.z;
   }
+  trunks.userData.pos = leaves.userData.pos;
   return [trunks, leaves];
 }
 
@@ -891,7 +913,8 @@ export function makeForest(count, placeFn) {
    world.js clones every scenic material through applyFogMask(), which would
    silently drop an onBeforeCompile set at construction time. Composes with
    whatever hook is already on the material rather than replacing it. */
-export function enableCanopyFade(leaves) {
+export function enableCanopyFade(leaves, trunks) {
+  if (trunks) enableCanopyFade(trunks);      // same hook, same shared attribute
   const mat = leaves.material;
   if (!mat || mat.userData.canopyFade) return;
   mat.userData.canopyFade = true;
@@ -927,15 +950,28 @@ export function updateCanopyFade(leaves, camera, watchers, dt) {
     if (wDist < 0.01) continue;
     _cu.divideScalar(wDist);
     for (let i = 0; i < n; i++) {
-      if (want[i] < 0.35) continue;                     // already fully faded
-      const tx = pos[i * 3], ty = pos[i * 3 + 1] + 6.7, tz = pos[i * 3 + 2];
-      _cf.set(tx - camX, ty - camY, tz - camZ);
-      const along = _cf.dot(_cu);
-      if (along <= 0 || along >= wDist) continue;       // behind camera, or behind the unit
-      /* perpendicular distance from the camera->unit ray */
-      const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
-      if (perp < 3.2) want[i] = Math.min(want[i], 0.3);
-      else if (perp < 4.6) want[i] = Math.min(want[i], 0.62);
+      if (want[i] <= 0.16) continue;                    // already fully faded
+      const tx = pos[i * 3], tz = pos[i * 3 + 2];
+      const by = pos[i * 3 + 1];
+      /* TWO SAMPLES PER TREE: the canopy mass at +6.7 and the trunk at +2.2.
+         Testing only the canopy meant a trunk squarely between the camera and
+         a shooter never triggered a fade at all — which is most of the 22.7%
+         of shooters measured as occluded, because the trunk occupies exactly
+         the 0-4.4 band that units and shooters stand in. */
+      let best = 1e9;
+      for (let h = 0; h < 2; h++) {
+        _cf.set(tx - camX, by + (h ? 2.2 : 6.7) - camY, tz - camZ);
+        const along = _cf.dot(_cu);
+        if (along <= 0 || along >= wDist) continue;     // behind camera, or behind the unit
+        /* perpendicular distance from the camera->unit ray */
+        const perp = Math.sqrt(Math.max(0, _cf.lengthSq() - along * along));
+        if (perp < best) best = perp;
+      }
+      /* Inner band goes to 0.15, not 0.3. Three faded canopies at 0.3 still
+         composite to two-thirds opaque, which is a wall you can see a shape
+         moving behind but cannot identify or click. */
+      if (best < 3.2) want[i] = Math.min(want[i], 0.15);
+      else if (best < 4.6) want[i] = Math.min(want[i], 0.5);
     }
   }
   /* Ease, so canopies dissolve rather than blink as units walk under them. */
@@ -945,7 +981,12 @@ export function updateCanopyFade(leaves, camera, watchers, dt) {
     const d = want[i] - fade[i];
     if (Math.abs(d) > 0.002) { fade[i] += d * k; dirty = true; }
   }
-  if (dirty) leaves.geometry.getAttribute('aFade').needsUpdate = true;
+  if (dirty) {
+    leaves.geometry.getAttribute('aFade').needsUpdate = true;
+    /* Same buffer object, but three.js tracks upload state per geometry. */
+    const twin = leaves.userData.twin;
+    if (twin) twin.geometry.getAttribute('aFade').needsUpdate = true;
+  }
 }
 
 export function makeScatter(geo, material, count, placeFn, scaleRange = [0.6, 1.6]) {

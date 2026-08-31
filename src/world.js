@@ -155,7 +155,7 @@ function buildProps(scene) {
   const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
   trunks.material = scenic(trunks.material);
   leaves.material = scenic(leaves.material);
-  enableCanopyFade(leaves);          // must follow the material swap, not precede it
+  enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
   G.canopy = leaves;
   scene.add(trunks); scene.add(leaves);
 
@@ -417,6 +417,51 @@ export function coolantsOnline() {
   return G.coolants ? G.coolants.filter(c => c.alive && !c.downed).length : 0;
 }
 
+/* GROVE STATE, IN COLOUR.
+
+   The tells for losing a grove used to be an opacity change (0.75 -> 0.18) and
+   a toast. Opacity is a terrible carrier for "this is being taken from you":
+   it reads as distance or weather, it is invisible against a bright sky, and at
+   an RTS camera pitch the beam is foreshortened anyway. Players watched groves
+   flip without noticing, which matters because a lost grove costs the income,
+   the recapture AND 18 seconds of dormancy in which it cannot be retaken.
+
+   Hue is unambiguous and reads at any size:
+     green   yours, paying
+     white   neutral, free to take
+     amber   CONTESTED — machines on it, progress draining, go now
+     red     lost, and dormant: nothing you do here works yet
+   Amber and red also pulse, because a static colour reads as decoration. */
+const GROVE_TINT = {
+  owned:     0x8bffa0,
+  neutral:   0xbfe8cf,
+  contested: 0xffb03a,
+  lost:      0xff4b3a,
+};
+
+function groveTint(g, t) {
+  const a = g.anim;
+  if (!a || !a.pillar) return;
+  const dormant = G.time < (g.dormantUntil || 0);
+  const key = g.losing ? 'contested' : dormant ? 'lost' : g.owned ? 'owned' : 'neutral';
+
+  if (a._tintKey !== key) {
+    a._tintKey = key;
+    a.pillar.material.color.setHex(GROVE_TINT[key]);
+    if (a.beaconRing) a.beaconRing.material.color.setHex(GROVE_TINT[key]);
+  }
+
+  /* Base opacity per state, then a pulse on the two that want attention. The
+     pulse is on OPACITY rather than colour so it survives the additive blend
+     without washing the hue out. */
+  const base = key === 'owned' ? 0.75 : key === 'contested' ? 0.85
+             : key === 'lost'  ? 0.55 : 0.45;
+  const urgent = key === 'contested' || key === 'lost';
+  const pulse = urgent ? 0.78 + 0.22 * Math.sin(t * (key === 'contested' ? 7.5 : 3.4)) : 1;
+  a.pillar.material.opacity = base * pulse;
+  if (a.beaconRing && a.beaconRing.visible) a.beaconRing.material.opacity = 0.46 * pulse;
+}
+
 /* Mission resolution: in a campaign, bank the result and route the end-screen
    button back to the territory map; in a quick battle, just offer a rerun. */
 function endMission(win) {
@@ -501,7 +546,7 @@ export function updateWorld(dt) {
        worth doing — see RULES.groveDormant. */
     if (g.dormantUntil && G.time >= g.dormantUntil) {
       g.dormantUntil = 0;
-      g.anim.pillar.material.opacity = 0.45;
+      /* opacity/colour are groveTint's job now — it reads dormantUntil directly */
       toast('The trampled ground has recovered — that grove can be taken again');
     }
     let wild = 0, machine = 0;
@@ -526,7 +571,7 @@ export function updateWorld(dt) {
     if (g.losing && !g._warned) {
       g._warned = true;
       SFX.heartAlarm();
-      toast('A grove is being trampled — send something', 'warn');
+      toast('A grove is being trampled — its light has turned AMBER. Send something', 'warn');
     } else if (!g.losing && g._warned && dir >= 0) g._warned = false;
     if (dir !== 0) {
       g.prog = clamp(g.prog + dir * dt, 0, RULES.captureTime);
@@ -534,7 +579,6 @@ export function updateWorld(dt) {
         g.owned = true;
         g.bloomAt = G.time;      // income ramps in — see below
         g.anim.bloom.visible = true;
-        g.anim.pillar.material.opacity = 0.75;
         g.anim.water.material.uniforms.wl_bloom.value = 1;
         SFX.bloom();
         ring(g.pos, 0x9bff6a, 9, 1.1);
@@ -546,11 +590,11 @@ export function updateWorld(dt) {
         g.owned = false;
         g.dormantUntil = G.time + RULES.groveDormant;
         g.anim.bloom.visible = false;
-        g.anim.pillar.material.opacity = 0.18;   // the dim pillar IS the dormancy tell
         g.anim.water.material.uniforms.wl_bloom.value = 0;
-        toast(`A grove has been trampled — the ground will not take a bloom for ${RULES.groveDormant}s`, 'warn');
+        toast(`A grove has been trampled — its light turns RED and will not take a bloom for ${RULES.groveDormant}s`, 'warn');
       }
     }
+    groveTint(g, G.time);
     if (g.owned) bloomed++;
   }
   /* A new lane is a real step up in throughput, so it gets its own chime --
