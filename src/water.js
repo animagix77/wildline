@@ -29,6 +29,7 @@ const REFILL = 0.9;      // recovery rate as a fraction of the drain rate
 const REFLECT_SIZE = 512;
 
 let lakes = [];
+let rivers = [];
 let reflectTarget = null, reflectCam = null;
 const _reflMat = new THREE.Matrix4();
 const _norm = new THREE.Vector3(0, 1, 0);
@@ -100,12 +101,23 @@ export function initWater(scene, defs) {
           gl_FragColor = vec4(col, a);
         }`,
     });
+    /* RIVER SEGMENTS GET NO CIRCLE MESH. The first river shipped as a chain of
+       visible discs and looked exactly like a chain of visible discs — reported
+       as "you simply used a bunch of round shaped lakes to build a stream".
+       The circles remain as GAMEPLAY data (drinking, damming, draining,
+       catchment all key off them); the water the player sees is one continuous
+       ribbon built below from the authored polyline. */
+    if (d.river) {
+      geo.dispose(); mat.dispose();
+      return {
+        x: d.x, z: d.z, r: d.r, y: terrainHeight(d.x, d.z) + 0.35,
+        level: 1, mesh: null, uni: null, river: true,
+        baseDrain: d.drain !== undefined ? d.drain : 0.0016,
+        warned: {},
+      };
+    }
     const mesh = new THREE.Mesh(geo, mat);
-    /* River segments sit lower in the ground than ponds -- a cut bank, not a
-       raised pool -- which also hides the seam where two segments overlap on
-       sloping terrain. */
-    const lift = d.river ? 0.28 : 0.5;
-    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + lift, d.z);
+    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + 0.5, d.z);
     mesh.renderOrder = 1;
     mesh.raycast = () => {};
     scene.add(mesh);
@@ -118,7 +130,120 @@ export function initWater(scene, defs) {
     };
   });
   G.lakes = lakes;
+
+  if (G.map && G.map.river) {
+    rivers.push(buildRiver(scene, G.map.river, lakes.filter(l => l.river)));
+  }
   return lakes;
+}
+
+/* ------------------------------------------------------------ the ribbon --
+   One mesh per river: a Catmull-Rom spline through the authored polyline,
+   swept into a strip. Same water language as the lakes — the reflection
+   target, the ripple noise, the shoreline that retreats as the level falls —
+   but the shoreline runs ALONG the banks (across-width coordinate) instead of
+   radially, and the ripples drift downstream, because a river that does not
+   visibly flow is a canal. */
+function buildRiver(scene, pts, members) {
+  const curve = new THREE.CatmullRomCurve3(
+    pts.map(p => new THREE.Vector3(p.x, 0, p.z)), false, 'catmullrom', 0.5);
+  const len = curve.getLength();
+  const N = Math.max(24, Math.ceil(len / 2));
+  const centers = curve.getSpacedPoints(N);
+
+  /* Smoothed bank height: the strip is flat across its width, and the
+     centreline height is a 7-sample moving average so the water surface does
+     not kink over every terrain ripple it crosses. */
+  const hRaw = centers.map(c => terrainHeight(c.x, c.z));
+  const hs = hRaw.map((_, i) => {
+    let s = 0, n = 0;
+    for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j <= N) { s += hRaw[j]; n++; } }
+    return s / n + 0.35;
+  });
+
+  const pos = new Float32Array((N + 1) * 2 * 3);
+  const uvArr = new Float32Array((N + 1) * 2 * 2);
+  const idx = [];
+  for (let i = 0; i <= N; i++) {
+    const c = centers[i];
+    const t = curve.getTangentAt(i / N);
+    let nx = -t.z, nz = t.x;
+    const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+    /* width breathes gently and tapers at the ends so the river dies into the
+       ground instead of stopping in a blunt bar */
+    const u = i / N;
+    const taper = Math.min(1, u / 0.07, (1 - u) / 0.07);
+    const w = (5.8 + 1.0 * Math.sin(i * 0.47)) * (0.35 + 0.65 * taper);
+    const y = hs[i];
+    pos.set([c.x - nx * w, y, c.z - nz * w, c.x + nx * w, y, c.z + nz * w], i * 6);
+    uvArr.set([u, -1, u, 1], i * 4);
+    if (i < N) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+  geo.setIndex(idx);
+
+  const uni = {
+    uTime:    { value: 0 },
+    uRefl:    { value: reflectTarget.texture },
+    uLevel:   { value: 1 },
+    uDeep:    { value: new THREE.Color(0x16404a) },
+    uShallow: { value: new THREE.Color(0x3d8e93) },
+    uDry:     { value: new THREE.Color(0x5b5647) },
+    uLen:     { value: len },
+  };
+  const mat = new THREE.ShaderMaterial({
+    uniforms: uni, transparent: true, depthWrite: false,
+    vertexShader: `
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      void main() {
+        vRib = uv;                               // x: 0..1 along, y: -1..1 across
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vLocal = wp.xz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+        vScreen = gl_Position;
+      }`,
+    fragmentShader: `
+      uniform sampler2D uRefl; uniform float uTime, uLevel, uLen;
+      uniform vec3 uDeep, uShallow, uDry;
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+      float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+        return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
+      void main() {
+        float across = abs(vRib.y);
+        /* the banks dry out as the level falls, same retreat as a lake's shore */
+        float edge = uLevel * 0.98;
+        float wet = smoothstep(edge, edge - 0.14, across);
+
+        vec2 uv = (vScreen.xy / vScreen.w) * 0.5 + 0.5;
+        vec2 ripple = vec2(
+          n(vLocal * 0.18 + uTime * 0.35),
+          n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
+        vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+
+        float depth = smoothstep(edge, 0.0, across);
+        vec3 body = mix(uShallow, uDeep, depth);
+        float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+        vec3 col = mix(body, refl, f);
+        /* downstream flow: streaks slide along the ribbon's own axis */
+        col += n(vec2(vRib.x * uLen * 0.35 - uTime * 1.7, vRib.y * 2.5)) * 0.06;
+        col += n(vLocal * 2.2 + uTime * 0.6) * 0.04;
+
+        float dry = 1.0 - wet;
+        vec3 bed = mix(uDry, uDry * 0.72, n(vLocal * 0.9));
+        col = mix(col, bed, dry);
+        float a = mix(0.94, 0.85, dry);
+        if (uLevel <= 0.02) a = 0.9;
+        gl_FragColor = vec4(col, a);
+      }`,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 1;
+  mesh.raycast = () => {};
+  scene.add(mesh);
+  return { mesh, uni, members };
 }
 
 /* Intake pumps still standing decide how fast the water goes. */
@@ -154,8 +279,16 @@ export function updateWater(dt) {
   const draw = activeDraw() * (G.drainMult !== undefined ? G.drainMult : 1);
   let anyDry = false;
 
+  for (const R of rivers) {
+    R.uni.uTime.value += dt;
+    /* the ribbon shows the mean of its member segments -- one waterway, one level */
+    let sum = 0;
+    for (const m of R.members) sum += m.level;
+    R.uni.uLevel.value = R.members.length ? sum / R.members.length : 1;
+  }
+
   for (const L of lakes) {
-    L.uni.uTime.value += dt;
+    if (L.uni) L.uni.uTime.value += dt;
     /* Net flow, not an either/or. The old rule only refilled when EVERY pump
        was dead, so killing three of four changed nothing the player could see.
        Now each pump you break shifts the balance, and at roughly half the
@@ -166,7 +299,7 @@ export function updateWater(dt) {
     const flow = L.baseDrain * (draw - REFILL * (1 - draw) - rain);
     if (flow !== 0) {
       L.level = clamp(L.level - flow * dt, 0, 1);
-      L.uni.uLevel.value = L.level;
+      if (L.uni) L.uni.uLevel.value = L.level;
       /* let the warnings re-arm on the way back up, so a lake you fought for
          and then lost again still tells you about it */
       if (flow < 0) for (const k in L.warned) if (L.level > +k + 0.08) L.warned[k] = false;
@@ -254,7 +387,7 @@ export function renderWaterReflection(renderer, scene, camera) {
   if (reflFlip) return;
   let near = false;
   for (const L2 of lakes) {
-    const dx = L2.mesh.position.x - camera.position.x, dz = L2.mesh.position.z - camera.position.z;
+    const dx = L2.x - camera.position.x, dz = L2.z - camera.position.z;
     if (dx * dx + dz * dz < 220 * 220) { near = true; break; }
   }
   if (!near) return;
@@ -274,7 +407,8 @@ export function renderWaterReflection(renderer, scene, camera) {
   const prevPlanes = renderer.clippingPlanes;
   const prevTarget = renderer.getRenderTarget();
   const visible = [];
-  for (const L2 of lakes) { visible.push([L2.mesh, L2.mesh.visible]); L2.mesh.visible = false; }
+  for (const L2 of lakes) { if (!L2.mesh) continue; visible.push([L2.mesh, L2.mesh.visible]); L2.mesh.visible = false; }
+  for (const R of rivers) { visible.push([R.mesh, R.mesh.visible]); R.mesh.visible = false; }
 
   renderer.clippingPlanes = [_plane];
   renderer.setRenderTarget(reflectTarget);
@@ -290,9 +424,15 @@ export function renderWaterReflection(renderer, scene, camera) {
 
 export function disposeWater() {
   for (const L of lakes) {
+    if (!L.mesh) continue;
     L.mesh.parent && L.mesh.parent.remove(L.mesh);
     L.mesh.geometry.dispose(); L.mesh.material.dispose();
   }
+  for (const R of rivers) {
+    R.mesh.parent && R.mesh.parent.remove(R.mesh);
+    R.mesh.geometry.dispose(); R.mesh.material.dispose();
+  }
+  rivers = [];
   lakes = [];
   if (reflectTarget) { reflectTarget.dispose(); reflectTarget = null; }
   reflectCam = null;

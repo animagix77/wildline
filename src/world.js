@@ -201,6 +201,29 @@ function buildProps(scene) {
     () => { const p = freeSpot(4); if (p) p.y -= 0.3; return p; }, [0.6, 2.4]
   ));
 
+  /* Riverbank stones. A ribbon of water laid on open grass reads as a decal;
+     a scattering of rock along its edges is what makes it read as a CUT — the
+     same job the stone ring does for the groves. Placed by sampling the
+     authored polyline and offsetting past the ribbon's half-width. */
+  if (G.map && G.map.river) {
+    const pts = G.map.river;
+    scene.add(makeScatter(
+      new THREE.DodecahedronGeometry(1, 0), scenic(M(0x63645c, { rough: 1 })), 90,
+      () => {
+        const i = Math.floor(rand(0, pts.length - 1));
+        const a = pts[i], b = pts[i + 1];
+        const t = rand(0, 1);
+        const x0 = a.x + (b.x - a.x) * t, z0 = a.z + (b.z - a.z) * t;
+        let nx = -(b.z - a.z), nz = (b.x - a.x);
+        const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+        const side = rand(0, 1) > 0.5 ? 1 : -1;
+        const d = 6.4 + rand(0.2, 2.6);          // just past the widest bank
+        const x = x0 + nx * d * side, z = z0 + nz * d * side;
+        if (insideCompound(x, z, 4)) return null;
+        return { x, y: terrainHeight(x, z) - 0.25, z };
+      }, [0.35, 1.1]));
+  }
+
   // ferns / low brush
   const fern = new THREE.ConeGeometry(0.8, 1.6, 5);
   fern.translate(0, 0.8, 0);
