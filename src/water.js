@@ -101,7 +101,11 @@ export function initWater(scene, defs) {
         }`,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + 0.5, d.z);
+    /* River segments sit lower in the ground than ponds -- a cut bank, not a
+       raised pool -- which also hides the seam where two segments overlap on
+       sloping terrain. */
+    const lift = d.river ? 0.28 : 0.5;
+    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + lift, d.z);
     mesh.renderOrder = 1;
     mesh.raycast = () => {};
     scene.add(mesh);

@@ -38,7 +38,8 @@ export class RTSCamera {
     );
     this.cam.lookAt(this.target);
     if (G.sun) {
-      G.sun.position.set(this.target.x - 70, 110, this.target.z + 60);
+      const o = G.sunOffset || [-70, 110, 60];   // the map's hour, not a constant
+      G.sun.position.set(this.target.x + o[0], o[1], this.target.z + o[2]);
       G.sun.target.position.copy(this.target);
       G.sun.target.updateMatrixWorld();
     }
@@ -137,7 +138,8 @@ export class RTSCamera {
 
     // keep the shadow frustum riding along with the view
     if (G.sun) {
-      G.sun.position.set(this.target.x - 70, 110, this.target.z + 60);
+      const o = G.sunOffset || [-70, 110, 60];   // the map's hour, not a constant
+      G.sun.position.set(this.target.x + o[0], o[1], this.target.z + o[2]);
       G.sun.target.position.copy(this.target);
       G.sun.target.updateMatrixWorld();
     }

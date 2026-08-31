@@ -2739,7 +2739,14 @@ const MAPS = {
   /* ------------------------------------------------ the original valley -- */
   'verdant-hollow': {
     id: 'verdant-hollow', name: 'Verdant Hollow', archetype: 'valley', faction: 'wild',
-    terra: {}, palette: VALLEY_PALETTE,
+    terra: {}, palette: { bg: 0x2b2130, fog: 0x3d2f3c, fogNear: 165, fogFar: 430, treeHue: 0.26 },
+    /* LATE SUMMER, GOLDEN HOUR. The poster shot: a long low sun out of the
+       west, violet dusk pooling in the fog, warm rim on every canopy. */
+    mood: { sunC: 0xffb36b, sunI: 2.15, sunOffset: [-125, 62, 45],
+            hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8 },
+    season: 'late summer',
+    river: [{ x: -12, z: 56 }, { x: -8, z: 34 }, { x: 4, z: 18 }, { x: -2, z: -4 },
+            { x: -18, z: -26 }, { x: -30, z: -48 }, { x: -26, z: -72 }],
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
@@ -2813,7 +2820,14 @@ const MAPS = {
   'mirefen': {
     id: 'mirefen', name: 'The Mirefen Exchange', archetype: 'wetland', faction: 'wild',
     terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5 },
-    palette: { bg: 0x182b2a, fog: 0x1f3a37, fogNear: 130, fogFar: 360, treeHue: 0.34 },
+    palette: { bg: 0x1b2f2e, fog: 0x2a4540, fogNear: 120, fogFar: 340, treeHue: 0.34 },
+    /* SPRING, FIRST LIGHT. A pale gold sun barely up in the east, everything
+       else cold teal — dawn over standing water. */
+    mood: { sunC: 0xffdda6, sunI: 1.45, sunOffset: [105, 58, -55],
+            hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05 },
+    season: 'spring',
+    river: [{ x: -30, z: 28 }, { x: -12, z: 40 }, { x: 10, z: 52 }, { x: -8, z: 66 },
+            { x: -34, z: 4 }, { x: -48, z: -14 }, { x: -58, z: -30 }],
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
@@ -2834,7 +2848,12 @@ const MAPS = {
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
     terra: { ampl: 16, freq: 0.010, rippleA: 2.4 },
-    palette: { bg: 0x1c2733, fog: 0x27333d, fogNear: 150, fogFar: 400, treeHue: 0.30 },
+    palette: { bg: 0x232b3d, fog: 0x35364a, fogNear: 150, fogFar: 400, treeHue: 0.42 },
+    /* DEEP WINTER, ALPENGLOW. Rose-pink sun skimming the ridgeline, blue-slate
+       shadow everywhere it does not reach, snow already falling. */
+    mood: { sunC: 0xff9fae, sunI: 1.75, sunOffset: [-135, 52, -35],
+            hemiSky: 0xc6d8ff, hemiGround: 0x3e4152, hemiI: 0.95 },
+    season: 'winter',
     props: { trees: 520, rocks: 520, ferns: 260 },
     base: { x: -72, z: 66 },
     compound: { x: 58, z: -50, hw: 34, hd: 28 },
@@ -2854,7 +2873,12 @@ const MAPS = {
   'coldrake': {
     id: 'coldrake', name: 'Coldrake Logistics Hub', archetype: 'industrial', faction: 'wild',
     terra: { ampl: 6, blightReach: 52 },
-    palette: { bg: 0x242422, fog: 0x30302c, fogNear: 140, fogFar: 380, treeHue: 0.20 },
+    palette: { bg: 0x2a201c, fog: 0x38281f, fogNear: 140, fogFar: 380, treeHue: 0.07 },
+    /* AUTUMN, STORMLIGHT. The canopy has turned -- rust and amber -- and the
+       sun is a low ember cutting under the weather. */
+    mood: { sunC: 0xff9448, sunI: 1.55, sunOffset: [-110, 48, 70],
+            hemiSky: 0xb8a48e, hemiGround: 0x3a2c22, hemiI: 0.9 },
+    season: 'autumn',
     props: { trees: 420, rocks: 300, ferns: 240 },
     base: { x: -74, z: 68 },
     compound: { x: 52, z: -48, hw: 44, hd: 34 },
@@ -2874,7 +2898,13 @@ const MAPS = {
   'the-campus': {
     id: 'the-campus', name: 'The Campus', archetype: 'valley', faction: 'wild',
     terra: { ampl: 8 },
-    palette: { bg: 0x171f2b, fog: 0x202b38, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    palette: { bg: 0x1a2433, fog: 0x25303e, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    /* HIGH SUMMER, STORM-BREAK NOON. Hard white light straight down between
+       the weather -- the clinical hour for the most fortified site. */
+    mood: { sunC: 0xf2f7ff, sunI: 2.0, sunOffset: [-45, 130, 30],
+            hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05 },
+    season: 'high summer',
+    river: [{ x: -36, z: 36 }, { x: -48, z: 14 }, { x: -60, z: -8 }, { x: -70, z: -40 }],
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
@@ -2979,8 +3009,41 @@ function validateAllMaps() {
   return report;
 }
 
+/* Quick battles cycle through these five — five seasons, five hours of light,
+   five compounds. Chosen for spread: the golden-hour valley, the misty fen at
+   dawn, winter alpenglow in the hills, an autumn storm over the log hub, and
+   the campus at hard noon. */
+const QUICK_ROTATION = ['verdant-hollow', 'mirefen', 'substation-gary', 'coldrake', 'the-campus'];
+
+/* A river is authored as a polyline; the engine only knows circular water
+   bodies, so it becomes a chain of overlapping circles at load. Every derived
+   circle is a real lake — drinkable, dammable, drainable — because it goes
+   through the same G.map.water list as everything else. Done ONCE and cached
+   back onto the def (loadMap runs on every restart). */
+function expandRiver(m) {
+  if (!m.river || m._riverDone) return;
+  m._riverDone = true;
+  m.water = m.water ? m.water.slice() : [];
+  const pts = m.river;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const d = Math.hypot(b.x - a.x, b.z - a.z);
+    /* Dense overlap (a circle every 5 units at r~6) is what makes the chain
+       read as one waterway instead of stepping stones; the wobble is kept
+       small for the same reason. */
+    const steps = Math.max(1, Math.round(d / 5));
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps;
+      m.water.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t,
+                     r: 6.2 + 0.9 * Math.sin(i * 2.7 + k * 1.3),
+                     drain: 0.0008, river: true });
+    }
+  }
+}
+
 function loadMap(id) {
   const m = MAPS[id] || MAPS[DEFAULT_MAP];
+  expandRiver(m);
   G.map = m;
 
   // Every module imports these objects by reference — mutate, never reassign.
@@ -4438,7 +4501,11 @@ function initWater(scene, defs) {
         }`,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + 0.5, d.z);
+    /* River segments sit lower in the ground than ponds -- a cut bank, not a
+       raised pool -- which also hides the seam where two segments overlap on
+       sloping terrain. */
+    const lift = d.river ? 0.28 : 0.5;
+    mesh.position.set(d.x, d.y !== undefined ? d.y : terrainHeight(d.x, d.z) + lift, d.z);
     mesh.renderOrder = 1;
     mesh.raycast = () => {};
     scene.add(mesh);
@@ -6794,17 +6861,37 @@ const pSph  = (c, r, x, y, z) => part(sphGeo, c, r, r, r, x, y, z);
 
 /* ============================ WILDLIFE ================================== */
 
-function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, ears, extras }) {
+/* Everything below stays one merged buffer per moving part (torso, head, two
+   leg pairs, tail) -- the detail pass adds vertices, never draw calls.
+
+   New optional knobs, all off by default so existing species keep their specs:
+     saddle     colour   darker dorsal marking laid over the back
+     bushyTail  bool     tapered-cone brush instead of the thin box (wolf)
+     hump       bool     shoulder mass ahead of the withers (bear, bison-like)
+     roundEars  bool     sphere ears instead of pricked cones (bear)
+     earIn      colour   inner-ear panel, defaults to the belly tone */
+function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, ears, extras,
+                     saddle, bushyTail, hump, roundEars, earIn }) {
   const g = new THREE.Group();
   const y = legH + bodyH / 2;
+  const DARK = 0x15130f;
 
-  /* ---- body: torso, belly panel and the shoulder/haunch masses ---- */
+  /* ---- body: torso, belly, shoulder/haunch masses, and the shaping pass ---- */
   const bodyParts = [
     pBox(fur,   bodyW, bodyH, bodyL, 0, 0, 0),
     pBox(belly, bodyW * 0.86, bodyH * 0.45, bodyL * 0.8, 0, -bodyH * 0.32, 0),
-    pBox(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28),
-    pBox(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3),
+    /* haunches tilt a few degrees so they read as muscle, not crates */
+    pBox(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28, -0.08),
+    pBox(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3, 0.1),
+    /* rump slope and chest brisket break the brick silhouette front and rear */
+    pBox(fur,   bodyW * 0.92, bodyH * 0.5, bodyL * 0.34, 0, bodyH * 0.3, -bodyL * 0.44, 0.5),
+    pBox(belly, bodyW * 0.7, bodyH * 0.42, bodyL * 0.2, 0, -bodyH * 0.28, bodyL * 0.46, -0.35),
+    /* neck wedge: the head used to float ahead of the torso with a visible gap
+       at three-quarter angles; this closes it without joining the nod pivot */
+    pBox(fur,   headS * 0.95, bodyH * 0.62, headS * 1.2, 0, bodyH * 0.26, bodyL * 0.46, -0.45),
   ];
+  if (saddle) bodyParts.push(pBox(saddle, bodyW * 1.02, bodyH * 0.22, bodyL * 0.62, 0, bodyH * 0.46, -bodyL * 0.06));
+  if (hump)   bodyParts.push(pBox(fur, bodyW * 0.9, bodyH * 0.55, bodyL * 0.32, 0, bodyH * 0.52, bodyL * 0.18, 0.25));
   if (extras && extras.body) bodyParts.push(...extras.body);
   const body = mergeParts(bodyParts, VC_MAT);
   body.position.y = y;
@@ -6814,12 +6901,26 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
   /* ---- head, baked around its own pivot so it can still nod ---- */
   const headParts = [
     pBox(fur, headS, headS * 0.86, headS * 1.1, 0, 0, 0),
-    pBox(0x15130f, headS * 0.5, headS * 0.16, headS * 0.16, 0, headS * 0.06, headS * 0.5),
+    pBox(DARK, headS * 0.5, headS * 0.16, headS * 0.16, 0, headS * 0.06, headS * 0.5),
+    /* eyes -- two dark beads; invisible at strategic zoom, all character up close */
+    pSph(DARK, headS * 0.09, -headS * 0.3, headS * 0.16, headS * 0.42),
+    pSph(DARK, headS * 0.09,  headS * 0.3, headS * 0.16, headS * 0.42),
   ];
-  if (snout) headParts.push(pBox(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
+  if (snout) {
+    headParts.push(pBox(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
+    headParts.push(pBox(DARK, headS * 0.28, headS * 0.18, headS * 0.14,
+      0, -headS * 0.08, headS * 0.55 + snout * 0.82));                    // nose tip
+  }
   if (ears) {
-    headParts.push(pCone(fur, headS * 0.22, headS * 0.44, -headS * 0.3, headS * 0.52, -headS * 0.05));
-    headParts.push(pCone(fur, headS * 0.22, headS * 0.44,  headS * 0.3, headS * 0.52, -headS * 0.05));
+    const inner = earIn !== undefined ? earIn : belly;
+    for (const sx of [-1, 1]) {
+      if (roundEars) {
+        headParts.push(pSph(fur, headS * 0.24, sx * headS * 0.36, headS * 0.5, -headS * 0.1));
+      } else {
+        headParts.push(pCone(fur,   headS * 0.22, headS * 0.44, sx * headS * 0.3, headS * 0.52, -headS * 0.05));
+        headParts.push(pCone(inner, headS * 0.12, headS * 0.28, sx * headS * 0.3, headS * 0.5, -headS * 0.02));
+      }
+    }
   }
   if (extras && extras.head) headParts.push(...extras.head);
   const head = mergeParts(headParts, VC_MAT);
@@ -6835,6 +6936,9 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
     const parts = [];
     for (const [sx, sz] of pair) {
       parts.push(pBox(fur, lw, legH, lw, sx * bodyW * 0.36, legH / 2, sz * bodyL * 0.32));
+      /* thigh mass at the hip: legs used to be bare sticks from body to ground */
+      parts.push(pBox(fur, lw * 1.6, legH * 0.5, lw * 2.0,
+        sx * bodyW * 0.36, legH * 0.82, sz * bodyL * 0.32));
       if (extras && extras.paw) {
         parts.push(pBox(extras.paw, lw * 1.15, lw * 0.42, lw * 1.3,
           sx * bodyW * 0.36, lw * 0.22, sz * bodyL * 0.32 + lw * 0.35));
@@ -6847,7 +6951,11 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
 
   let tailObj = null;
   if (tail) {
-    tailObj = mergeParts([pBox(fur, bodyW * 0.22, bodyW * 0.22, tail, 0, 0, -tail * 0.4)], VC_MAT);
+    const tp = bushyTail
+      ? [pCone(fur, bodyW * 0.26, tail, 0, 0, -tail * 0.42, -Math.PI / 2 - 0.12),
+         pSph(fur, bodyW * 0.2, 0, 0.02, -tail * 0.08)]
+      : [pBox(fur, bodyW * 0.22, bodyW * 0.22, tail, 0, 0, -tail * 0.4)];
+    tailObj = mergeParts(tp, VC_MAT);
     tailObj.position.set(0, y + bodyH * 0.3, -bodyL * 0.55);
     tailObj.rotation.x = 0.35;
     g.add(tailObj);
@@ -6860,6 +6968,7 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
 const buildWolf = () => quadruped({
   fur: 0x767d88, belly: 0x9aa2ab, bodyL: 2.5, bodyW: 0.95, bodyH: 0.9,
   legH: 0.95, headS: 0.72, snout: 0.55, tail: 1.1, ears: true,
+  saddle: 0x565d68, bushyTail: true,
 });
 
 const buildBoar = () => quadruped({
@@ -6878,6 +6987,7 @@ const buildBoar = () => quadruped({
 const buildBear = () => quadruped({
   fur: 0x5e4128, belly: 0x74522f, bodyL: 3.5, bodyW: 1.9, bodyH: 1.8,
   legH: 1.25, headS: 1.15, snout: 0.7, tail: 0.35, ears: true,
+  hump: true, roundEars: true,
   extras: { paw: 0xd8d2c2 },
 });
 
@@ -7616,7 +7726,12 @@ function updateCanopyFade(leaves, camera, watchers, dt) {
   const n = leaves.count;
   const camX = camera.position.x, camY = camera.position.y, camZ = camera.position.z;
 
-  /* Everything drifts back to opaque; anything occluding is pulled down. */
+  /* Everything drifts back to opaque; anything occluding is pulled down.
+     userData.active, when present, is a precomputed index list of the only
+     instances that can ever occlude play (the border band uses it: ~150
+     edge-adjacent trees out of 700, the rest pure backdrop never iterated). */
+  const act = leaves.userData.active || null;
+  const nn = act ? act.length : n;
   const want = new Float32Array(n).fill(1);
   for (const w of watchers) {
     const wx = w.pos.x, wy = w.pos.y + 1.0, wz = w.pos.z;
@@ -7624,7 +7739,8 @@ function updateCanopyFade(leaves, camera, watchers, dt) {
     const wDist = _cu.length();
     if (wDist < 0.01) continue;
     _cu.divideScalar(wDist);
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < nn; k++) {
+      const i = act ? act[k] : k;
       if (want[i] <= 0.16) continue;                    // already fully faded
       const tx = pos[i * 3], tz = pos[i * 3 + 2];
       const by = pos[i * 3 + 1];
@@ -8840,15 +8956,28 @@ class Entity {
     return _v1;
   }
 
+  /* THE INVISIBLE SHOOTER, the real one, after three other causes were fixed
+     and the reports kept coming. Callers pass the module scratch _v2 as `out`
+     -- and the old body ALSO used _v2 as its internal scratch. With out===_v2,
+     `out.copy(this.pos)` was overwritten one line later by `_v2.copy(m)`, and
+     `out.add(_v2)` doubled the rotated offset instead of adding it to the
+     unit's position. Net effect: every ranged muzzle flash and tracer origin
+     -- Local, guard, drone, turret -- spawned within ~4 units of WORLD ORIGIN.
+     The middle of the map. In the trees. The same spot every time. Nothing to
+     see, nothing to attack, because nothing was there: damage was untouched
+     (projectiles home on the target), only the visual origin lied.
+
+     Measured before the fix: rifle at (40,20), flashes at (-1.9,2.1).
+     The player's own screenshot diagnosed it -- "the shooting should be coming
+     from the rifles."
+
+     Written alias-safe: build `out` from the offset FIRST and add the position
+     LAST, so it needs no second scratch at all. */
   muzzlePoint(out) {
-    out.copy(this.pos);
     const m = this.anim && this.anim.muzzle;
-    if (m) {
-      _v2.copy(m).applyQuaternion(this.mesh.quaternion);
-      out.add(_v2);
-    } else {
-      out.y += (HB_Y[this.type] || 3) * 0.6;
-    }
+    if (m) return out.copy(m).applyQuaternion(this.mesh.quaternion).add(this.pos);
+    out.copy(this.pos);
+    out.y += (HB_Y[this.type] || 3) * 0.6;
     return out;
   }
 
@@ -11051,16 +11180,32 @@ function buildScene(scene) {
   scene.fog = new THREE.Fog(pal.fog !== undefined ? pal.fog : 0x24402f,
     pal.fogNear || 170, pal.fogFar || 420);
 
-  const hemi = new THREE.HemisphereLight(0xbde4ff, 0x3d4f2e, 1.0);
+  /* --- mood: the map's hour and season, in light ---------------------------
+     Every value here used to be hardcoded, which is why all nine maps looked
+     like the same overcast afternoon. A map's `mood` block now carries the sun
+     (colour, intensity, and OFFSET -- the offset is the time of day: low and
+     warm is golden hour, high and pale is noon) plus the hemisphere pair. The
+     offset must ALSO drive camera.js, which re-pins the sun to the camera
+     target every frame; it reads G.sunOffset rather than its old literals. */
+  const mood = (G.map && G.map.mood) || {};
+  const hemi = new THREE.HemisphereLight(
+    mood.hemiSky !== undefined ? mood.hemiSky : 0xbde4ff,
+    mood.hemiGround !== undefined ? mood.hemiGround : 0x3d4f2e,
+    mood.hemiI !== undefined ? mood.hemiI : 1.0);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff0d2, 1.85);
-  sun.position.set(-70, 110, 60);
+  const sun = new THREE.DirectionalLight(
+    mood.sunC !== undefined ? mood.sunC : 0xfff0d2,
+    mood.sunI !== undefined ? mood.sunI : 1.85);
+  G.sunOffset = mood.sunOffset || [-70, 110, 60];
+  sun.position.set(G.sunOffset[0], G.sunOffset[1], G.sunOffset[2]);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const c = sun.shadow.camera;
-  c.left = -130; c.right = 130; c.top = 130; c.bottom = -130;
-  c.near = 10; c.far = 340;
+  /* widened from 130: a golden-hour sun sits lower, and long shadows walked
+     straight out of the old frustum and vanished mid-screen */
+  c.left = -170; c.right = 170; c.top = 170; c.bottom = -170;
+  c.near = 10; c.far = 420;
   sun.shadow.bias = -0.0009;
   sun.shadow.normalBias = 0.5;
   scene.add(sun);
@@ -11150,6 +11295,25 @@ function buildTerrain(scene) {
   });
   borderTrunks.material = applyFogMask(borderTrunks.material.clone());
   borderLeaves.material = applyFogMask(borderLeaves.material.clone());
+  /* THE BORDER FOREST NEVER FADED, and it was the remaining invisible shooter.
+     The band starts at HALF+3 -- three units past the playable edge -- and its
+     trees stand well into view, so a machine fighting near the edge could sit
+     behind them from the camera with no way to fade them: enableCanopyFade was
+     only ever wired to the inner forest. Reported (twice) as "something firing
+     from the same spot in the trees my units can't see".
+
+     Enabled AFTER the fog-mask material swap, same ordering rule as the inner
+     forest. The active-index list keeps the per-frame cost honest: only trees
+     within reach of the playable area can ever occlude a unit, so the ~500
+     pure-backdrop trees deeper in the band are never even iterated. */
+  enableCanopyFade(borderLeaves, borderTrunks);
+  const reach = [];
+  for (let i = 0; i < borderLeaves.count; i++) {
+    const x = borderLeaves.userData.pos[i * 3], z = borderLeaves.userData.pos[i * 3 + 2];
+    if (Math.max(Math.abs(x), Math.abs(z)) < HALF + 16) reach.push(i);
+  }
+  borderLeaves.userData.active = reach;
+  (G.canopies || (G.canopies = [])).push(borderLeaves);
   scene.add(borderTrunks); scene.add(borderLeaves);
 }
 
@@ -11181,6 +11345,7 @@ function buildProps(scene) {
   leaves.material = scenic(leaves.material);
   enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
   G.canopy = leaves;
+  (G.canopies || (G.canopies = [])).push(leaves);
   scene.add(trunks); scene.add(leaves);
 
   // rocks
@@ -12617,7 +12782,8 @@ class RTSCamera {
     );
     this.cam.lookAt(this.target);
     if (G.sun) {
-      G.sun.position.set(this.target.x - 70, 110, this.target.z + 60);
+      const o = G.sunOffset || [-70, 110, 60];   // the map's hour, not a constant
+      G.sun.position.set(this.target.x + o[0], o[1], this.target.z + o[2]);
       G.sun.target.position.copy(this.target);
       G.sun.target.updateMatrixWorld();
     }
@@ -12716,7 +12882,8 @@ class RTSCamera {
 
     // keep the shadow frustum riding along with the view
     if (G.sun) {
-      G.sun.position.set(this.target.x - 70, 110, this.target.z + 60);
+      const o = G.sunOffset || [-70, 110, 60];   // the map's hour, not a constant
+      G.sun.position.set(this.target.x + o[0], o[1], this.target.z + o[2]);
       G.sun.target.position.copy(this.target);
       G.sun.target.updateMatrixWorld();
     }
@@ -14951,7 +15118,26 @@ const pending = pendingMission();
 // and crash the boot before the title screen could render
 const pendingSite = (pending && pending.mode === 'campaign'
   && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
-loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+/* Quick battles CYCLE the rotation — five maps, five seasons, five kinds of
+   light — instead of loading verdant-hollow forever, which is what "maps never
+   change" turned out to be: eight of the nine authored maps were reachable only
+   through the campaign. Campaign missions still pin their own map, and headless
+   runs stay on DEFAULT_MAP so every measurement in the harness remains
+   comparable with every measurement ever taken. */
+const HEADLESS = new URLSearchParams(location.search).has('headless');
+/* ?map=<id> pins a specific map -- art iteration needs to LOOK at a map
+   without clicking through four rotation slots to reach it. Works headless
+   too, where it overrides the DEFAULT_MAP pin. */
+const FORCE_MAP = new URLSearchParams(location.search).get('map');
+let quickMap = DEFAULT_MAP;
+if (!HEADLESS) {
+  try {
+    const n = parseInt(localStorage.getItem('cvc.qrot') || '0', 10) || 0;
+    quickMap = QUICK_ROTATION[n % QUICK_ROTATION.length];
+    localStorage.setItem('cvc.qrot', String(n + 1));
+  } catch (_) { /* storage blocked: stay on the default */ }
+}
+loadMap(pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
 
 /* Data check: overlapping structures used to ship silently. Loud in the console
    and reachable from the page so a layout edit can be checked in one call. */
@@ -15054,7 +15240,7 @@ let hudAccum = 0;
 
    Under ?headless=1 the loop is now driven exclusively by __step(). Call
    window.__auto() to hand the clock back to rAF if you want to watch it run. */
-const HEADLESS = new URLSearchParams(location.search).has('headless');
+/* HEADLESS is declared above the map-rotation block that reads it. */
 let autoDrive = !HEADLESS;
 function schedule() {
   if (autoDrive) requestAnimationFrame(frame);
@@ -15095,6 +15281,9 @@ if (HEADLESS) {
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */
     RULES, spawn, DEFS,
+    /* Art checks need to SEE the map: fog-of-war reads as a black screen in a
+       screenshot, which has burned more than one visual verification. */
+    fogRevealAll,
   };
 }
 
@@ -15156,14 +15345,17 @@ function frame(now, manual) {
      any machine currently shooting at them. Machines only qualify while they
      fire, so the forest keeps its concealment value right up until something
      in it gives itself away. */
-  if (G.canopy && G.phase === 'playing') {
+  if (G.canopies && G.canopies.length && G.phase === 'playing') {
     _watch.length = 0;
     for (const e of G.entities) {
       if (!e.alive || e.isBuilding) continue;
       if (e.team === TEAM.WILD) _watch.push(e);
       else if (e.team === TEAM.MACHINE && G.wallTime - (e.lastFiredAt || -99) < 2.5) _watch.push(e);
     }
-    updateCanopyFade(G.canopy, camera, _watch, dt);
+    /* Every registered canopy: the inner forest and the border band. The border
+       mesh carries an active-index list so only its edge-adjacent trees cost
+       anything (see buildScene). */
+    for (const c of G.canopies) updateCanopyFade(c, camera, _watch, dt);
   }
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over

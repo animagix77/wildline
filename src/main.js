@@ -22,7 +22,7 @@ import { vw, vh } from './utils.js';
 import { initFog, updateFog, fogRevealAll } from './fog.js';
 import { initVerdant, updateVerdant } from './verdant.js';
 import { showStartScreen, applyDifficulty, showBriefing, showCampaignMap, DIFFICULTIES } from './screens.js';
-import { loadMap, DEFAULT_MAP, validateAllMaps } from './maps.js';
+import { loadMap, DEFAULT_MAP, QUICK_ROTATION, validateAllMaps } from './maps.js';
 import { SITES, pendingMission, setPending, applyCampaignMods, campState, exportCode, importCode } from './campaign.js';
 import { initScore, updateScore, setProjector } from './score.js';
 import { initPerf, perfFrame } from './perf.js';
@@ -72,7 +72,26 @@ const pending = pendingMission();
 // and crash the boot before the title screen could render
 const pendingSite = (pending && pending.mode === 'campaign'
   && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
-loadMap(pendingSite ? pendingSite.map : DEFAULT_MAP);
+/* Quick battles CYCLE the rotation — five maps, five seasons, five kinds of
+   light — instead of loading verdant-hollow forever, which is what "maps never
+   change" turned out to be: eight of the nine authored maps were reachable only
+   through the campaign. Campaign missions still pin their own map, and headless
+   runs stay on DEFAULT_MAP so every measurement in the harness remains
+   comparable with every measurement ever taken. */
+const HEADLESS = new URLSearchParams(location.search).has('headless');
+/* ?map=<id> pins a specific map -- art iteration needs to LOOK at a map
+   without clicking through four rotation slots to reach it. Works headless
+   too, where it overrides the DEFAULT_MAP pin. */
+const FORCE_MAP = new URLSearchParams(location.search).get('map');
+let quickMap = DEFAULT_MAP;
+if (!HEADLESS) {
+  try {
+    const n = parseInt(localStorage.getItem('cvc.qrot') || '0', 10) || 0;
+    quickMap = QUICK_ROTATION[n % QUICK_ROTATION.length];
+    localStorage.setItem('cvc.qrot', String(n + 1));
+  } catch (_) { /* storage blocked: stay on the default */ }
+}
+loadMap(pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
 
 /* Data check: overlapping structures used to ship silently. Loud in the console
    and reachable from the page so a layout edit can be checked in one call. */
@@ -175,7 +194,7 @@ let hudAccum = 0;
 
    Under ?headless=1 the loop is now driven exclusively by __step(). Call
    window.__auto() to hand the clock back to rAF if you want to watch it run. */
-const HEADLESS = new URLSearchParams(location.search).has('headless');
+/* HEADLESS is declared above the map-rotation block that reads it. */
 let autoDrive = !HEADLESS;
 function schedule() {
   if (autoDrive) requestAnimationFrame(frame);
@@ -216,6 +235,9 @@ if (HEADLESS) {
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */
     RULES, spawn, DEFS,
+    /* Art checks need to SEE the map: fog-of-war reads as a black screen in a
+       screenshot, which has burned more than one visual verification. */
+    fogRevealAll,
   };
 }
 
@@ -277,14 +299,17 @@ function frame(now, manual) {
      any machine currently shooting at them. Machines only qualify while they
      fire, so the forest keeps its concealment value right up until something
      in it gives itself away. */
-  if (G.canopy && G.phase === 'playing') {
+  if (G.canopies && G.canopies.length && G.phase === 'playing') {
     _watch.length = 0;
     for (const e of G.entities) {
       if (!e.alive || e.isBuilding) continue;
       if (e.team === TEAM.WILD) _watch.push(e);
       else if (e.team === TEAM.MACHINE && G.wallTime - (e.lastFiredAt || -99) < 2.5) _watch.push(e);
     }
-    updateCanopyFade(G.canopy, camera, _watch, dt);
+    /* Every registered canopy: the inner forest and the border band. The border
+       mesh carries an active-index list so only its edge-adjacent trees cost
+       anything (see buildScene). */
+    for (const c of G.canopies) updateCanopyFade(c, camera, _watch, dt);
   }
 
   if (G.phase === 'playing') {          // the end card owns the screen once it's over

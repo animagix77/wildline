@@ -27,16 +27,32 @@ export function buildScene(scene) {
   scene.fog = new THREE.Fog(pal.fog !== undefined ? pal.fog : 0x24402f,
     pal.fogNear || 170, pal.fogFar || 420);
 
-  const hemi = new THREE.HemisphereLight(0xbde4ff, 0x3d4f2e, 1.0);
+  /* --- mood: the map's hour and season, in light ---------------------------
+     Every value here used to be hardcoded, which is why all nine maps looked
+     like the same overcast afternoon. A map's `mood` block now carries the sun
+     (colour, intensity, and OFFSET -- the offset is the time of day: low and
+     warm is golden hour, high and pale is noon) plus the hemisphere pair. The
+     offset must ALSO drive camera.js, which re-pins the sun to the camera
+     target every frame; it reads G.sunOffset rather than its old literals. */
+  const mood = (G.map && G.map.mood) || {};
+  const hemi = new THREE.HemisphereLight(
+    mood.hemiSky !== undefined ? mood.hemiSky : 0xbde4ff,
+    mood.hemiGround !== undefined ? mood.hemiGround : 0x3d4f2e,
+    mood.hemiI !== undefined ? mood.hemiI : 1.0);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff0d2, 1.85);
-  sun.position.set(-70, 110, 60);
+  const sun = new THREE.DirectionalLight(
+    mood.sunC !== undefined ? mood.sunC : 0xfff0d2,
+    mood.sunI !== undefined ? mood.sunI : 1.85);
+  G.sunOffset = mood.sunOffset || [-70, 110, 60];
+  sun.position.set(G.sunOffset[0], G.sunOffset[1], G.sunOffset[2]);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const c = sun.shadow.camera;
-  c.left = -130; c.right = 130; c.top = 130; c.bottom = -130;
-  c.near = 10; c.far = 340;
+  /* widened from 130: a golden-hour sun sits lower, and long shadows walked
+     straight out of the old frustum and vanished mid-screen */
+  c.left = -170; c.right = 170; c.top = 170; c.bottom = -170;
+  c.near = 10; c.far = 420;
   sun.shadow.bias = -0.0009;
   sun.shadow.normalBias = 0.5;
   scene.add(sun);
@@ -126,6 +142,25 @@ function buildTerrain(scene) {
   });
   borderTrunks.material = applyFogMask(borderTrunks.material.clone());
   borderLeaves.material = applyFogMask(borderLeaves.material.clone());
+  /* THE BORDER FOREST NEVER FADED, and it was the remaining invisible shooter.
+     The band starts at HALF+3 -- three units past the playable edge -- and its
+     trees stand well into view, so a machine fighting near the edge could sit
+     behind them from the camera with no way to fade them: enableCanopyFade was
+     only ever wired to the inner forest. Reported (twice) as "something firing
+     from the same spot in the trees my units can't see".
+
+     Enabled AFTER the fog-mask material swap, same ordering rule as the inner
+     forest. The active-index list keeps the per-frame cost honest: only trees
+     within reach of the playable area can ever occlude a unit, so the ~500
+     pure-backdrop trees deeper in the band are never even iterated. */
+  enableCanopyFade(borderLeaves, borderTrunks);
+  const reach = [];
+  for (let i = 0; i < borderLeaves.count; i++) {
+    const x = borderLeaves.userData.pos[i * 3], z = borderLeaves.userData.pos[i * 3 + 2];
+    if (Math.max(Math.abs(x), Math.abs(z)) < HALF + 16) reach.push(i);
+  }
+  borderLeaves.userData.active = reach;
+  (G.canopies || (G.canopies = [])).push(borderLeaves);
   scene.add(borderTrunks); scene.add(borderLeaves);
 }
 
@@ -157,6 +192,7 @@ function buildProps(scene) {
   leaves.material = scenic(leaves.material);
   enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
   G.canopy = leaves;
+  (G.canopies || (G.canopies = [])).push(leaves);
   scene.add(trunks); scene.add(leaves);
 
   // rocks

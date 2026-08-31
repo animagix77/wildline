@@ -182,15 +182,28 @@ export class Entity {
     return _v1;
   }
 
+  /* THE INVISIBLE SHOOTER, the real one, after three other causes were fixed
+     and the reports kept coming. Callers pass the module scratch _v2 as `out`
+     -- and the old body ALSO used _v2 as its internal scratch. With out===_v2,
+     `out.copy(this.pos)` was overwritten one line later by `_v2.copy(m)`, and
+     `out.add(_v2)` doubled the rotated offset instead of adding it to the
+     unit's position. Net effect: every ranged muzzle flash and tracer origin
+     -- Local, guard, drone, turret -- spawned within ~4 units of WORLD ORIGIN.
+     The middle of the map. In the trees. The same spot every time. Nothing to
+     see, nothing to attack, because nothing was there: damage was untouched
+     (projectiles home on the target), only the visual origin lied.
+
+     Measured before the fix: rifle at (40,20), flashes at (-1.9,2.1).
+     The player's own screenshot diagnosed it -- "the shooting should be coming
+     from the rifles."
+
+     Written alias-safe: build `out` from the offset FIRST and add the position
+     LAST, so it needs no second scratch at all. */
   muzzlePoint(out) {
-    out.copy(this.pos);
     const m = this.anim && this.anim.muzzle;
-    if (m) {
-      _v2.copy(m).applyQuaternion(this.mesh.quaternion);
-      out.add(_v2);
-    } else {
-      out.y += (HB_Y[this.type] || 3) * 0.6;
-    }
+    if (m) return out.copy(m).applyQuaternion(this.mesh.quaternion).add(this.pos);
+    out.copy(this.pos);
+    out.y += (HB_Y[this.type] || 3) * 0.6;
     return out;
   }
 

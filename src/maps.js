@@ -18,7 +18,14 @@ export const MAPS = {
   /* ------------------------------------------------ the original valley -- */
   'verdant-hollow': {
     id: 'verdant-hollow', name: 'Verdant Hollow', archetype: 'valley', faction: 'wild',
-    terra: {}, palette: VALLEY_PALETTE,
+    terra: {}, palette: { bg: 0x2b2130, fog: 0x3d2f3c, fogNear: 165, fogFar: 430, treeHue: 0.26 },
+    /* LATE SUMMER, GOLDEN HOUR. The poster shot: a long low sun out of the
+       west, violet dusk pooling in the fog, warm rim on every canopy. */
+    mood: { sunC: 0xffb36b, sunI: 2.15, sunOffset: [-125, 62, 45],
+            hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8 },
+    season: 'late summer',
+    river: [{ x: -12, z: 56 }, { x: -8, z: 34 }, { x: 4, z: 18 }, { x: -2, z: -4 },
+            { x: -18, z: -26 }, { x: -30, z: -48 }, { x: -26, z: -72 }],
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
@@ -92,7 +99,14 @@ export const MAPS = {
   'mirefen': {
     id: 'mirefen', name: 'The Mirefen Exchange', archetype: 'wetland', faction: 'wild',
     terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5 },
-    palette: { bg: 0x182b2a, fog: 0x1f3a37, fogNear: 130, fogFar: 360, treeHue: 0.34 },
+    palette: { bg: 0x1b2f2e, fog: 0x2a4540, fogNear: 120, fogFar: 340, treeHue: 0.34 },
+    /* SPRING, FIRST LIGHT. A pale gold sun barely up in the east, everything
+       else cold teal — dawn over standing water. */
+    mood: { sunC: 0xffdda6, sunI: 1.45, sunOffset: [105, 58, -55],
+            hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05 },
+    season: 'spring',
+    river: [{ x: -30, z: 28 }, { x: -12, z: 40 }, { x: 10, z: 52 }, { x: -8, z: 66 },
+            { x: -34, z: 4 }, { x: -48, z: -14 }, { x: -58, z: -30 }],
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
@@ -113,7 +127,12 @@ export const MAPS = {
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
     terra: { ampl: 16, freq: 0.010, rippleA: 2.4 },
-    palette: { bg: 0x1c2733, fog: 0x27333d, fogNear: 150, fogFar: 400, treeHue: 0.30 },
+    palette: { bg: 0x232b3d, fog: 0x35364a, fogNear: 150, fogFar: 400, treeHue: 0.42 },
+    /* DEEP WINTER, ALPENGLOW. Rose-pink sun skimming the ridgeline, blue-slate
+       shadow everywhere it does not reach, snow already falling. */
+    mood: { sunC: 0xff9fae, sunI: 1.75, sunOffset: [-135, 52, -35],
+            hemiSky: 0xc6d8ff, hemiGround: 0x3e4152, hemiI: 0.95 },
+    season: 'winter',
     props: { trees: 520, rocks: 520, ferns: 260 },
     base: { x: -72, z: 66 },
     compound: { x: 58, z: -50, hw: 34, hd: 28 },
@@ -133,7 +152,12 @@ export const MAPS = {
   'coldrake': {
     id: 'coldrake', name: 'Coldrake Logistics Hub', archetype: 'industrial', faction: 'wild',
     terra: { ampl: 6, blightReach: 52 },
-    palette: { bg: 0x242422, fog: 0x30302c, fogNear: 140, fogFar: 380, treeHue: 0.20 },
+    palette: { bg: 0x2a201c, fog: 0x38281f, fogNear: 140, fogFar: 380, treeHue: 0.07 },
+    /* AUTUMN, STORMLIGHT. The canopy has turned -- rust and amber -- and the
+       sun is a low ember cutting under the weather. */
+    mood: { sunC: 0xff9448, sunI: 1.55, sunOffset: [-110, 48, 70],
+            hemiSky: 0xb8a48e, hemiGround: 0x3a2c22, hemiI: 0.9 },
+    season: 'autumn',
     props: { trees: 420, rocks: 300, ferns: 240 },
     base: { x: -74, z: 68 },
     compound: { x: 52, z: -48, hw: 44, hd: 34 },
@@ -153,7 +177,13 @@ export const MAPS = {
   'the-campus': {
     id: 'the-campus', name: 'The Campus', archetype: 'valley', faction: 'wild',
     terra: { ampl: 8 },
-    palette: { bg: 0x171f2b, fog: 0x202b38, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    palette: { bg: 0x1a2433, fog: 0x25303e, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    /* HIGH SUMMER, STORM-BREAK NOON. Hard white light straight down between
+       the weather -- the clinical hour for the most fortified site. */
+    mood: { sunC: 0xf2f7ff, sunI: 2.0, sunOffset: [-45, 130, 30],
+            hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05 },
+    season: 'high summer',
+    river: [{ x: -36, z: 36 }, { x: -48, z: 14 }, { x: -60, z: -8 }, { x: -70, z: -40 }],
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
@@ -258,8 +288,41 @@ export function validateAllMaps() {
   return report;
 }
 
+/* Quick battles cycle through these five — five seasons, five hours of light,
+   five compounds. Chosen for spread: the golden-hour valley, the misty fen at
+   dawn, winter alpenglow in the hills, an autumn storm over the log hub, and
+   the campus at hard noon. */
+export const QUICK_ROTATION = ['verdant-hollow', 'mirefen', 'substation-gary', 'coldrake', 'the-campus'];
+
+/* A river is authored as a polyline; the engine only knows circular water
+   bodies, so it becomes a chain of overlapping circles at load. Every derived
+   circle is a real lake — drinkable, dammable, drainable — because it goes
+   through the same G.map.water list as everything else. Done ONCE and cached
+   back onto the def (loadMap runs on every restart). */
+function expandRiver(m) {
+  if (!m.river || m._riverDone) return;
+  m._riverDone = true;
+  m.water = m.water ? m.water.slice() : [];
+  const pts = m.river;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const d = Math.hypot(b.x - a.x, b.z - a.z);
+    /* Dense overlap (a circle every 5 units at r~6) is what makes the chain
+       read as one waterway instead of stepping stones; the wobble is kept
+       small for the same reason. */
+    const steps = Math.max(1, Math.round(d / 5));
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps;
+      m.water.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t,
+                     r: 6.2 + 0.9 * Math.sin(i * 2.7 + k * 1.3),
+                     drain: 0.0008, river: true });
+    }
+  }
+}
+
 export function loadMap(id) {
   const m = MAPS[id] || MAPS[DEFAULT_MAP];
+  expandRiver(m);
   G.map = m;
 
   // Every module imports these objects by reference — mutate, never reassign.

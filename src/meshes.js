@@ -119,17 +119,37 @@ const pSph  = (c, r, x, y, z) => part(sphGeo, c, r, r, r, x, y, z);
 
 /* ============================ WILDLIFE ================================== */
 
-function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, ears, extras }) {
+/* Everything below stays one merged buffer per moving part (torso, head, two
+   leg pairs, tail) -- the detail pass adds vertices, never draw calls.
+
+   New optional knobs, all off by default so existing species keep their specs:
+     saddle     colour   darker dorsal marking laid over the back
+     bushyTail  bool     tapered-cone brush instead of the thin box (wolf)
+     hump       bool     shoulder mass ahead of the withers (bear, bison-like)
+     roundEars  bool     sphere ears instead of pricked cones (bear)
+     earIn      colour   inner-ear panel, defaults to the belly tone */
+function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, ears, extras,
+                     saddle, bushyTail, hump, roundEars, earIn }) {
   const g = new THREE.Group();
   const y = legH + bodyH / 2;
+  const DARK = 0x15130f;
 
-  /* ---- body: torso, belly panel and the shoulder/haunch masses ---- */
+  /* ---- body: torso, belly, shoulder/haunch masses, and the shaping pass ---- */
   const bodyParts = [
     pBox(fur,   bodyW, bodyH, bodyL, 0, 0, 0),
     pBox(belly, bodyW * 0.86, bodyH * 0.45, bodyL * 0.8, 0, -bodyH * 0.32, 0),
-    pBox(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28),
-    pBox(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3),
+    /* haunches tilt a few degrees so they read as muscle, not crates */
+    pBox(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28, -0.08),
+    pBox(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3, 0.1),
+    /* rump slope and chest brisket break the brick silhouette front and rear */
+    pBox(fur,   bodyW * 0.92, bodyH * 0.5, bodyL * 0.34, 0, bodyH * 0.3, -bodyL * 0.44, 0.5),
+    pBox(belly, bodyW * 0.7, bodyH * 0.42, bodyL * 0.2, 0, -bodyH * 0.28, bodyL * 0.46, -0.35),
+    /* neck wedge: the head used to float ahead of the torso with a visible gap
+       at three-quarter angles; this closes it without joining the nod pivot */
+    pBox(fur,   headS * 0.95, bodyH * 0.62, headS * 1.2, 0, bodyH * 0.26, bodyL * 0.46, -0.45),
   ];
+  if (saddle) bodyParts.push(pBox(saddle, bodyW * 1.02, bodyH * 0.22, bodyL * 0.62, 0, bodyH * 0.46, -bodyL * 0.06));
+  if (hump)   bodyParts.push(pBox(fur, bodyW * 0.9, bodyH * 0.55, bodyL * 0.32, 0, bodyH * 0.52, bodyL * 0.18, 0.25));
   if (extras && extras.body) bodyParts.push(...extras.body);
   const body = mergeParts(bodyParts, VC_MAT);
   body.position.y = y;
@@ -139,12 +159,26 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
   /* ---- head, baked around its own pivot so it can still nod ---- */
   const headParts = [
     pBox(fur, headS, headS * 0.86, headS * 1.1, 0, 0, 0),
-    pBox(0x15130f, headS * 0.5, headS * 0.16, headS * 0.16, 0, headS * 0.06, headS * 0.5),
+    pBox(DARK, headS * 0.5, headS * 0.16, headS * 0.16, 0, headS * 0.06, headS * 0.5),
+    /* eyes -- two dark beads; invisible at strategic zoom, all character up close */
+    pSph(DARK, headS * 0.09, -headS * 0.3, headS * 0.16, headS * 0.42),
+    pSph(DARK, headS * 0.09,  headS * 0.3, headS * 0.16, headS * 0.42),
   ];
-  if (snout) headParts.push(pBox(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
+  if (snout) {
+    headParts.push(pBox(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
+    headParts.push(pBox(DARK, headS * 0.28, headS * 0.18, headS * 0.14,
+      0, -headS * 0.08, headS * 0.55 + snout * 0.82));                    // nose tip
+  }
   if (ears) {
-    headParts.push(pCone(fur, headS * 0.22, headS * 0.44, -headS * 0.3, headS * 0.52, -headS * 0.05));
-    headParts.push(pCone(fur, headS * 0.22, headS * 0.44,  headS * 0.3, headS * 0.52, -headS * 0.05));
+    const inner = earIn !== undefined ? earIn : belly;
+    for (const sx of [-1, 1]) {
+      if (roundEars) {
+        headParts.push(pSph(fur, headS * 0.24, sx * headS * 0.36, headS * 0.5, -headS * 0.1));
+      } else {
+        headParts.push(pCone(fur,   headS * 0.22, headS * 0.44, sx * headS * 0.3, headS * 0.52, -headS * 0.05));
+        headParts.push(pCone(inner, headS * 0.12, headS * 0.28, sx * headS * 0.3, headS * 0.5, -headS * 0.02));
+      }
+    }
   }
   if (extras && extras.head) headParts.push(...extras.head);
   const head = mergeParts(headParts, VC_MAT);
@@ -160,6 +194,9 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
     const parts = [];
     for (const [sx, sz] of pair) {
       parts.push(pBox(fur, lw, legH, lw, sx * bodyW * 0.36, legH / 2, sz * bodyL * 0.32));
+      /* thigh mass at the hip: legs used to be bare sticks from body to ground */
+      parts.push(pBox(fur, lw * 1.6, legH * 0.5, lw * 2.0,
+        sx * bodyW * 0.36, legH * 0.82, sz * bodyL * 0.32));
       if (extras && extras.paw) {
         parts.push(pBox(extras.paw, lw * 1.15, lw * 0.42, lw * 1.3,
           sx * bodyW * 0.36, lw * 0.22, sz * bodyL * 0.32 + lw * 0.35));
@@ -172,7 +209,11 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
 
   let tailObj = null;
   if (tail) {
-    tailObj = mergeParts([pBox(fur, bodyW * 0.22, bodyW * 0.22, tail, 0, 0, -tail * 0.4)], VC_MAT);
+    const tp = bushyTail
+      ? [pCone(fur, bodyW * 0.26, tail, 0, 0, -tail * 0.42, -Math.PI / 2 - 0.12),
+         pSph(fur, bodyW * 0.2, 0, 0.02, -tail * 0.08)]
+      : [pBox(fur, bodyW * 0.22, bodyW * 0.22, tail, 0, 0, -tail * 0.4)];
+    tailObj = mergeParts(tp, VC_MAT);
     tailObj.position.set(0, y + bodyH * 0.3, -bodyL * 0.55);
     tailObj.rotation.x = 0.35;
     g.add(tailObj);
@@ -185,6 +226,7 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
 export const buildWolf = () => quadruped({
   fur: 0x767d88, belly: 0x9aa2ab, bodyL: 2.5, bodyW: 0.95, bodyH: 0.9,
   legH: 0.95, headS: 0.72, snout: 0.55, tail: 1.1, ears: true,
+  saddle: 0x565d68, bushyTail: true,
 });
 
 export const buildBoar = () => quadruped({
@@ -203,6 +245,7 @@ export const buildBoar = () => quadruped({
 export const buildBear = () => quadruped({
   fur: 0x5e4128, belly: 0x74522f, bodyL: 3.5, bodyW: 1.9, bodyH: 1.8,
   legH: 1.25, headS: 1.15, snout: 0.7, tail: 0.35, ears: true,
+  hump: true, roundEars: true,
   extras: { paw: 0xd8d2c2 },
 });
 
@@ -941,7 +984,12 @@ export function updateCanopyFade(leaves, camera, watchers, dt) {
   const n = leaves.count;
   const camX = camera.position.x, camY = camera.position.y, camZ = camera.position.z;
 
-  /* Everything drifts back to opaque; anything occluding is pulled down. */
+  /* Everything drifts back to opaque; anything occluding is pulled down.
+     userData.active, when present, is a precomputed index list of the only
+     instances that can ever occlude play (the border band uses it: ~150
+     edge-adjacent trees out of 700, the rest pure backdrop never iterated). */
+  const act = leaves.userData.active || null;
+  const nn = act ? act.length : n;
   const want = new Float32Array(n).fill(1);
   for (const w of watchers) {
     const wx = w.pos.x, wy = w.pos.y + 1.0, wz = w.pos.z;
@@ -949,7 +997,8 @@ export function updateCanopyFade(leaves, camera, watchers, dt) {
     const wDist = _cu.length();
     if (wDist < 0.01) continue;
     _cu.divideScalar(wDist);
-    for (let i = 0; i < n; i++) {
+    for (let k = 0; k < nn; k++) {
+      const i = act ? act[k] : k;
       if (want[i] <= 0.16) continue;                    // already fully faded
       const tx = pos[i * 3], tz = pos[i * 3 + 2];
       const by = pos[i * 3 + 1];
