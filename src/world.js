@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD, HALF, BASE, COMPOUND, DEFS, RULES, TEAM } from './config.js';
 import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fbm, Grid } from './utils.js';
-import { enableCanopyFade, M, GLOW, makeForest, makeScatter, buildWall, box, cyl } from './meshes.js';
+import { enableCanopyFade, M, GLOW, VC_MAT, makeForest, makeScatter, buildWall, buildGateGantry, box, cyl, propBushGeo, propLogGeo, propStumpGeo, propMushroomGeo, propFlowerGeo, propLitterGeo } from './meshes.js';
 import { applyFogMask } from './fog.js';
 import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial } from './shaders.js';
 import { initWeather } from './weather.js';
@@ -185,15 +185,47 @@ function buildProps(scene) {
   const scenic = (mat) => applyFogMask(mat.clone());
 
   const density = (G.map && G.map.props) || {};
+  const season = (G.map && G.map.season) || '';
+  const arche = (G.map && G.map.archetype) || 'valley';
+  const hue = (G.map && G.map.palette && G.map.palette.treeHue) || 0.26;
+  const winter = season === 'winter' || arche === 'alpine';
+  const spring = season === 'spring';
+  const autumn = season === 'autumn';
+  const wet = arche === 'wetland';
 
-  // forest
-  const [trunks, leaves] = makeForest(density.trees || 820, () => freeSpot(10));
-  trunks.material = scenic(trunks.material);
-  leaves.material = scenic(leaves.material);
-  enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
-  G.canopy = leaves;
-  (G.canopies || (G.canopies = [])).push(leaves);
-  scene.add(trunks); scene.add(leaves);
+  /* Blighted ground: the ring around the compound where the machine has
+     poisoned the soil. Snags and dead sticks live here and nothing green does. */
+  const blightSpot = (minC = 3) => {
+    for (let i = 0; i < 20; i++) {
+      const a = rand(0, 6.28), d = rand(COMPOUND.hw, COMPOUND.hw + 30);
+      const x = COMPOUND.x + Math.cos(a) * d, z = COMPOUND.z + Math.sin(a) * d * 0.8;
+      if (Math.abs(x) > HALF - 6 || Math.abs(z) > HALF - 6) continue;
+      if (insideCompound(x, z, minC)) continue;
+      return { x, y: terrainHeight(x, z), z };
+    }
+    return null;
+  };
+
+  /* Forest: a species mix chosen by season and archetype. The shares are the
+     map's character -- alpine goes to firs, wetland and autumn to broadleaves,
+     and the valley default keeps the pine as the majority read -- plus a fixed
+     stand of dead snags on the blight. Each species is its own instanced pair
+     with the same fade contract, so the loop below treats them identically. */
+  const mix = winter ? [{ kind: 'pine', share: 0.35 }, { kind: 'fir', share: 0.55 }, { kind: 'broadleaf', share: 0.1 }]
+    : (wet || spring) ? [{ kind: 'pine', share: 0.25 }, { kind: 'broadleaf', share: 0.6 }, { kind: 'fir', share: 0.15 }]
+    : autumn ? [{ kind: 'pine', share: 0.3 }, { kind: 'broadleaf', share: 0.55 }, { kind: 'fir', share: 0.15 }]
+    : [{ kind: 'pine', share: 0.5 }, { kind: 'broadleaf', share: 0.32 }, { kind: 'fir', share: 0.18 }];
+  mix.push({ kind: 'snag', count: 70, place: () => blightSpot(4) });
+  const forest = makeForest(density.trees || 820, () => freeSpot(10), mix);
+  G.canopy = forest[1];
+  for (let i = 0; i < forest.length; i += 2) {
+    const trunks = forest[i], leaves = forest[i + 1];
+    trunks.material = scenic(trunks.material);
+    leaves.material = scenic(leaves.material);
+    enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
+    (G.canopies || (G.canopies = [])).push(leaves);
+    scene.add(trunks); scene.add(leaves);
+  }
 
   // rocks
   scene.add(makeScatter(
@@ -233,16 +265,36 @@ function buildProps(scene) {
   // dead sticks in the blighted zone
   const stick = new THREE.CylinderGeometry(0.12, 0.2, 4, 5);
   stick.translate(0, 2, 0);
-  scene.add(makeScatter(stick, scenic(M(0x453f36, { rough: 1 })), 120, () => {
-    for (let i = 0; i < 20; i++) {
-      const a = rand(0, 6.28), d = rand(COMPOUND.hw, COMPOUND.hw + 30);
-      const x = COMPOUND.x + Math.cos(a) * d, z = COMPOUND.z + Math.sin(a) * d * 0.8;
-      if (Math.abs(x) > HALF - 6 || Math.abs(z) > HALF - 6) continue;
-      if (insideCompound(x, z, 3)) continue;
-      return { x, y: terrainHeight(x, z), z };
-    }
-    return null;
-  }, [0.7, 1.5]));
+  scene.add(makeScatter(stick, scenic(M(0x453f36, { rough: 1 })), 120, () => blightSpot(3), [0.7, 1.5]));
+
+  /* ---- ground dressing: instanced, vertex-coloured, standing upright ----
+     Each prop is one buffer from meshes.js with its own two or three tones
+     baked in; the season decides which appear and instanceColor tints the
+     ones whose colour is the map's (bushes, litter, petals). Small things
+     skip the shadow pass: a mushroom's shadow is a pixel nobody sees. */
+  const vc = () => scenic(VC_MAT);
+  const green = (l0, l1) => () => new THREE.Color().setHSL(hue + rand(-0.04, 0.04), rand(0.35, 0.55), rand(l0, l1));
+  scene.add(makeScatter(propBushGeo(), vc(), winter ? 120 : 260, () => freeSpot(5),
+    [0.7, 1.5], { upright: true, colorFn: green(0.18, 0.32) }));
+  scene.add(makeScatter(propLogGeo(), vc(), 70, () => freeSpot(6), [0.8, 1.4],
+    { upright: true, tilt: 0.1, sink: 0.15 }));
+  scene.add(makeScatter(propStumpGeo(), vc(), 60, () => freeSpot(6), [0.8, 1.3],
+    { upright: true, tilt: 0.06 }));
+  if (!winter) {
+    scene.add(makeScatter(propMushroomGeo(), vc(), (wet || autumn) ? 200 : 110, () => freeSpot(5),
+      [0.5, 1.1], { upright: true, tilt: 0.08, shadow: false }));
+  }
+  if (spring || /summer/.test(season)) {
+    const petals = spring ? [0xf2f2f2, 0xf5c7e0, 0xffe27a, 0xb9a6ff] : [0xffe27a, 0xf2a25a, 0xf2f2f2];
+    scene.add(makeScatter(propFlowerGeo(), vc(), spring ? 260 : 140, () => freeSpot(5), [0.7, 1.3],
+      { upright: true, tilt: 0.1, shadow: false, colorFn: () => new THREE.Color(petals[randInt(0, petals.length - 1)]) }));
+  }
+  if (autumn) {
+    scene.add(makeScatter(propLitterGeo(), vc(), 200, () => freeSpot(4), [1.0, 2.2], {
+      upright: true, tilt: 0.02, shadow: false,
+      colorFn: () => new THREE.Color().setHSL(hue + rand(-0.03, 0.05), rand(0.5, 0.7), rand(0.22, 0.34)),
+    }));
+  }
 
   // yard clutter inside the compound: containers + pipe runs
   const yard = new THREE.Group();
@@ -560,18 +612,44 @@ function buildPerimeter() {
     return e;
   };
 
+  const northKept = [], westKept = [];
   for (let x = cx - hw; x < cx + hw - 0.1; x += seg) {
     const mid = x + seg / 2;
     // south wall (always solid)
     addWall(mid, cz - hd, 0, seg);
     // north wall with gate
-    if (Math.abs(mid - gateN.c) > gateN.half + seg / 2 - 1) addWall(mid, cz + hd, 0, seg);
+    if (Math.abs(mid - gateN.c) > gateN.half + seg / 2 - 1) { addWall(mid, cz + hd, 0, seg); northKept.push(mid); }
   }
   for (let z = cz - hd; z < cz + hd - 0.1; z += seg) {
     const mid = z + seg / 2;
     addWall(cx + hw, mid, Math.PI / 2, seg);
-    if (Math.abs(mid - gateW.c) > gateW.half + seg / 2 - 1) addWall(cx - hw, mid, Math.PI / 2, seg);
+    if (Math.abs(mid - gateW.c) > gateW.half + seg / 2 - 1) { addWall(cx - hw, mid, Math.PI / 2, seg); westKept.push(mid); }
   }
+
+  /* Gate gantries: a pylon planted on the wall end either side of each gap
+     and a lit beam across. The clear span is measured from the segments that
+     were actually built, so the pylons land on the posts whatever the
+     compound's size. Dressing only -- no obstacle, the gap stays pathable. */
+  const gantry = (kept, c, place) => {
+    let lo = -Infinity, hi = Infinity;
+    for (const m of kept) {
+      if (m < c && m + seg / 2 > lo) lo = m + seg / 2;
+      if (m > c && m - seg / 2 < hi) hi = m - seg / 2;
+    }
+    if (!isFinite(lo) || !isFinite(hi)) return;
+    place((lo + hi) / 2, hi - lo);
+  };
+  gantry(northKept, gateN.c, (mid, span) => {
+    const gt = buildGateGantry(span);
+    gt.position.set(mid, terrainHeight(mid, cz + hd), cz + hd);
+    G.scene.add(gt);
+  });
+  gantry(westKept, gateW.c, (mid, span) => {
+    const gt = buildGateGantry(span);
+    gt.position.set(cx - hw, terrainHeight(cx - hw, mid), mid);
+    gt.rotation.y = Math.PI / 2;
+    G.scene.add(gt);
+  });
   G.gates = [
     new THREE.Vector3(cx, 0, cz + hd),
     new THREE.Vector3(cx - hw, 0, cz),
