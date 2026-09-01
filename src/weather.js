@@ -174,7 +174,150 @@ export function initWeather(scene, name = 'clear') {
   frontTo = null; frontT = 0;
   installCycle(G.map);
   curName = cycle ? nameAt(0) : name;
+  buildMotes(scene, G.map);          // survives fronts: the season does not change mid-match
   return buildWeather(scene, curName);
+}
+
+
+/* ------------------------------------------------------------- motes --
+   Ambient particles: pollen in late summer, seed-fluff in spring, ice
+   glitter in winter, falling leaves in autumn, dry dust at high noon. The
+   thing that makes air look like air. Same construction as the rain — ONE
+   Points object in a box that rides the camera, every particle wrapped in
+   the vertex shader — so 700 of them are one draw call and zero CPU.
+
+   Draw order matters. Rain sits at renderOrder 7, OVER the fog-of-war veil,
+   because weather over unexplored ground is right. Motes sit at 4, UNDER it:
+   a glowing drift of pollen across the black unknown would read as a bug,
+   and dimmed through the explored-but-unseen veil is exactly right.
+
+   `palette.motes` on a MapDef overrides the season default, either a preset
+   name or an object merged over one; `motes: false` switches them off.     */
+const MOTE_PRESETS = {
+  /*                colour     count size  fall  drift wobble alpha  add  leaf */
+  pollen:  { colour: 0xffd98a, count: 700, size: 1.5, fall: -0.35, drift: 1.1, wobble: 1.2, alpha: 0.42, add: true,  leaf: false },
+  seeds:   { colour: 0xf2f7e6, count: 520, size: 1.9, fall:  0.45, drift: 1.6, wobble: 1.6, alpha: 0.38, add: true,  leaf: false },
+  glitter: { colour: 0xdcefff, count: 460, size: 1.1, fall:  1.40, drift: 0.7, wobble: 0.5, alpha: 0.55, add: true,  leaf: false },
+  leaves:  { colour: 0xb8602a, count: 300, size: 2.6, fall:  2.80, drift: 3.2, wobble: 2.4, alpha: 0.90, add: false, leaf: true },
+  dust:    { colour: 0xfff1cf, count: 480, size: 1.2, fall:  0.15, drift: 0.9, wobble: 0.9, alpha: 0.30, add: true,  leaf: false },
+};
+const SEASON_MOTES = {
+  'late summer': 'pollen', spring: 'seeds', winter: 'glitter',
+  autumn: 'leaves', 'high summer': 'dust',
+};
+const MOTE_BOX = 150, MOTE_TOP = 28;
+
+let motes = null, moteUni = null;
+
+function buildMotes(scene, map) {
+  disposeMotes();
+  const pal = (map && map.palette) || {};
+  if (pal.motes === false) return;
+  let p = MOTE_PRESETS[SEASON_MOTES[map && map.season] || 'pollen'];
+  if (typeof pal.motes === 'string') p = MOTE_PRESETS[pal.motes] || p;
+  else if (pal.motes && typeof pal.motes === 'object') p = { ...p, ...pal.motes };
+  if (!p || !(p.count > 0)) return;
+
+  const n = p.count | 0;
+  const pos = new Float32Array(n * 3);
+  const seed = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    pos[i * 3] = rand(-MOTE_BOX / 2, MOTE_BOX / 2);
+    pos[i * 3 + 1] = rand(0, MOTE_TOP);
+    pos[i * 3 + 2] = rand(-MOTE_BOX / 2, MOTE_BOX / 2);
+    seed[i] = Math.random();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), MOTE_BOX);
+
+  moteUni = {
+    uTime:   { value: 0 },
+    uOrigin: { value: new THREE.Vector3() },
+    uBox:    { value: MOTE_BOX },
+    uTop:    { value: MOTE_TOP },
+    uFall:   { value: p.fall },
+    uDrift:  { value: p.drift },
+    uWobble: { value: p.wobble },
+    uSize:   { value: p.size },
+    uColour: { value: new THREE.Color(p.colour) },
+    uAlpha:  { value: p.alpha },
+    uLeaf:   { value: p.leaf ? 1 : 0 },
+    uFade:   { value: 0 },
+  };
+  const mat = new THREE.ShaderMaterial({
+    uniforms: moteUni, transparent: true, depthWrite: false,
+    blending: p.add ? THREE.AdditiveBlending : THREE.NormalBlending,
+    vertexShader: `
+      attribute float seed;
+      uniform float uTime, uBox, uTop, uFall, uDrift, uWobble, uSize;
+      uniform vec3 uOrigin;
+      varying float vSeed, vFade;
+      void main() {
+        vSeed = seed;
+        vec3 p = position;
+        float t = uTime * (0.6 + seed * 0.8);
+        p.y -= uFall * t;
+        p.x += uDrift * t + sin(uTime * (0.4 + seed) + seed * 40.0) * uWobble;
+        p.z += uDrift * 0.4 * t + cos(uTime * (0.35 + seed * 0.7) + seed * 23.0) * uWobble;
+        p.x = mod(p.x - uOrigin.x + uBox * 0.5, uBox) - uBox * 0.5 + uOrigin.x;
+        p.z = mod(p.z - uOrigin.z + uBox * 0.5, uBox) - uBox * 0.5 + uOrigin.z;
+        p.y = mod(p.y, uTop) + uOrigin.y;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float d = -mv.z;
+        gl_PointSize = uSize * (260.0 / max(1.0, d));
+        /* soft box edges so a mote never pops in at the wrap seam, and a
+           distance fade so the far field is not a haze of dots */
+        float ex = 1.0 - smoothstep(uBox * 0.34, uBox * 0.5, abs(p.x - uOrigin.x));
+        float ez = 1.0 - smoothstep(uBox * 0.34, uBox * 0.5, abs(p.z - uOrigin.z));
+        vFade = ex * ez * (1.0 - smoothstep(150.0, 250.0, d));
+      }`,
+    fragmentShader: `
+      uniform vec3 uColour;
+      uniform float uAlpha, uLeaf, uTime, uFade;
+      varying float vSeed, vFade;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5;
+        float a;
+        if (uLeaf > 0.5) {
+          /* a tumbling leaf: an ellipse whose width breathes with time */
+          float sq = 0.55 + 0.45 * sin(uTime * (2.0 + vSeed * 3.0) + vSeed * 50.0);
+          c.x /= max(0.22, sq);
+          a = smoothstep(0.5, 0.28, length(c));
+        } else {
+          a = smoothstep(0.5, 0.08, length(c))
+            * (0.55 + 0.45 * sin(uTime * (1.5 + vSeed * 2.0) + vSeed * 30.0));   // twinkle
+        }
+        a *= uAlpha * vFade * uFade;
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(uColour, a);
+      }`,
+  });
+  motes = new THREE.Points(geo, mat);
+  motes.frustumCulled = false;
+  motes.renderOrder = 4;             // under the fog veil (5) — see above
+  motes.raycast = () => {};
+  scene.add(motes);
+}
+
+function updateMotes(dt) {
+  if (!motes || !moteUni) return;
+  moteUni.uTime.value += dt;
+  moteUni.uFade.value = Math.min(1, moteUni.uFade.value + dt * 0.5);
+  /* anchor on the camera TARGET, not the camera: the box then straddles the
+     ground the player is looking at, and its floor tracks the terrain there */
+  const rts = G.rts, cam = G.camera;
+  if (rts && rts.target) moteUni.uOrigin.value.set(rts.target.x, rts.target.y - 3, rts.target.z);
+  else if (cam) moteUni.uOrigin.value.set(cam.position.x, 0, cam.position.z);
+}
+
+function disposeMotes() {
+  if (!motes) return;
+  motes.parent && motes.parent.remove(motes);
+  motes.geometry.dispose(); motes.material.dispose();
+  motes = null; moteUni = null;
 }
 
 /** The sky the timetable will hand you next, and in how long. For the HUD. */
@@ -276,6 +419,7 @@ export function precipWord() {
 
 export function updateWeather(dt) {
   const cam = G.camera;
+  updateMotes(dt);
 
   /* a front on the timetable: announce it, fade the old sky out, swap, and let
      the new one's existing uFade ramp bring it in */

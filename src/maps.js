@@ -14,15 +14,47 @@ import { G } from './state.js';
 
 const VALLEY_PALETTE = { bg: 0x1b2f24, fog: 0x24402f, fogNear: 170, fogFar: 420, treeHue: 0.26 };
 
+/* -------------------------------------------------------- the look, per map --
+   Beyond bg/fog/fogNear/fogFar/treeHue a palette may carry (every field
+   optional; defaults live where each is consumed, and reproduce the old look):
+
+     skyTop / skyHorizon / skyGround / sunGlow / cloudCover   shaders.js makeSkyDome
+     horizonMix / sunHaze / mistAmt / mistBase / mistRange    shaders.js setAtmosphere
+                                                              (aerial perspective)
+     ground: { grass lush moss straw dirt dry ash tar contrast }
+                                                              shaders.js terrain
+     water:  { deep shallow dry }                             water.js
+     grade:  { shadows highlights saturation contrast vignette grain exposure }
+                                                              post.js
+     motes:  preset name | { ...overrides } | false           weather.js
+                                                              (season picks the default)
+   and a mood may add
+     cloudShadow / cloudCell / cloudWind                      cloud shadows on the ground
+     wind: { amp, speed }                                     canopy sway
+
+   The horizon colour is the load-bearing one: it is what the far ground, the
+   far forest AND the water all fade toward, so it is the colour a map is
+   remembered as. The zenith is almost never on screen at this camera pitch. */
+
 export const MAPS = {
   /* ------------------------------------------------ the original valley -- */
   'verdant-hollow': {
     id: 'verdant-hollow', name: 'Verdant Hollow', archetype: 'valley', faction: 'wild',
-    terra: {}, palette: { bg: 0x2b2130, fog: 0x3d2f3c, fogNear: 165, fogFar: 430, treeHue: 0.26 },
+    terra: {}, palette: {
+      bg: 0x2b2130, fog: 0x3d2f3c, fogNear: 165, fogFar: 430, treeHue: 0.26,
+      /* peach horizon under a dusk-violet zenith; the far ridge goes apricot */
+      skyTop: 0x2e3f6e, skyHorizon: 0xe8a878, skyGround: 0x33262e, sunGlow: 0xffbe6e, cloudCover: 0.42,
+      horizonMix: 0.7, sunHaze: 0.55, mistAmt: 0.10, mistBase: -2, mistRange: 14,
+      /* late summer: the greens have gone warm and there is straw in them */
+      ground: { grass: 0x3b5c2a, lush: 0x5b8a38, moss: 0x86b24c, straw: 0x9c8c4a, dirt: 0x5c4630 },
+      water: { deep: 0x1b3d48, shallow: 0x4a8f88, dry: 0x6a5f48 },
+      grade: { shadows: 0x7a7892, highlights: 0x8e8272, saturation: 1.08, contrast: 1.04, vignette: 0.34, grain: 0.03 },
+    },
     /* LATE SUMMER, GOLDEN HOUR. The poster shot: a long low sun out of the
        west, violet dusk pooling in the fog, warm rim on every canopy. */
     mood: { sunC: 0xffb36b, sunI: 2.15, sunOffset: [-125, 62, 45],
-            hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8 },
+            hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8,
+            cloudShadow: 0.30, cloudCell: 52, cloudWind: [1.1, 0.5], wind: { amp: 0.9, speed: 0.9 } },
     season: 'late summer',
     river: [{ x: -12, z: 56 }, { x: -8, z: 34 }, { x: 4, z: 18 }, { x: -2, z: -4 },
             { x: -18, z: -26 }, { x: -30, z: -48 }, { x: -26, z: -72 }],
@@ -99,11 +131,22 @@ export const MAPS = {
   'mirefen': {
     id: 'mirefen', name: 'The Mirefen Exchange', archetype: 'wetland', faction: 'wild',
     terra: { ampl: 3.5, freq: 0.02, rippleA: 0.5 },
-    palette: { bg: 0x1b2f2e, fog: 0x2a4540, fogNear: 120, fogFar: 340, treeHue: 0.34 },
+    palette: {
+      bg: 0x1b2f2e, fog: 0x2a4540, fogNear: 120, fogFar: 340, treeHue: 0.34,
+      /* milk-white horizon, everything dissolves into it fast; the mist term
+         is the strongest in the game and sits right in the hollows */
+      skyTop: 0x5f86a6, skyHorizon: 0xd9e2d6, skyGround: 0x2a3d3a, sunGlow: 0xffe6b4, cloudCover: 0.72,
+      horizonMix: 0.85, sunHaze: 0.4, mistAmt: 0.26, mistBase: 1, mistRange: 9,
+      /* spring: wet, saturated green over dark mud */
+      ground: { grass: 0x2b5a2c, lush: 0x3e8a3a, moss: 0x5fb85a, straw: 0x6c8a48, dirt: 0x3e3828 },
+      water: { deep: 0x1c3f3a, shallow: 0x4c8f7c, dry: 0x4e4a3a },
+      grade: { shadows: 0x76848c, highlights: 0x8a8a82, saturation: 0.96, contrast: 0.96, vignette: 0.28, grain: 0.035 },
+    },
     /* SPRING, FIRST LIGHT. A pale gold sun barely up in the east, everything
        else cold teal — dawn over standing water. */
     mood: { sunC: 0xffdda6, sunI: 1.45, sunOffset: [105, 58, -55],
-            hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05 },
+            hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05,
+            cloudShadow: 0.16, cloudCell: 60, cloudWind: [0.5, 0.3], wind: { amp: 0.6, speed: 0.8 } },
     season: 'spring',
     river: [{ x: -30, z: 28 }, { x: -12, z: 40 }, { x: 10, z: 52 }, { x: -8, z: 66 },
             { x: -34, z: 4 }, { x: -48, z: -14 }, { x: -58, z: -30 }],
@@ -127,11 +170,28 @@ export const MAPS = {
   'substation-gary': {
     id: 'substation-gary', name: 'Substation Gary', archetype: 'alpine', faction: 'wild',
     terra: { ampl: 16, freq: 0.010, rippleA: 2.4 },
-    palette: { bg: 0x232b3d, fog: 0x35364a, fogNear: 150, fogFar: 400, treeHue: 0.42 },
+    palette: {
+      bg: 0x232b3d, fog: 0x35364a, fogNear: 150, fogFar: 400, treeHue: 0.42,
+      /* rose horizon, slate zenith: the alpenglow is in the sky, the blue is
+         in the shadows (hemiSky below), and the two meet on the snow */
+      skyTop: 0x27345a, skyHorizon: 0xe6b6c4, skyGround: 0x2c3242, sunGlow: 0xffb2be, cloudCover: 0.6,
+      horizonMix: 0.7, sunHaze: 0.5, mistAmt: 0.14, mistBase: 2, mistRange: 22,
+      /* SNOW. Albedo held near 0.5 linear (0xbcc4d0) so lit snow lands just
+         over the bloom knee — a soft glow, not a white-out. The moss slot is
+         the cleanest snow (it is the Heart Tree halo); straw is dead grass
+         through the crust; dirt is grey scree on the steep faces. Contrast is
+         low: snow is smooth. The poisoned margin stays grey — snow does not
+         settle where the machines are warm. */
+      ground: { grass: 0x98a6b8, lush: 0xbcc4d0, moss: 0xc8d0dc, straw: 0xb0aa9c, dirt: 0x6b6d76,
+                dry: 0x6c6a64, ash: 0x45464a, tar: 0x363a44, contrast: 0.55 },
+      water: { deep: 0x1a2a42, shallow: 0x6f93b0, dry: 0x7a7a82 },
+      grade: { shadows: 0x74809c, highlights: 0x8e8286, saturation: 0.9, contrast: 1.06, vignette: 0.3, grain: 0.035, exposure: 0.95 },
+    },
     /* DEEP WINTER, ALPENGLOW. Rose-pink sun skimming the ridgeline, blue-slate
        shadow everywhere it does not reach, snow already falling. */
     mood: { sunC: 0xff9fae, sunI: 1.75, sunOffset: [-135, 52, -35],
-            hemiSky: 0xc6d8ff, hemiGround: 0x3e4152, hemiI: 0.95 },
+            hemiSky: 0xc6d8ff, hemiGround: 0x3e4152, hemiI: 0.95,
+            cloudShadow: 0.24, cloudCell: 56, cloudWind: [1.6, -0.6], wind: { amp: 1.2, speed: 1.0 } },
     season: 'winter',
     props: { trees: 520, rocks: 520, ferns: 260 },
     base: { x: -72, z: 66 },
@@ -152,11 +212,24 @@ export const MAPS = {
   'coldrake': {
     id: 'coldrake', name: 'Coldrake Logistics Hub', archetype: 'industrial', faction: 'wild',
     terra: { ampl: 6, blightReach: 52 },
-    palette: { bg: 0x2a201c, fog: 0x38281f, fogNear: 140, fogFar: 380, treeHue: 0.07 },
+    palette: {
+      bg: 0x2a201c, fog: 0x38281f, fogNear: 140, fogFar: 380, treeHue: 0.07,
+      /* a dirty-amber horizon under a near-black overcast; the sun is an
+         ember cutting under it, so the haze along its azimuth is strong */
+      skyTop: 0x3a3634, skyHorizon: 0xb48c66, skyGround: 0x2a2220, sunGlow: 0xff9a50, cloudCover: 0.92,
+      horizonMix: 0.5, sunHaze: 0.45, mistAmt: 0.12, mistBase: -1, mistRange: 16,
+      /* autumn: dry, warm, high-contrast grass gone to seed */
+      ground: { grass: 0x6a5a2e, lush: 0x8c7636, moss: 0xa08c40, straw: 0xb08e48, dirt: 0x4c3826,
+                dry: 0x5a5236, ash: 0x3a3632, contrast: 1.15 },
+      water: { deep: 0x263830, shallow: 0x6a7a58, dry: 0x5e5040 },
+      grade: { shadows: 0x7c7672, highlights: 0x8e8270, saturation: 0.94, contrast: 1.08, vignette: 0.38, grain: 0.04 },
+    },
     /* AUTUMN, STORMLIGHT. The canopy has turned -- rust and amber -- and the
        sun is a low ember cutting under the weather. */
     mood: { sunC: 0xff9448, sunI: 1.55, sunOffset: [-110, 48, 70],
-            hemiSky: 0xb8a48e, hemiGround: 0x3a2c22, hemiI: 0.9 },
+            hemiSky: 0xb8a48e, hemiGround: 0x3a2c22, hemiI: 0.9,
+            /* the storm: fast, hard-edged cloud shadow, a canopy that thrashes */
+            cloudShadow: 0.45, cloudCell: 44, cloudWind: [4.0, 1.6], wind: { amp: 2.2, speed: 1.6 } },
     season: 'autumn',
     props: { trees: 420, rocks: 300, ferns: 240 },
     base: { x: -74, z: 68 },
@@ -177,11 +250,22 @@ export const MAPS = {
   'the-campus': {
     id: 'the-campus', name: 'The Campus', archetype: 'valley', faction: 'wild',
     terra: { ampl: 8 },
-    palette: { bg: 0x1a2433, fog: 0x25303e, fogNear: 150, fogFar: 400, treeHue: 0.25 },
+    palette: {
+      bg: 0x1a2433, fog: 0x25303e, fogNear: 150, fogFar: 400, treeHue: 0.25,
+      /* hard blue noon: a pale horizon, a white sun, and almost no sun-haze
+         (the elevation gate in setAtmosphere kills most of it anyway) */
+      skyTop: 0x3a72c4, skyHorizon: 0xd4e0ea, skyGround: 0x263640, sunGlow: 0xffffff, cloudCover: 0.62,
+      horizonMix: 0.55, sunHaze: 0.15, mistAmt: 0.05, mistBase: -2, mistRange: 12,
+      /* high summer: bright yellow-green, the most saturated ground in the rotation */
+      ground: { grass: 0x4a7c2c, lush: 0x72a63c, moss: 0x9cc650, straw: 0xa4a04e, dirt: 0x5e4c30, contrast: 1.05 },
+      water: { deep: 0x143a54, shallow: 0x3a8cac, dry: 0x5b5647 },
+      grade: { shadows: 0x7a808a, highlights: 0x848484, saturation: 1.06, contrast: 1.1, vignette: 0.26, grain: 0.025 },
+    },
     /* HIGH SUMMER, STORM-BREAK NOON. Hard white light straight down between
        the weather -- the clinical hour for the most fortified site. */
     mood: { sunC: 0xf2f7ff, sunI: 2.0, sunOffset: [-45, 130, 30],
-            hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05 },
+            hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05,
+            cloudShadow: 0.40, cloudCell: 50, cloudWind: [2.4, 0.8], wind: { amp: 1.4, speed: 1.3 } },
     season: 'high summer',
     river: [{ x: -36, z: 36 }, { x: -48, z: 14 }, { x: -60, z: -8 }, { x: -70, z: -40 }],
     props: { trees: 560, rocks: 260, ferns: 380 },

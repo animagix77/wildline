@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { rainfall } from './weather.js';
+import { postEnabled } from './post.js';
 import { rand, terrainHeight, clamp, smoothstep } from './utils.js';
 import { toast } from './ui.js';
 import { commsEvent } from './comms.js';
@@ -35,12 +36,36 @@ const _reflMat = new THREE.Matrix4();
 const _norm = new THREE.Vector3(0, 1, 0);
 const _plane = new THREE.Plane();
 
+/* Water colours, per map: `palette.water = { deep, shallow, dry }` in sRGB
+   hex. The defaults are the old constants. `sky` is the mirror's fallback —
+   the reflection is a real render, but at a glancing angle over dark forest
+   it comes back dark, so a slice of the sky's horizon colour is blended in
+   to keep a lake reading as WATER (light, open) against the ground around
+   it. Comes from palette.skyHorizon, the same colour the far fog uses, so
+   water and distance agree.                                               */
+const WATER_DEFAULTS = { deep: 0x16404a, shallow: 0x3d8e93, dry: 0x5b5647 };
+function waterPalette() {
+  const pal = (G.map && G.map.palette) || {};
+  const w = { ...WATER_DEFAULTS, ...(pal.water || {}) };
+  return {
+    uDeep:    { value: new THREE.Color(w.deep) },
+    uShallow: { value: new THREE.Color(w.shallow) },
+    uDry:     { value: new THREE.Color(w.dry) },
+    uSky:     { value: new THREE.Color(pal.skyHorizon !== undefined ? pal.skyHorizon : 0xaabbaf) },
+  };
+}
+
 export function initWater(scene, defs) {
   disposeWater();
   if (!defs || !defs.length) { G.lakes = lakes = []; return; }
 
+  /* Half-float: the mirror is rendered LINEAR and un-tonemapped now (see
+     renderWaterReflection), so it has to hold values above 1.0 — a reflected
+     sun or coolant glow clipped to white at 8 bits would then be tone-mapped
+     a second time and come out grey. */
   reflectTarget = new THREE.WebGLRenderTarget(REFLECT_SIZE, REFLECT_SIZE, {
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    type: THREE.HalfFloatType,
   });
   reflectCam = new THREE.PerspectiveCamera();
 
@@ -49,9 +74,7 @@ export function initWater(scene, defs) {
       uTime:    { value: 0 },
       uRefl:    { value: reflectTarget.texture },
       uLevel:   { value: 1 },                       // 1 full .. 0 dry
-      uDeep:    { value: new THREE.Color(0x16404a) },
-      uShallow: { value: new THREE.Color(0x3d8e93) },
-      uDry:     { value: new THREE.Color(0x5b5647) },
+      ...waterPalette(),
       uRadius:  { value: d.r },
     };
     const geo = new THREE.CircleGeometry(d.r, 64);
@@ -68,7 +91,7 @@ export function initWater(scene, defs) {
         }`,
       fragmentShader: `
         uniform sampler2D uRefl; uniform float uTime, uLevel, uRadius;
-        uniform vec3 uDeep, uShallow, uDry;
+        uniform vec3 uDeep, uShallow, uDry, uSky;
         varying vec4 vScreen; varying vec2 vLocal;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
@@ -84,6 +107,8 @@ export function initWater(scene, defs) {
             n(vLocal * 0.18 + uTime * 0.35),
             n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
           vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+          /* the mirror carries the sky's horizon in with it (see uSky) */
+          refl = mix(refl, uSky, 0.28);
 
           float depth = smoothstep(edge, 0.0, r);
           vec3 body = mix(uShallow, uDeep, depth);
@@ -188,9 +213,7 @@ function buildRiver(scene, pts, members) {
     uTime:    { value: 0 },
     uRefl:    { value: reflectTarget.texture },
     uLevel:   { value: 1 },
-    uDeep:    { value: new THREE.Color(0x16404a) },
-    uShallow: { value: new THREE.Color(0x3d8e93) },
-    uDry:     { value: new THREE.Color(0x5b5647) },
+    ...waterPalette(),
     uLen:     { value: len },
   };
   const mat = new THREE.ShaderMaterial({
@@ -206,7 +229,7 @@ function buildRiver(scene, pts, members) {
       }`,
     fragmentShader: `
       uniform sampler2D uRefl; uniform float uTime, uLevel, uLen;
-      uniform vec3 uDeep, uShallow, uDry;
+      uniform vec3 uDeep, uShallow, uDry, uSky;
       varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
       float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
       float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
@@ -222,6 +245,7 @@ function buildRiver(scene, pts, members) {
           n(vLocal * 0.18 + uTime * 0.35),
           n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
         vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+        refl = mix(refl, uSky, 0.28);
 
         float depth = smoothstep(edge, 0.0, across);
         vec3 body = mix(uShallow, uDeep, depth);
@@ -415,7 +439,19 @@ export function renderWaterReflection(renderer, scene, camera) {
   renderer.clear();
   const prevShadow = renderer.shadowMap.autoUpdate;
   renderer.shadowMap.autoUpdate = false;   // reuse this frame's shadow map
+  /* LINEAR, UN-TONEMAPPED — the same state post.js renders the main view in.
+     The mirror used to be drawn with the renderer's ACES + sRGB defaults and
+     then sampled as if it were linear scene light: tone-mapped twice, so the
+     reflected sky came back dull and grey and a lake never quite matched the
+     world it was mirroring. */
+  const prevTone = renderer.toneMapping, prevOut = renderer.outputColorSpace;
+  if (postEnabled()) {               // with post off the main view is ACES too; match it
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  }
   renderer.render(scene, reflectCam);
+  renderer.toneMapping = prevTone;
+  renderer.outputColorSpace = prevOut;
   renderer.shadowMap.autoUpdate = prevShadow;
   renderer.setRenderTarget(prevTarget);
   renderer.clippingPlanes = prevPlanes;

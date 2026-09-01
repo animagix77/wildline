@@ -4,7 +4,8 @@ import { WORLD, HALF, BASE, COMPOUND, DEFS, RULES, TEAM } from './config.js';
 import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fbm, Grid } from './utils.js';
 import { enableCanopyFade, M, GLOW, VC_MAT, makeForest, makeScatter, buildWall, buildGateGantry, box, cyl, propBushGeo, propLogGeo, propStumpGeo, propMushroomGeo, propFlowerGeo, propLitterGeo } from './meshes.js';
 import { applyFogMask } from './fog.js';
-import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial } from './shaders.js';
+import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial, setAtmosphere, enableCanopySway } from './shaders.js';
+import { setPostGrade } from './post.js';
 import { initWeather } from './weather.js';
 import { initWater, groveWaterFactor } from './water.js';
 import { Entity, spawn } from './entity.js';
@@ -64,9 +65,18 @@ export function buildScene(scene) {
   rim.position.set(120, 40, -110);
   scene.add(rim);
 
-  const sky = makeSkyDome();
+  /* --- the air: sky, aerial perspective, cloud shadow, wind, grade -------
+     All of it reads the same palette/mood blocks as the lights above, so a
+     map is one place to author. The sky dome takes its sun from the SAME
+     offset the DirectionalLight uses; the aerial-perspective fog takes its
+     far colour from the dome's horizon; the water (initWater, below) blends
+     toward that horizon too; and the post grade is the last word on top.
+     The order matters only in that G.sunOffset must exist first. */
+  const sky = makeSkyDome(pal, G.sunOffset);
   scene.add(sky);
   G.sky = sky;
+  setAtmosphere(pal, mood);
+  setPostGrade(pal.grade);       // held in post.js; survives the initPost() that follows
 
   buildTerrain(scene);
   initWater(scene, G.map && G.map.water);
@@ -114,7 +124,8 @@ function buildTerrain(scene) {
   // albedo is generated in GLSL from the `blight` attribute — see shaders.js.
   // Deliberately NOT vertexColors: <color_fragment> would multiply the procedural
   // result by the legacy per-vertex colours and wash it out.
-  const mat = makeTerrainMaterial();
+  // The ground palette is the map's: this is where winter stops being green.
+  const mat = makeTerrainMaterial(G.map && G.map.palette && G.map.palette.ground);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   scene.add(mesh);
@@ -154,6 +165,11 @@ function buildTerrain(scene) {
      within reach of the playable area can ever occlude a unit, so the ~500
      pure-backdrop trees deeper in the band are never even iterated. */
   enableCanopyFade(borderLeaves, borderTrunks);
+  /* Same height for trunk and canopy so the trunk top and the canopy base
+     move as one piece of wood; see enableCanopySway. After the clone, after
+     the fade — the sway extends the program cache key the mask pinned. */
+  enableCanopySway(borderLeaves, 9.8);
+  enableCanopySway(borderTrunks, 9.8);
   const reach = [];
   for (let i = 0; i < borderLeaves.count; i++) {
     const x = borderLeaves.userData.pos[i * 3], z = borderLeaves.userData.pos[i * 3 + 2];
@@ -223,6 +239,11 @@ function buildProps(scene) {
     trunks.material = scenic(trunks.material);
     leaves.material = scenic(leaves.material);
     enableCanopyFade(leaves, trunks);  // must follow the material swap, not precede it
+    /* Wind. Trunk and leaf share one sway height so a tree bends as one piece
+       rather than the canopy sliding off its pole. Same ordering rule as the
+       fade: after scenic() has cloned the material, never before. */
+    enableCanopySway(leaves, 9.8);
+    enableCanopySway(trunks, 9.8);
     (G.canopies || (G.canopies = [])).push(leaves);
     scene.add(trunks); scene.add(leaves);
   }
@@ -259,8 +280,12 @@ function buildProps(scene) {
   // ferns / low brush
   const fern = new THREE.ConeGeometry(0.8, 1.6, 5);
   fern.translate(0, 0.8, 0);
-  scene.add(makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), density.ferns || 520,
-    () => freeSpot(6), [0.6, 1.5]));
+  const ferns = makeScatter(fern, scenic(M(0x3d7a35, { rough: 1 })), density.ferns || 520,
+    () => freeSpot(6), [0.6, 1.5]);
+  /* brush shivers in the same wind as the canopy, at a fraction of the travel
+     -- a 1.6 m fern moving 30 cm would read as an animal */
+  enableCanopySway(ferns, 1.6, 0.35);
+  scene.add(ferns);
 
   // dead sticks in the blighted zone
   const stick = new THREE.CylinderGeometry(0.12, 0.2, 4, 5);
