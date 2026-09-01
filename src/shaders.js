@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { COMPOUND, BASE } from './config.js';
+import { G } from './state.js';
 
 /* =========================================================================
    Critters vs Compute — procedural GLSL suite.
@@ -9,11 +10,13 @@ import { COMPOUND, BASE } from './config.js';
    generated in the fragment shader from noise written here.
 
    Exports
-     makeTerrainMaterial()      MeshStandardMaterial + onBeforeCompile
-     makeSkyDome()              Mesh (BackSide sphere)
+     makeTerrainMaterial(ground) MeshStandardMaterial + onBeforeCompile
+     makeSkyDome(pal, sunOffset) Mesh (BackSide sphere)
      makeWaterMaterial()        ShaderMaterial  (grove pools)
      makeShieldMaterial()       ShaderMaterial  (core hologram dome)
      makeEnergyFieldMaterial()  ShaderMaterial  (Overgrowth AoE)
+     setAtmosphere(pal, mood)   aerial perspective / cloud shadow / wind
+     enableCanopySway(mesh)     vertex wind on an instanced canopy
      tickShaders(t, dt)         advances every uniform created here
 
    Conventions
@@ -141,6 +144,286 @@ vec3 wl_sRGB( vec3 c ) { return pow( clamp( c, 0.0, 1.0 ), vec3( 2.2 ) ); }
 
 
 /* =========================================================================
+   0. ATMOSPHERE — aerial perspective, cloud shadow, and the wind clock
+   -------------------------------------------------------------------------
+   Every lit surface in the game — terrain, forest, rocks, units, buildings,
+   the fog-of-war veil — already runs three's fog chunk. Rather than bolt an
+   `onBeforeCompile` onto each of forty materials (and miss the ones built
+   elsewhere), the four fog chunks are rewritten ONCE, here, at module load,
+   before any program is compiled. `scene.fog`'s near/far/colour keep exactly
+   their old meaning; what changes is what the far colour IS and how it is
+   applied:
+
+     · the far end blends toward the sky's HORIZON colour instead of one flat
+       tone, so distant ground and canopy take on the sky (aerial perspective)
+     · looking along the sun's azimuth, the haze warms toward the sun colour —
+       strongest at a low sun, nothing at noon
+     · a ground-hugging mist term thickens in the hollows (world y below
+       `mistBase`) even inside fogNear, which is what layers the middle ground
+     · a scrolling two-octave cloud pattern darkens whatever it covers. It is
+       evaluated per VERTEX (the terrain has 36k of them, a tree cone eight,
+       a unit is small enough to be one value) and interpolated, so the per-
+       fragment cost is one multiply. HDR emissives (coolant glow, fire) are
+       exempted by luminance so a cloud never dims a light source.
+
+   UNIFORM PLUMBING. Built-in materials get their uniforms cloned from
+   `ShaderLib[id].uniforms` at first compile; a `THREE.Color` value is deep-
+   cloned per material, but a Float32Array is copied by REFERENCE (verified
+   against the vendored r169 in node). So every value below is a typed array:
+   one write in `setAtmosphere()` reaches every material in the scene, and
+   nothing is allocated per frame. Materials that merge `UniformsLib.fog`
+   themselves (fog.js's veil) pick the same references up through `merge`.
+   ========================================================================= */
+
+export const ATMO = {
+  horizon: new Float32Array([0.40, 0.50, 0.43]),   // far-fog target (linear)
+  sun:     new Float32Array([1.00, 0.87, 0.64]),   // sun-haze tint (linear)
+  sunDir:  new Float32Array([-0.76, 0.0, 0.65]),   // sun azimuth, xz normalised, y unused
+  /* [horizonMix, sunHaze, mistAmt, mistBase] */
+  a:       new Float32Array([0.6, 0.35, 0.10, 0.0]),
+  /* [mistRange, cloudAmt, cloudScale (1/cell), wallTime] */
+  b:       new Float32Array([16.0, 0.28, 0.021, 0.0]),
+  /* [cloudWindX, cloudWindZ, 0, 0] world units per second */
+  c:       new Float32Array([1.3, 0.55, 0.0, 0.0]),
+};
+
+/* One clock object shared by reference into every swaying material, and the
+   wind strength beside it. Driven from G.wallTime, NOT G.time: wall time runs
+   on the title screen (so the canopy breathes behind the menu) and freezes on
+   pause, which is exactly the "a pause has to stop the picture" rule main.js
+   already enforces for everything else. */
+const ATMO_TIME = { value: 0 };
+const WIND_U = { value: new THREE.Vector4( 1.0, 1.0, 0.0, 0.0 ) };   // amp, speed
+
+const ATMO_UNIFORMS = {
+  wlAtmoHorizon: { value: ATMO.horizon },
+  wlAtmoSun:     { value: ATMO.sun },
+  wlAtmoSunDir:  { value: ATMO.sunDir },
+  wlAtmoA:       { value: ATMO.a },
+  wlAtmoB:       { value: ATMO.b },
+  wlAtmoC:       { value: ATMO.c },
+};
+
+function installAtmosphere() {
+  const SC = THREE.ShaderChunk;
+  if ( SC.wlAtmoInstalled ) return;
+  SC.wlAtmoInstalled = true;
+
+  SC.fog_pars_vertex = /* glsl */`
+#ifdef USE_FOG
+  varying float vFogDepth;
+  varying vec3  vWlAtmoW;
+  varying float vWlAtmoCloud;
+  uniform vec4  wlAtmoB;
+  uniform vec4  wlAtmoC;
+  float wlAtmoH21( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+  float wlAtmoVN( vec2 p ) {
+    vec2 i = floor( p ), f = fract( p );
+    vec2 u = f * f * ( 3.0 - 2.0 * f );
+    return mix( mix( wlAtmoH21( i ),                   wlAtmoH21( i + vec2( 1.0, 0.0 ) ), u.x ),
+                mix( wlAtmoH21( i + vec2( 0.0, 1.0 ) ), wlAtmoH21( i + vec2( 1.0, 1.0 ) ), u.x ), u.y );
+  }
+#endif`;
+
+  /* mvPosition is view space. The world position is recovered with the
+     transpose of the view rotation (the camera carries no scale), which every
+     vertex shader can do because three always declares viewMatrix and
+     cameraPosition — no dependence on <worldpos_vertex>, which most materials
+     compile out. */
+  SC.fog_vertex = /* glsl */`
+#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  {
+    mat3 wlAtmoR = mat3( viewMatrix );
+    vec3 wlAtmoV = mvPosition.xyz;
+    vWlAtmoW = cameraPosition + vec3( dot( wlAtmoR[ 0 ], wlAtmoV ),
+                                      dot( wlAtmoR[ 1 ], wlAtmoV ),
+                                      dot( wlAtmoR[ 2 ], wlAtmoV ) );
+    vec2  wlAtmoP = vWlAtmoW.xz * wlAtmoB.z + wlAtmoC.xy * wlAtmoB.w * wlAtmoB.z;
+    float wlAtmoN = wlAtmoVN( wlAtmoP ) * 0.64 + wlAtmoVN( wlAtmoP * 2.17 + 7.7 ) * 0.36;
+    vWlAtmoCloud = smoothstep( 0.40, 0.76, wlAtmoN );
+  }
+#endif`;
+
+  SC.fog_pars_fragment = /* glsl */`
+#ifdef USE_FOG
+  uniform vec3  fogColor;
+  varying float vFogDepth;
+  varying vec3  vWlAtmoW;
+  varying float vWlAtmoCloud;
+  uniform vec3  wlAtmoHorizon;
+  uniform vec3  wlAtmoSun;
+  uniform vec3  wlAtmoSunDir;
+  uniform vec4  wlAtmoA;
+  uniform vec4  wlAtmoB;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear;
+    uniform float fogFar;
+  #endif
+#endif`;
+
+  SC.fog_fragment = /* glsl */`
+#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+    float wlAtmoNear = 1.0 / max( fogDensity, 1e-4 );
+  #else
+    float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+    float wlAtmoNear = fogNear;
+  #endif
+  {
+    /* cloud shadow — spares anything already over-bright, i.e. emissive */
+    float wlAtmoLum   = max( gl_FragColor.r, max( gl_FragColor.g, gl_FragColor.b ) );
+    float wlAtmoShade = vWlAtmoCloud * wlAtmoB.y * ( 1.0 - smoothstep( 1.6, 3.0, wlAtmoLum ) );
+    gl_FragColor.rgb *= 1.0 - wlAtmoShade;
+
+    /* aerial perspective */
+    vec3  wlAtmoD    = vWlAtmoW - cameraPosition;
+    float wlAtmoDist = length( wlAtmoD );
+    vec2  wlAtmoAz   = wlAtmoD.xz / max( length( wlAtmoD.xz ), 1e-3 );
+    float wlAtmoSunA = pow( max( dot( wlAtmoAz, wlAtmoSunDir.xz ), 0.0 ), 3.0 ) * wlAtmoA.y;
+    float wlAtmoLow  = wlAtmoA.z
+                     * ( 1.0 - smoothstep( wlAtmoA.w, wlAtmoA.w + wlAtmoB.x, vWlAtmoW.y ) )
+                     * smoothstep( 0.0, wlAtmoNear, wlAtmoDist );
+    float wlAtmoF    = clamp( fogFactor + wlAtmoLow * ( 1.0 - fogFactor ), 0.0, 1.0 );
+    /* ground mist is pale (it is lit air, not shadow), so it leans on the
+       horizon colour too rather than on the darker scene-fog tone */
+    float wlAtmoHz   = wlAtmoA.x * max( fogFactor, clamp( wlAtmoLow * 3.0, 0.0, 0.7 ) );
+    vec3  wlAtmoCol  = mix( fogColor, wlAtmoHorizon, wlAtmoHz );
+    wlAtmoCol = mix( wlAtmoCol, wlAtmoSun, wlAtmoSunA * ( 0.35 + 0.65 * fogFactor ) );
+    gl_FragColor.rgb = mix( gl_FragColor.rgb, wlAtmoCol, wlAtmoF );
+  }
+#endif`;
+
+  /* Every ShaderLib entry that carries fog uniforms gets ours beside them;
+     `physical` is a clone of `standard` made at load, so the loop, not a
+     hand-written list, is what guarantees both are covered. UniformsLib.fog
+     is extended too, for ShaderMaterials that merge it later. */
+  Object.assign( THREE.UniformsLib.fog, ATMO_UNIFORMS );
+  for ( const id in THREE.ShaderLib ) {
+    const u = THREE.ShaderLib[ id ].uniforms;
+    if ( u && u.fogColor ) Object.assign( u, ATMO_UNIFORMS );
+  }
+}
+installAtmosphere();
+
+/** Hex -> linear rgb into a Float32Array slot (three's Color does the sRGB decode). */
+const _atmoCol = new THREE.Color();
+function atmoWrite( arr, hex ) {
+  _atmoCol.set( hex );
+  arr[ 0 ] = _atmoCol.r; arr[ 1 ] = _atmoCol.g; arr[ 2 ] = _atmoCol.b;
+}
+
+/**
+ * Point the whole atmosphere at a map. Called once from buildScene(); every
+ * field is optional and the defaults reproduce a neutral overcast valley.
+ *
+ *   pal.skyHorizon  hex   far-fog target; the horizon band of the sky dome
+ *   pal.sunGlow     hex   sun-haze tint
+ *   pal.horizonMix  0..1  how completely far fog takes the horizon colour (0.6)
+ *   pal.sunHaze     0..1  warm haze looking along the sun azimuth (0.35). It
+ *                         is scaled down by sun elevation on top of this, so
+ *                         noon maps get almost none no matter what they ask
+ *   pal.mistAmt     0..1  ground-mist density in the hollows (0.10)
+ *   pal.mistBase    y     world height below which mist is densest (0)
+ *   pal.mistRange   y     metres over which it thins to nothing (16)
+ *   mood.cloudShadow 0..1 peak darkening under a cloud (0.28)
+ *   mood.cloudCell   m    cloud cell size (48)
+ *   mood.cloudWind  [x,z] cloud drift, world units/s ([1.3, 0.55])
+ *   mood.wind       {amp, speed} canopy sway multipliers ({1, 1})
+ */
+export function setAtmosphere( pal = {}, mood = {} ) {
+  atmoWrite( ATMO.horizon, pal.skyHorizon !== undefined ? pal.skyHorizon : 0xaabbaf );
+  atmoWrite( ATMO.sun,     pal.sunGlow    !== undefined ? pal.sunGlow    : 0xfff0d1 );
+
+  const o = mood.sunOffset || [ -70, 110, 60 ];
+  const hl = Math.hypot( o[ 0 ], o[ 2 ] ) || 1;
+  ATMO.sunDir[ 0 ] = o[ 0 ] / hl; ATMO.sunDir[ 1 ] = 0; ATMO.sunDir[ 2 ] = o[ 2 ] / hl;
+  /* elevation gate: a sun 25 degrees up drags a long warm haze across the
+     ground; one 70 degrees up does not, whatever the palette asks for */
+  const elev = Math.atan2( o[ 1 ], hl );
+  const lowSun = 1 - Math.min( 1, Math.max( 0, ( elev - 0.45 ) / 0.75 ) );
+
+  ATMO.a[ 0 ] = pal.horizonMix !== undefined ? pal.horizonMix : 0.6;
+  ATMO.a[ 1 ] = ( pal.sunHaze !== undefined ? pal.sunHaze : 0.35 ) * ( 0.15 + 0.85 * lowSun );
+  ATMO.a[ 2 ] = pal.mistAmt   !== undefined ? pal.mistAmt   : 0.10;
+  ATMO.a[ 3 ] = pal.mistBase  !== undefined ? pal.mistBase  : 0.0;
+  ATMO.b[ 0 ] = pal.mistRange !== undefined ? pal.mistRange : 16;
+  ATMO.b[ 1 ] = mood.cloudShadow !== undefined ? mood.cloudShadow : 0.28;
+  ATMO.b[ 2 ] = 1 / ( mood.cloudCell || 48 );
+  const cw = mood.cloudWind || [ 1.3, 0.55 ];
+  ATMO.c[ 0 ] = cw[ 0 ]; ATMO.c[ 1 ] = cw[ 1 ];
+
+  const w = mood.wind || {};
+  WIND_U.value.set( w.amp !== undefined ? w.amp : 1.0, w.speed !== undefined ? w.speed : 1.0, 0, 0 );
+}
+
+/**
+ * Wind in a canopy. Vertex offset grows with the square of height above the
+ * root (the trunk base never leaves the ground, the tip travels furthest)
+ * and the phase comes from the instance's world position, so neighbouring
+ * trees are out of step and the forest ripples instead of rocking as one.
+ *
+ * Composes with whatever `onBeforeCompile` the material already carries
+ * (fog mask, canopy fade) and EXTENDS the program cache key — the fog mask
+ * pins the key to a constant, so without this a swaying fern and a still
+ * rock would share one program and whichever compiled first would win.
+ *
+ * Call AFTER any material clone (same rule as enableCanopyFade). The shadow
+ * map is drawn by the depth material, which does not sway; at 0.3 m of tip
+ * travel the mismatch is invisible, which is the amplitude's real ceiling.
+ *
+ * @param {THREE.Mesh} mesh    instanced or plain; `transformed.y` is height
+ * @param {number} height      object-space height of the tip (sway = 1 there)
+ * @param {number} scale       per-mesh multiplier on the map's wind amplitude
+ */
+export function enableCanopySway( mesh, height = 9.8, scale = 1.0 ) {
+  const mat = mesh && mesh.material;
+  if ( ! mat || mat.userData.wlSway ) return;
+  mat.userData.wlSway = true;
+  const prev = mat.onBeforeCompile;
+  const invH = ( 1 / Math.max( 0.1, height ) ).toFixed( 4 );
+  const amp = ( 0.32 * scale ).toFixed( 4 );
+  mat.onBeforeCompile = function ( sh, renderer ) {
+    if ( prev ) prev.call( this, sh, renderer );
+    sh.uniforms.wl_wtime = ATMO_TIME;
+    sh.uniforms.wl_wind  = WIND_U;
+    sh.vertexShader = sh.vertexShader
+      .replace( '#include <common>', /* glsl */`#include <common>
+uniform float wl_wtime;
+uniform vec4  wl_wind;` )
+      .replace( '#include <begin_vertex>', /* glsl */`#include <begin_vertex>
+{
+  #ifdef USE_INSTANCING
+    vec3 wlSwayP = instanceMatrix[ 3 ].xyz;
+  #else
+    vec3 wlSwayP = modelMatrix[ 3 ].xyz;
+  #endif
+  float wlSwayH  = clamp( transformed.y * ${ invH }, 0.0, 1.0 );
+  wlSwayH *= wlSwayH;
+  float wlSwayPh = wlSwayP.x * 0.37 + wlSwayP.z * 0.29;
+  float wlSwayT  = wl_wtime * wl_wind.y;
+  /* slow gust envelope over a quicker flutter: the forest breathes, then
+     shivers, rather than oscillating like a metronome */
+  float wlGust   = 0.55 + 0.45 * sin( wlSwayT * 0.31 + wlSwayPh * 0.13 );
+  vec2  wlSwayD  = vec2( sin( wlSwayT * 1.35 + wlSwayPh ),
+                         cos( wlSwayT * 1.10 + wlSwayPh * 1.7 ) )
+                 + 0.35 * vec2( sin( wlSwayT * 3.1 + wlSwayPh * 2.3 ),
+                                cos( wlSwayT * 2.7 + wlSwayPh * 3.1 ) );
+  transformed.xz += wlSwayD * wlSwayH * wlGust * ${ amp } * wl_wind.x;
+}` );
+  };
+  const prevKey = mat.customProgramCacheKey;
+  mat.customProgramCacheKey = function () {
+    return ( prevKey ? prevKey.call( this ) : '' ) + '|wlSway' + height;
+  };
+  mat.needsUpdate = true;
+}
+
+
+/* =========================================================================
    Uniform registry
    ========================================================================= */
 
@@ -165,10 +448,17 @@ function _register( uniforms, decay = 0 ) {
  * enough of them pile up, so the registry stays bounded over a long match.
  */
 export function tickShaders( t, dt = 0 ) {
+  /* The ambient clock: wind, cloud drift, sky clouds. Wall time keeps the
+     world alive behind the title screen and stops dead on pause. */
+  const wall = G.wallTime || 0;
+  ATMO_TIME.value = wall;
+  ATMO.b[ 3 ] = wall;
+
   for ( let i = 0; i < _registry.length; i ++ ) {
     const entry = _registry[ i ];
     const u = entry.uniforms;
     if ( u.wl_time ) u.wl_time.value = t;
+    if ( u.wl_wtime ) u.wl_wtime.value = wall;
     if ( entry.decay > 0 && u.wl_life && u.wl_life.value > 0 ) {
       u.wl_life.value = Math.max( 0, u.wl_life.value - dt / entry.decay );
     }
@@ -216,10 +506,39 @@ export function tickShaders( t, dt = 0 ) {
    legacy vertex colours.
    ========================================================================= */
 
-/** @returns {THREE.MeshStandardMaterial} */
-export function makeTerrainMaterial() {
+/* The ground palette, as authored sRGB hexes. These defaults ARE the colours
+   that used to be hard-coded in the shader (converted exactly), so a map with
+   no `palette.ground` block renders as it always did. Every map in the quick
+   rotation overrides them — this is what stops winter ground being green.
+     grass/lush/moss  the three wild tones, dark -> light
+     straw            the dry patches the macro noise scatters in
+     dirt             exposed earth on steep faces
+     dry/ash          the poisoned margin around the compound
+     tar              the compound slab itself
+     contrast         scales the mottle terms; snow wants less (0.6), a dry
+                      autumn field more (1.15)                              */
+export const GROUND_DEFAULTS = {
+  grass: 0x2f5a29, lush: 0x47803a, moss: 0x63a34a, straw: 0x7d7a45,
+  dirt: 0x53422d, dry: 0x4f5233, ash: 0x373530, tar: 0x3e4148, contrast: 1.0,
+};
+
+/**
+ * @param {object} [ground]  overrides for GROUND_DEFAULTS
+ * @returns {THREE.MeshStandardMaterial}
+ */
+export function makeTerrainMaterial( ground = {} ) {
+  const g = { ...GROUND_DEFAULTS, ...ground };
   const uniforms = {
     wl_time:         { value: 0 },
+    wl_cGrass:       { value: new THREE.Color( g.grass ) },
+    wl_cLush:        { value: new THREE.Color( g.lush ) },
+    wl_cMoss:        { value: new THREE.Color( g.moss ) },
+    wl_cStraw:       { value: new THREE.Color( g.straw ) },
+    wl_cDirt:        { value: new THREE.Color( g.dirt ) },
+    wl_cDry:         { value: new THREE.Color( g.dry ) },
+    wl_cAsh:         { value: new THREE.Color( g.ash ) },
+    wl_cTar:         { value: new THREE.Color( g.tar ) },
+    wl_contrast:     { value: g.contrast },
     wl_macroScale:   { value: 0.0105 },   // low-frequency colour regions
     wl_detailScale:  { value: 1.15 },     // fine grain
     wl_detailFade:   { value: new THREE.Vector2( 70, 260 ) }, // near/far LOD band
@@ -269,6 +588,9 @@ wl_vBlight = clamp( blight, 0.0, 1.0 );
 #include <common>
 
 uniform float wl_time;
+uniform vec3  wl_cGrass, wl_cLush, wl_cMoss, wl_cStraw;
+uniform vec3  wl_cDirt, wl_cDry, wl_cAsh, wl_cTar;
+uniform float wl_contrast;
 uniform float wl_macroScale;
 uniform float wl_detailScale;
 uniform vec2  wl_detailFade;
@@ -340,15 +662,7 @@ float wl_bumpH( vec2 p ) {
   float wl_fine  = wl_snoise( wl_p * wl_detailScale ) * 0.5 + 0.5;
   float wl_slope = clamp( 1.0 - normalize( wl_vNrm ).y, 0.0, 1.0 );
 
-  /* ---- palette ---- */
-  vec3 wl_cGrass = wl_sRGB( vec3( 0.184, 0.353, 0.161 ) );
-  vec3 wl_cLush  = wl_sRGB( vec3( 0.278, 0.502, 0.227 ) );
-  vec3 wl_cMoss  = wl_sRGB( vec3( 0.388, 0.639, 0.290 ) );
-  vec3 wl_cStraw = wl_sRGB( vec3( 0.490, 0.478, 0.271 ) );
-  vec3 wl_cDirt  = wl_sRGB( vec3( 0.325, 0.259, 0.176 ) );
-  vec3 wl_cDry   = wl_sRGB( vec3( 0.310, 0.322, 0.200 ) );
-  vec3 wl_cAsh   = wl_sRGB( vec3( 0.216, 0.208, 0.188 ) );
-  vec3 wl_cTar   = wl_sRGB( vec3( 0.245, 0.256, 0.284 ) );
+  /* ---- palette: eight uniforms, authored per map (see GROUND_DEFAULTS) ---- */
 
   /* ---- the wild valley ---- */
   vec3 wl_wild = mix( wl_cGrass, wl_cLush, smoothstep( 0.34, 0.78, wl_macro ) );
@@ -359,9 +673,10 @@ float wl_bumpH( vec2 p ) {
   // scree and exposed dirt on the steep faces
   wl_wild = mix( wl_wild, wl_cDirt,
                  smoothstep( 0.26, 0.62, wl_slope ) * ( 0.55 + 0.35 * wl_mid ) );
-  wl_wild *= 0.80 + 0.40 * wl_mid;                            // macro drift
-  wl_wild *= 0.88 + 0.24 * wl_det;                            // metre-scale mottle
-  wl_wild *= 1.0 + ( wl_fine - 0.5 ) * 0.30 * wl_gNear;       // close-up grain
+  // mottle strength is the map's call: snow is smooth, a dry field is not
+  wl_wild *= 1.0 + ( -0.20 + 0.40 * wl_mid ) * wl_contrast;               // macro drift
+  wl_wild *= 1.0 + ( -0.12 + 0.24 * wl_det ) * wl_contrast;               // metre-scale mottle
+  wl_wild *= 1.0 + ( wl_fine - 0.5 ) * 0.30 * wl_gNear * wl_contrast;     // close-up grain
 
   /* ---- the poisoned margin ---- */
   vec3 wl_dead = mix( wl_cDry, wl_cAsh, smoothstep( 0.22, 0.86, wl_b ) );
@@ -442,8 +757,8 @@ if ( wl_gNear > 0.002 ) {
 ` );
   };
 
-  // one program for every terrain material we hand out
-  mat.customProgramCacheKey = () => 'wl_terrain_v1';
+  // one program for every terrain material we hand out (v2: palette uniforms)
+  mat.customProgramCacheKey = () => 'wl_terrain_v2';
   mat.userData.uniforms = _register( uniforms );
   return mat;
 }
@@ -456,16 +771,32 @@ if ( wl_gNear > 0.002 ) {
    drifting cloud fbm and a colder cast toward the campus (+x, -z).
    ========================================================================= */
 
-/** @returns {THREE.Mesh} */
-export function makeSkyDome() {
+/* Sky palette fields (all optional, all sRGB hex). The defaults are the old
+   hard-coded linear values converted back to sRGB, so a map that says nothing
+   gets the sky it had.
+     skyTop      zenith                                   (0x426ca2)
+     skyHorizon  the band an RTS camera actually sees     (0xaabbaf)
+     skyGround   below the horizon, seen only in water    (0x4d5f52)
+     sunGlow     disc + halo + the warm quarter of sky    (0xfff0d1)
+     cloudCover  0..1                                     (0.55)
+   Where the sky is SEEN: at this camera pitch (35-66 degrees down, 52 degree
+   FOV) the horizon is never in frame. The dome's real audience is the water
+   reflection — which looks UP — and the fog, whose far colour is skyHorizon.
+   So the horizon and sun matter far more than the zenith. */
+/**
+ * @param {object} [pal]         map palette (see above)
+ * @param {number[]} [sunOffset] the map's sun offset; direction only
+ * @returns {THREE.Mesh}
+ */
+export function makeSkyDome( pal = {}, sunOffset = [ -70, 110, 60 ] ) {
   const uniforms = {
-    wl_time:       { value: 0 },
-    wl_sunDir:     { value: new THREE.Vector3( -70, 110, 60 ).normalize() },
-    wl_zenith:     { value: new THREE.Color( 0.055, 0.150, 0.360 ) },
-    wl_horizon:    { value: new THREE.Color( 0.400, 0.500, 0.430 ) },
-    wl_ground:     { value: new THREE.Color( 0.075, 0.115, 0.085 ) },
-    wl_sunColor:   { value: new THREE.Color( 1.000, 0.870, 0.640 ) },
-    wl_cloudCover: { value: 0.55 },
+    wl_wtime:      { value: 0 },
+    wl_sunDir:     { value: new THREE.Vector3( sunOffset[ 0 ], sunOffset[ 1 ], sunOffset[ 2 ] ).normalize() },
+    wl_zenith:     { value: new THREE.Color( pal.skyTop     !== undefined ? pal.skyTop     : 0x426ca2 ) },
+    wl_horizon:    { value: new THREE.Color( pal.skyHorizon !== undefined ? pal.skyHorizon : 0xaabbaf ) },
+    wl_ground:     { value: new THREE.Color( pal.skyGround  !== undefined ? pal.skyGround  : 0x4d5f52 ) },
+    wl_sunColor:   { value: new THREE.Color( pal.sunGlow    !== undefined ? pal.sunGlow    : 0xfff0d1 ) },
+    wl_cloudCover: { value: pal.cloudCover !== undefined ? pal.cloudCover : 0.55 },
     wl_campusTint: { value: new THREE.Color( 0.70, 0.92, 1.16 ) },
   };
 
@@ -486,7 +817,7 @@ void main() {
 }
 `,
     fragmentShader: /* glsl */`
-uniform float wl_time;
+uniform float wl_wtime;
 uniform vec3  wl_sunDir;
 uniform vec3  wl_zenith;
 uniform vec3  wl_horizon;
@@ -500,6 +831,7 @@ varying vec3 wl_vDir;
 ${ WL_LIB }
 
 void main() {
+  float wl_time = wl_wtime;       // clouds drift on the wall clock, menu included
   vec3 d = normalize( wl_vDir );
 
   /* ---- gradient ---- */
@@ -515,7 +847,8 @@ void main() {
   /* ---- the sun warms its own quarter of the horizon ---- */
   float azl   = max( length( d.xz ), 1e-4 );
   float sunAz = clamp( dot( d.xz / azl, normalize( wl_sunDir.xz ) ), 0.0, 1.0 );
-  sky = mix( sky, sky * vec3( 1.30, 1.12, 0.90 ),
+  // in the sun's own colour: a rose alpenglow sun must not warm the sky orange
+  sky = mix( sky, sky * mix( vec3( 1.0 ), wl_sunColor * 1.45, 0.75 ),
              pow( sunAz, 2.0 ) * exp( -up * 6.0 ) * 0.75 );
 
   /* ---- sun ---- */

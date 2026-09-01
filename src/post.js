@@ -92,11 +92,18 @@ export function initPost(renderer) {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null },
       uStrength: { value: 0.7 }, uExposure: { value: 1.08 },
       uVignette: { value: 0.32 }, uShake: { value: 0 }, uAberration: { value: 0.0 },
+      /* the grade — see setPostGrade(); neutral until a map says otherwise */
+      uShadowTint: { value: new THREE.Vector3(1, 1, 1) },
+      uHighTint:   { value: new THREE.Vector3(1, 1, 1) },
+      uSaturation: { value: 1.0 }, uContrast: { value: 1.0 },
+      uGrain: { value: 0.0 }, uTime: { value: 0 },
     },
     vertexShader: VS,
     fragmentShader: `
       uniform sampler2D tScene, tB0, tB1, tB2;
       uniform float uStrength, uExposure, uVignette, uAberration;
+      uniform vec3 uShadowTint, uHighTint;
+      uniform float uSaturation, uContrast, uGrain, uTime;
       varying vec2 vUv;
       vec3 aces(vec3 x){
         float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;
@@ -105,6 +112,7 @@ export function initPost(renderer) {
       vec3 toSRGB(vec3 c){
         return mix(c*12.92, 1.055*pow(max(c,vec3(0.0)),vec3(1.0/2.4))-0.055, step(vec3(0.0031308), c));
       }
+      float grainHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main() {
         vec2 uv = vUv;
         vec3 col;
@@ -124,11 +132,30 @@ export function initPost(renderer) {
         col += bloom * uStrength;
         col *= uExposure;
         col = aces(col);
+
+        /* ---- the grade: split-tone, saturation, contrast ----
+           Display-referred, after ACES, so it can never push a value into
+           bloom or clip differently between maps. Split-toning multiplies
+           shadows by one tint and highlights by another (1.0 = untouched);
+           contrast pivots on 0.18, the linear mid-grey, so a lit unit stays
+           where it is and only the ends of the curve move. */
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        col *= mix(uShadowTint, uHighTint, smoothstep(0.0, 0.85, lum));
+        col = mix(vec3(lum), col, uSaturation);
+        col = max(mix(vec3(0.18), col, uContrast), 0.0);
+
         float v = distance(uv, vec2(0.5));
         col *= 1.0 - uVignette * smoothstep(0.35, 0.95, v);
-        gl_FragColor = vec4(toSRGB(col), 1.0);
+        col = toSRGB(col);
+        /* film grain, in display space where it reads as grain and not as
+           noise in the shadows. Strongest in the mids, gone in the whites so
+           health bars and glows stay crisp. */
+        float g = grainHash(gl_FragCoord.xy + fract(uTime * 7.31) * vec2(97.0, 61.0)) - 0.5;
+        col += g * uGrain * (1.0 - smoothstep(0.55, 1.0, lum));
+        gl_FragColor = vec4(col, 1.0);
       }`,
   });
+  applyPostGrade();
 
   quadScene = new THREE.Scene();
   quad = new THREE.Mesh(QUAD, brightMat);
@@ -140,8 +167,49 @@ export function initPost(renderer) {
 export function setPostEnabled(v) { enabled = !!v; }
 export function postEnabled() { return enabled; }
 
+/* ------------------------------------------------------------- grade -- */
+/* A map's `palette.grade`. Held here rather than on the material because
+   main.js calls initPost() AFTER buildScene(): the composite material is
+   rebuilt (and on every resize-driven re-init), and a grade set straight
+   onto it would be lost.
+     shadows / highlights   hex, 0x808080 is neutral; multiply tints on the
+                            dark and bright ends (split-toning). Read RAW —
+                            not colour-managed — since this is a display-
+                            space multiplier, not a colour
+     saturation             1 neutral
+     contrast               1 neutral, pivot at mid-grey
+     vignette               0.32 was the game-wide value
+     grain                  0..0.1; 0.03 is "there if you look"
+     exposure               1.08 was the game-wide value; a snowfield wants
+                            less, a storm a touch more                     */
+const GRADE_DEFAULTS = {
+  shadows: 0x808080, highlights: 0x808080,
+  saturation: 1.0, contrast: 1.0, vignette: 0.32, grain: 0.0, exposure: 1.08,
+};
+const postGrade = { ...GRADE_DEFAULTS };
+const tintOf = (hex, out) => out.set(
+  ((hex >> 16) & 255) / 128, ((hex >> 8) & 255) / 128, (hex & 255) / 128);
+
+export function setPostGrade(grade) {
+  Object.assign(postGrade, GRADE_DEFAULTS, grade || {});
+  applyPostGrade();
+}
+
+function applyPostGrade() {
+  if (!compMat) return;
+  const u = compMat.uniforms;
+  tintOf(postGrade.shadows, u.uShadowTint.value);
+  tintOf(postGrade.highlights, u.uHighTint.value);
+  u.uSaturation.value = postGrade.saturation;
+  u.uContrast.value = postGrade.contrast;
+  u.uVignette.value = postGrade.vignette;
+  u.uGrain.value = postGrade.grain;
+  u.uExposure.value = postGrade.exposure;
+}
+
 /* Drives the one-frame screen punch a big detonation earns. */
 let aberration = 0;
+let postClock = 0;
 export function postPunch(amount) { aberration = Math.min(0.012, aberration + amount); }
 
 export function resizePost(renderer) {
@@ -171,6 +239,7 @@ export function renderPost(renderer, scene, camera, dt) {
     return;
   }
   aberration = Math.max(0, aberration - (dt || 0.016) * 0.05);
+  postClock += dt || 0.016;          // grain reseeds off this; wraps harmlessly
 
   /* 1 · scene, linear and un-tonemapped, into HDR */
   const prevTone = renderer.toneMapping, prevOut = renderer.outputColorSpace;
@@ -209,6 +278,7 @@ export function renderPost(renderer, scene, camera, dt) {
   compMat.uniforms.tB1.value = chain[1].a.texture;
   compMat.uniforms.tB2.value = chain[2].a.texture;
   compMat.uniforms.uAberration.value = aberration;
+  compMat.uniforms.uTime.value = postClock;
   quad.material = compMat;
   renderer.setRenderTarget(null);
   renderer.render(quadScene, ORTHO);
