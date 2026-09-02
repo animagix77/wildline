@@ -7,7 +7,7 @@ import { initHUD, updateHUD } from './hud.js';
 import { updateAI, castOvergrowth } from './ai.js';
 import { spawn } from './entity.js';
 import { updateCombatFX } from './combat.js';
-import { updateVFX, initVFXLights } from './vfx.js';
+import { updateVFX, initVFXLights, igniteNear } from './vfx.js';
 import { commsEvent, updateComms } from './comms.js';
 import { updateWeather } from './weather.js';
 import { updateWater, renderWaterReflection } from './water.js';
@@ -237,7 +237,7 @@ if (HEADLESS) {
     RULES, spawn, DEFS,
     /* Art checks need to SEE the map: fog-of-war reads as a black screen in a
        screenshot, which has burned more than one visual verification. */
-    fogRevealAll,
+    fogRevealAll, igniteNear,
   };
 }
 

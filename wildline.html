@@ -9767,6 +9767,8 @@ function explode(pos, power = 1, { nature = false, fire = true } = {}) {
   for (let i = 0; i < nE; i++) ember(pos, p, nature);
   debris(pos, Math.round(4 + p * 5), p, nature ? 0x3a4a2c : 0x2c2f34);
   if (p >= 0.9) scorch(pos, 2.5 + p * 2.2);
+  /* a real fireball sets the nearest tree alight more often than not */
+  if (fire && !nature) igniteNear(pos, 6 + p * 4, 0.45 + p * 0.2);
 }
 
 /* The Server Core doesn't just pop — it cooks off. */
@@ -9833,14 +9835,150 @@ function burnTick(e, dt) {
   if (f < 0.3) {
     firePuff(p, 1.2, 0.8 + severity, e.team === 'wild');
     if (Math.random() < 0.4) groundGlow(e.pos, e.def.radius * 1.2, 0xff8a3d);
+    /* a burning building lights the treeline beside it */
+    if (e.team !== 'wild' && Math.random() < 0.05) igniteNear(e.pos, e.def.radius + 7, 1);
   }
 }
+
+/* ------------------------------------------------------- burning trees --- */
+/* A firefight leaves marks on the forest. Explosions, turret shell bursts,
+   burning structures and (rarely) a stray tracer can set the nearest tree
+   alight; a burning tree blazes for a while, throws embers and smoke, lights
+   its surroundings from the pooled PointLights, occasionally passes the fire
+   to a neighbour, and then stands there CHARRED for the rest of the match.
+
+   Capped hard. Seven fires at once is a battle; seventy is a map on fire, and
+   the whole point of concealment (canopy fade, fog) dies with the canopy.
+   Rain and snow damp the burn -- see rainfall() -- so a storm map self-limits. */
+const MAX_FIRES = 7;
+const fires = [];
+const charredBy = new WeakMap();          // leaves mesh -> Set(instance index)
+const _fm4 = new THREE.Matrix4(), _fp = new THREE.Vector3(),
+      _fq = new THREE.Quaternion(), _fs = new THREE.Vector3();
+const CHAR_LEAF = new THREE.Color(0x1f1610);
+const CHAR_BARK = new THREE.Color(0.42, 0.36, 0.32);
+
+function treeAlreadyBurning(leaves, idx) {
+  for (const f of fires) if (f.leaves === leaves && f.idx === idx) return true;
+  return false;
+}
+
+/* Set the nearest un-burnt tree within `radius` of pos alight, with the given
+   probability. Returns true if something caught. Pure VFX: no gameplay reads
+   this, so it can never decide a fight. */
+function igniteNear(pos, radius = 8, chance = 1) {
+  if (!G.canopies || !G.canopies.length) return false;
+  if (fires.length >= MAX_FIRES) return false;
+  if (Math.random() > chance) return false;
+  let best = null, bd = radius * radius;
+  for (const leaves of G.canopies) {
+    const P = leaves.userData.pos; if (!P) continue;
+    const burnt = charredBy.get(leaves);
+    const act = leaves.userData.active;
+    const nn = act ? act.length : leaves.count;
+    for (let k = 0; k < nn; k++) {
+      const i = act ? act[k] : k;
+      if (burnt && burnt.has(i)) continue;
+      const dx = P[i * 3] - pos.x, dz = P[i * 3 + 2] - pos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bd) { bd = d2; best = { leaves, i }; }
+    }
+  }
+  if (!best || treeAlreadyBurning(best.leaves, best.i)) return false;
+  startFire(best.leaves, best.i);
+  return true;
+}
+
+function startFire(leaves, idx) {
+  const P = leaves.userData.pos;
+  leaves.getMatrixAt(idx, _fm4);
+  _fm4.decompose(_fp, _fq, _fs);
+  const canopyY = (leaves.userData.canopyY || 6.7) * _fs.y;
+  fires.push({
+    leaves, idx,
+    x: P[idx * 3], y: P[idx * 3 + 1], z: P[idx * 3 + 2],
+    canopyY, spread: 0.9 + _fs.x * 0.9,
+    life: rand(13, 21), t: 0,
+    puffT: 0, smokeT: 0, lightT: 0, spreadT: rand(2.5, 5),
+    /* the canopy's own colour, so it can be tinted toward ember then char */
+    c0: new THREE.Color().fromBufferAttribute(leaves.instanceColor, idx),
+  });
+}
+
+function finishFire(f) {
+  let set = charredBy.get(f.leaves);
+  if (!set) charredBy.set(f.leaves, set = new Set());
+  set.add(f.idx);
+  f.leaves.setColorAt(f.idx, CHAR_LEAF);
+  f.leaves.instanceColor.needsUpdate = true;
+  const twin = f.leaves.userData.twin;
+  if (twin && twin.instanceColor) { twin.setColorAt(f.idx, CHAR_BARK); twin.instanceColor.needsUpdate = true; }
+  /* one last collapse of smoke as the crown gives out */
+  _fp.set(f.x, f.y + f.canopyY * 0.8, f.z);
+  for (let i = 0; i < 3; i++) smokePuff(_fp, 1.6, rand(0, 0.5), rand(2.5, 4));
+}
+
+function updateFires(dt) {
+  if (!fires.length) return;
+  /* weather damps the burn: a downpour puts a tree out in a third of the time */
+  const wet = typeof rainfall === 'function' ? rainfall() : 0;
+  const decay = 1 + wet * 2.2;
+  const G_ = G;
+  for (let i = fires.length - 1; i >= 0; i--) {
+    const f = fires[i];
+    f.t += dt * decay;
+    const k = f.t / f.life;                       // 0 → 1
+    if (k >= 1) { finishFire(f); fires.splice(i, 1); continue; }
+    /* intensity: catches, blazes, gutters */
+    const heat = k < 0.15 ? k / 0.15 : k > 0.75 ? (1 - k) / 0.25 : 1;
+
+    /* canopy tint: green -> ember-orange -> brown as it burns through */
+    _c.copy(f.c0);
+    if (k < 0.5) _c.lerp(FIRE_B, k * 1.6);
+    else _c.lerpColors(FIRE_B, CHAR_LEAF, (k - 0.5) * 2);
+    f.leaves.setColorAt(f.idx, _c);
+    f.leaves.instanceColor.needsUpdate = true;
+
+    const cx = f.x, cz = f.z, cy = f.y + f.canopyY;
+    f.puffT -= dt;
+    if (f.puffT <= 0) {
+      f.puffT = rand(0.08, 0.2) / Math.max(0.2, heat);
+      _fp.set(cx + rand(-1.6, 1.6) * f.spread, cy + rand(-1.5, 1.2), cz + rand(-1.6, 1.6) * f.spread);
+      firePuff(_fp, 2.2 + heat * 2.5, 0.9 + heat * 1.3, false);
+      if (Math.random() < 0.35 * heat) ember(_fp, 0.7 + heat, false);
+    }
+    f.smokeT -= dt;
+    if (f.smokeT <= 0) {
+      f.smokeT = rand(0.25, 0.5);
+      _fp.set(cx + rand(-1, 1), cy + 1.5, cz + rand(-1, 1));
+      smokePuff(_fp, 1.1 + heat * 1.3, 0, rand(2, 3.4));
+    }
+    /* flicker: short repeated borrows from the explosion light pool */
+    f.lightT -= dt;
+    if (f.lightT <= 0) {
+      f.lightT = rand(0.1, 0.18);
+      _fp.set(cx, cy - 1, cz);
+      flashLight(_fp, 0xff8c3a, (5 + Math.random() * 6) * heat, 0.22, 24 + heat * 10);
+      if (Math.random() < 0.3) groundGlow(_fp.set(cx, f.y, cz), 3 + heat * 2.5, 0xff8a3d);
+    }
+    /* spread, rarely, and only while blazing */
+    f.spreadT -= dt;
+    if (f.spreadT <= 0) {
+      f.spreadT = rand(3, 6);
+      if (heat > 0.6 && fires.length < MAX_FIRES) igniteNear(_fp.set(cx, f.y, cz), 9, 0.35 * (1 - wet));
+    }
+  }
+  G_.fireCount = fires.length;
+}
+
+function resetFires() { fires.length = 0; }
 
 /* -------------------------------------------------------------- update --- */
 
 function updateVFX(dt) {
   vt += dt;
   updateLights(dt);
+  updateFires(dt);
 
   for (let i = scheduled.length - 1; i >= 0; i--) {
     if (scheduled[i].at <= vt) { const s = scheduled[i]; scheduled.splice(i, 1); s.fn(); }
@@ -10108,6 +10246,7 @@ function updateShots(dt) {
         const ip = s.target.aimPoint();
         ripple(ip, spl * 1.9, 0xffb15a);
         burst(ip, 0xff9a4a, 9, 9, 0.45, 0.55);
+        igniteNear(ip, 6, 0.12);            // a bursting shell can light the treeline
         for (const o of G.entities) {
           if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
           if (dist2D(o.pos, s.target.pos) < spl) {
@@ -10117,6 +10256,9 @@ function updateShots(dt) {
         }
       }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);
+      /* a stray tracer, rarely: enough that a long firefight scars the woods,
+         not so often that every skirmish is a forest fire */
+      if (!spl && Math.random() < 0.015) igniteNear(s.target.aimPoint(), 4, 1);
       s.m.visible = false;
       shotPool.push(s.m);
       shots.splice(i, 1);
@@ -16952,7 +17094,7 @@ if (HEADLESS) {
     RULES, spawn, DEFS,
     /* Art checks need to SEE the map: fog-of-war reads as a black screen in a
        screenshot, which has burned more than one visual verification. */
-    fogRevealAll,
+    fogRevealAll, igniteNear,
   };
 }
 

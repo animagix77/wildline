@@ -6,7 +6,7 @@ import { SFX } from './audio.js';
 import { TEAM, RULES } from './config.js';
 import { addScore } from './score.js';
 import { toast } from './ui.js';
-import { explode, chainExplosion, spiritWisp, ripple, bloodSpray, bloodPool } from './vfx.js';
+import { explode, chainExplosion, spiritWisp, ripple, bloodSpray, bloodPool, igniteNear } from './vfx.js';
 import { commsEvent } from './comms.js';
 
 /* ============================ PARTICLES ================================= */
@@ -154,6 +154,7 @@ function updateShots(dt) {
         const ip = s.target.aimPoint();
         ripple(ip, spl * 1.9, 0xffb15a);
         burst(ip, 0xff9a4a, 9, 9, 0.45, 0.55);
+        igniteNear(ip, 6, 0.12);            // a bursting shell can light the treeline
         for (const o of G.entities) {
           if (o === s.target || !o.alive || o.isBuilding || o.team !== s.target.team) continue;
           if (dist2D(o.pos, s.target.pos) < spl) {
@@ -163,6 +164,9 @@ function updateShots(dt) {
         }
       }
       burst(s.target.aimPoint(), s.m.material.color.getHex(), 5, 7, 0.3, 0.5);
+      /* a stray tracer, rarely: enough that a long firefight scars the woods,
+         not so often that every skirmish is a forest fire */
+      if (!spl && Math.random() < 0.015) igniteNear(s.target.aimPoint(), 4, 1);
       s.m.visible = false;
       shotPool.push(s.m);
       shots.splice(i, 1);
