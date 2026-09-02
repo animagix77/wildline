@@ -1751,7 +1751,26 @@ const DEFS = {
        out from behind it; with it, putting capybaras in front is a real and
        discoverable answer to turret splash. */
     taunt: 20,
-    blurb: 'A wall that walks. Barely fights, soaks punishment, and the guns would rather shoot it than your wolves.'
+    /* SOLACE. The swarm had no in-combat healing of ANY kind: mend() only ever
+       targets buildings, and regen() needs five seconds out of contact, so the
+       only way to heal a hurt animal was to walk it home and wait. That is a
+       large part of why a committed push evaporates and no second army is ever
+       fielded -- measured repeatedly, armies peak near 45 and fall to single
+       digits without recovering.
+
+       The capybara is the right carrier for it. It already wants to stand at
+       the front (taunt), the animals already want to stand behind it, and a
+       calm centre that everything else gathers around is what the animal is.
+       So the aura rewards the formation the unit was already asking for.
+
+       DELIBERATELY WEAK PER SECOND. A Sentry Turret at full wind-up does about
+       42 dps to one target; solace is 3.5 hp/s and stacks at half each, so no
+       clump of capybaras ever beats a gun (the cap is ~7 hp/s on one animal).
+       It is sustain BETWEEN trades and through chip damage, never a healer
+       that wins a fight standing still -- the same lesson mendStack encodes
+       for beavers on the Heart Tree. */
+    solace: 3.5, solaceRange: 9,
+    blurb: 'A wall that walks. Barely fights, soaks punishment, draws the guns off your wolves — and the swarm heals just by staying close to it.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
@@ -2529,6 +2548,7 @@ const RULES = {
      Tree does not heal itself. Pricing a tool nobody can find just makes it
      strictly worse, so discoverability shipped in the same change. */
   mendStack:      0.50,     // each additional mender on one structure, vs the last
+  solaceStack:    0.50,     // each additional capybara healing one animal, vs the last
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
      survivable and hurt bodies come back. Both live here. Regeneration is
@@ -2788,7 +2808,7 @@ const MAPS = {
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
-    groves: [{ x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 }, { x: 16, z: -4 }, { x: -14, z: -62 }, { x: 70, z: 34 }],
+    groves: [{ x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 }, { x: 8, z: 8 }, { x: -14, z: -62 }, { x: 70, z: 34 }],
     turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
     coolants: [[26, -68], [26, -30], [86, -50]],
     depots: [[56, -76], [56, -27]],
@@ -2885,7 +2905,7 @@ const MAPS = {
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
-    groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 14, z: -8 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
+    groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 6, z: 4 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
     turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
     coolants: [[28, -62], [28, -32], [82, -48]],
     depots: [[49, -68], [51, -30]],
@@ -2928,7 +2948,7 @@ const MAPS = {
     props: { trees: 520, rocks: 520, ferns: 260 },
     base: { x: -72, z: 66 },
     compound: { x: 58, z: -50, hw: 34, hd: 28 },
-    groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 18, z: -6 }, { x: 72, z: 32 }],
+    groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 14, z: 4 }, { x: 72, z: 32 }],
     turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
     coolants: [[30, -66], [30, -34], [86, -50]],
     depots: [[58, -70], [62, -32]],
@@ -3009,7 +3029,7 @@ const MAPS = {
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
-    groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -24, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
+    groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -28, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
     turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
     coolants: [[10, -62], [10, -26], [92, -44]],
     depots: [[34, -76], [66, -76], [50, -18]],
@@ -3033,7 +3053,7 @@ MAPS['groundbreak'] = {
   props: { trees: 620, rocks: 380, ferns: 300 },
   base: { x: -70, z: 66 },
   compound: { x: 54, z: -48, hw: 34, hd: 28 },
-  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 14, z: -4 }, { x: 70, z: 30 }],
+  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 6, z: 6 }, { x: 70, z: 30 }],
   turrets: [[30, -28], [78, -28]],
   coolants: [[32, -62], [76, -62], [54, -26]],
   depots: [[54, -68]],
@@ -3053,7 +3073,7 @@ MAPS['pourhouse'] = {
   props: { trees: 440, rocks: 260, ferns: 780 },
   base: { x: -72, z: 70 },
   compound: { x: 56, z: -46, hw: 38, hd: 30 },
-  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 16, z: -6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
+  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 6, z: 6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
   turrets: [[26, -26], [86, -26], [56, -70]],
   coolants: [[30, -60], [82, -60], [56, -24]],
   depots: [[50, -64], [32, -32]],
@@ -3099,6 +3119,33 @@ function validateMap(m) {
     if (Math.abs(a.x - m.compound.x) > m.compound.hw ||
         Math.abs(a.z - m.compound.z) > m.compound.hd) {
       bad.push(`${a.kind}(${a.x},${a.z}) is outside the perimeter`);
+    }
+  }
+  /* GROVES MUST BE TAKEABLE WITHOUT STANDING UNDER A GUN.
+
+     Reported from play as "some are too close to the data center, not really
+     fair, their turrets put my units down easily" -- and measured, exactly so:
+     three of forty groves sat inside a Sentry Turret's reach, two of them
+     (verdant-hollow, mirefen) with the grove CENTRE inside 21m. Capturing
+     needs a unit parked within 7m of the centre for three seconds and then
+     held indefinitely, against a gun that winds up to 36 damage a shot. That
+     is not a contested grove, it is an unavailable one -- and since income is
+     what the whole economy runs on, it quietly deleted a sixth of the map's
+     resources on three of the five rotation maps, the first one included.
+
+     SAFE = turret range 21 + capture radius 7 + 5 margin. Encoded here rather
+     than fixed once by hand, because the placement is easy to reintroduce and
+     nothing on screen tells an author they have done it. A deliberately
+     contested forward grove is a fine idea, but it needs to be a decision
+     somebody made on purpose, and it would fail this check loudly. */
+  const TURRET_REACH = 21, GROVE_CAPTURE = 7, MARGIN = 5;
+  const safe = TURRET_REACH + GROVE_CAPTURE + MARGIN;
+  for (const g of (m.groves || [])) {
+    for (const [tx, tz] of (m.turrets || [])) {
+      const d = Math.hypot(g.x - tx, g.z - tz);
+      if (d < safe) {
+        bad.push(`grove(${g.x},${g.z}) is ${d.toFixed(1)}m from turret(${tx},${tz}) — needs ${safe}m to be capturable under fire`);
+      }
     }
   }
   return bad;
@@ -11463,10 +11510,45 @@ class Entity {
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }
 
+  /* The capybara's aura. Heals nearby wild animals -- never itself, so a lone
+     capybara is still a wall and not a self-sustaining brick, and never a
+     building, which is the beaver's job. See DEFS.capybara.solace. */
+  solace(dt) {
+    if (!this.def.solace) return;
+    const reach = this.def.solaceRange || 9;
+    const rate = this.def.solace;
+    for (const o of G.entities) {
+      if (o === this || !o.alive || o.isBuilding) continue;
+      if (o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      /* Same rule the player's own regeneration plays by: nothing heals a unit
+         that is being shot at this instant, and nothing heals a watered one --
+         drinking still trades healing for the buff. */
+      if (G.time - (o.lastHitAt || -99) < RULES.regenDelay) continue;
+      if (o.watered > 0) continue;
+      if (dist2D(this.pos, o.pos) > reach + o.radius) continue;
+      /* Geometric falloff per healer on the SAME animal, reset off G.time --
+         identical bookkeeping to mend(), and for the identical reason. */
+      if (o._solAt !== G.time) { o._solAt = G.time; o._solN = 0; }
+      const k = o._solN++;
+      const falloff = Math.pow(RULES.solaceStack !== undefined ? RULES.solaceStack : 0.5, k);
+      o.hp = Math.min(o.maxHp, o.hp + rate * falloff * dt);
+      o._solGlow = (o._solGlow || 0) + rate * falloff * dt;
+    }
+    /* one soft green motes puff off the capybara while it is actually healing */
+    this._solT = (this._solT || 0) + dt;
+    if (this._solT > 0.9) {
+      this._solT = 0;
+      _v1.copy(this.pos); _v1.y += this.def.radius * 0.9;
+      burst(_v1, 0x9bff6a, 4, 3, 0.45, 0.6);
+    }
+  }
+
   postUpdate(dt, speedNow) {
     this.regen(dt);
     this.drink(dt);
     this.mend(dt);
+    this.solace(dt);
     this.bleed(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
@@ -13237,8 +13319,14 @@ function populate() {
   const cp = layout().core || { x: COMPOUND.x, z: COMPOUND.z };
   const core = spawn('core', cp.x, cp.z);
   core.onDeath = () => {
+    /* THE COMPOUND COOKS OFF before the end card. Killing the Core used to set
+       G.over and show the results screen on the same frame, so the chain
+       explosion kill() fires was drawn behind a full-screen panel and the
+       match the player just won ended on a cut. Now the win is a sequence you
+       watch: see runFinale. G.over still goes true immediately, so nothing can
+       be ordered, no wave lands and no score moves during it. */
     G.over = true;
-    endMission(true);
+    startFinale();
   };
   G.core = core;
   G.obstacles.push(core);
@@ -13434,6 +13522,72 @@ function groveTint(g, t) {
   const pulse = urgent ? 0.78 + 0.22 * Math.sin(t * (key === 'contested' ? 7.5 : 3.4)) : 1;
   a.pillar.material.opacity = base * pulse;
   if (a.beaconRing && a.beaconRing.visible) a.beaconRing.material.opacity = 0.46 * pulse;
+}
+
+/* ------------------------------------------------------------- finale ----
+   The data centre going up. Runs on the real clock (not sim time) after
+   G.over, walks outward from the Core detonating what is left of the compound
+   one structure at a time, then hands over to the end screen.
+
+   Deliberately NOT routed through kill(): these buildings are already
+   irrelevant to the result, and running the real death path would fire their
+   onDeath toasts ("Generator down -- 1 still feeding the guns") over the top
+   of a victory. This is pyrotechnics on corpses. */
+const FINALE_SECS = 5.0;
+
+function startFinale() {
+  const cx = G.core.pos.x, cz = G.core.pos.z;
+  /* everything still standing in the yard, nearest the Core first, so the
+     blast reads as travelling outward rather than popping at random */
+  const targets = G.entities
+    .filter(e => e.alive && e.isBuilding && e.team === TEAM.MACHINE && e !== G.core
+                 && e.type !== 'wall')
+    .sort((a, b) => dist2D(a.pos, { x: cx, z: cz }) - dist2D(b.pos, { x: cx, z: cz }));
+
+  G.finale = { t: 0, next: 0.25, i: 0, targets, done: false };
+
+  SFX.boomBig(G.core.pos);
+  if (G.rts) {
+    /* push in on the compound and hold it there -- the player should be
+       looking at the thing they just killed, wherever their camera was */
+    G.rts.focus({ x: cx, y: 0, z: cz }, false, 78);
+    G.rts.shake = Math.min(2.2, (G.rts.shake || 0) + 1.2);
+  }
+  toast('The Core is gone. The compound is cooking off.', 'warn');
+}
+
+/* Driven from main.js's frame loop, which keeps running after G.over. */
+function updateFinale(dt) {
+  const F = G.finale;
+  if (!F || F.done) return;
+  F.t += dt;
+
+  if (F.t >= F.next && F.i < F.targets.length) {
+    /* accelerate: the first few land slowly, then it runs away */
+    const gap = Math.max(0.10, 0.34 - F.i * 0.035);
+    F.next = F.t + gap;
+    const e = F.targets[F.i++];
+    const p = e.pos.clone(); p.y += e.def.radius * 0.5;
+    const power = e.type === 'coolant' ? 2.4 : e.type === 'depot' ? 2.0
+                : e.type === 'generator' ? 2.2 : 1.4;
+    explode(p, power, {});
+    igniteNear(e.pos, 14, 0.8);          // the treeline round the yard catches
+    if (e.mesh) e.mesh.visible = false;
+    e.alive = false;
+    if (G.rts) G.rts.shake = Math.min(2.4, (G.rts.shake || 0) + 0.3);
+  }
+
+  /* a last big one on the Core itself, halfway through */
+  if (!F.big && F.t > FINALE_SECS * 0.55) {
+    F.big = true;
+    chainExplosion(G.core.pos, G.core.def.radius * 1.4, 9, 2.6, {});
+    if (G.rts) G.rts.shake = Math.min(3, (G.rts.shake || 0) + 1.6);
+  }
+
+  if (F.t >= FINALE_SECS) {
+    F.done = true;
+    endMission(true);
+  }
 }
 
 /* Mission resolution: in a campaign, bank the result and route the end-screen
@@ -17116,6 +17270,9 @@ function frame(now, manual) {
   updateMusic(dt);              // music fades/ducking run in every phase, even menus
 
   if (G.over && G.phase === 'playing') G.phase = 'over';
+  /* The compound's death throes run on the real clock, after G.over and
+     therefore outside the 'playing' block below. See runFinale in world.js. */
+  updateFinale(simDt || dt);
 
   if (G.phase === 'playing' && !G.paused) {
     G.time += dt;

@@ -67,7 +67,7 @@ export const MAPS = {
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
-    groves: [{ x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 }, { x: 16, z: -4 }, { x: -14, z: -62 }, { x: 70, z: 34 }],
+    groves: [{ x: -34, z: 26 }, { x: 6, z: 66 }, { x: -66, z: -14 }, { x: 8, z: 8 }, { x: -14, z: -62 }, { x: 70, z: 34 }],
     turrets: [[22, -22], [22, -78], [90, -26], [90, -74], [46, -34], [46, -66]],
     coolants: [[26, -68], [26, -30], [86, -50]],
     depots: [[56, -76], [56, -27]],
@@ -164,7 +164,7 @@ export const MAPS = {
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
-    groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 14, z: -8 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
+    groves: [{ x: -38, z: 30 }, { x: 0, z: 64 }, { x: -64, z: -10 }, { x: 6, z: 4 }, { x: -20, z: -60 }, { x: 68, z: 36 }, { x: -80, z: -60 }],
     turrets: [[24, -24], [24, -72], [86, -26], [86, -70], [55, -22], [55, -74]],
     coolants: [[28, -62], [28, -32], [82, -48]],
     depots: [[49, -68], [51, -30]],
@@ -207,7 +207,7 @@ export const MAPS = {
     props: { trees: 520, rocks: 520, ferns: 260 },
     base: { x: -72, z: 66 },
     compound: { x: 58, z: -50, hw: 34, hd: 28 },
-    groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 18, z: -6 }, { x: 72, z: 32 }],
+    groves: [{ x: -32, z: 22 }, { x: 8, z: 64 }, { x: -66, z: -16 }, { x: 14, z: 4 }, { x: 72, z: 32 }],
     turrets: [[28, -26], [28, -74], [88, -28], [88, -72], [46, -34], [70, -66], [58, -24]],
     coolants: [[30, -66], [30, -34], [86, -50]],
     depots: [[58, -70], [62, -32]],
@@ -288,7 +288,7 @@ export const MAPS = {
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
-    groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -24, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
+    groves: [{ x: -40, z: 30 }, { x: -2, z: 68 }, { x: -68, z: -8 }, { x: -28, z: -62 }, { x: -88, z: -52 }, { x: -90, z: 30 }],
     turrets: [[0, -8], [0, -80], [100, -8], [100, -80], [26, -24], [26, -64], [74, -24], [74, -64], [50, -8], [50, -80]],
     coolants: [[10, -62], [10, -26], [92, -44]],
     depots: [[34, -76], [66, -76], [50, -18]],
@@ -312,7 +312,7 @@ MAPS['groundbreak'] = {
   props: { trees: 620, rocks: 380, ferns: 300 },
   base: { x: -70, z: 66 },
   compound: { x: 54, z: -48, hw: 34, hd: 28 },
-  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 14, z: -4 }, { x: 70, z: 30 }],
+  groves: [{ x: -34, z: 24 }, { x: 4, z: 62 }, { x: -62, z: -16 }, { x: 6, z: 6 }, { x: 70, z: 30 }],
   turrets: [[30, -28], [78, -28]],
   coolants: [[32, -62], [76, -62], [54, -26]],
   depots: [[54, -68]],
@@ -332,7 +332,7 @@ MAPS['pourhouse'] = {
   props: { trees: 440, rocks: 260, ferns: 780 },
   base: { x: -72, z: 70 },
   compound: { x: 56, z: -46, hw: 38, hd: 30 },
-  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 16, z: -6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
+  groves: [{ x: -36, z: 28 }, { x: 2, z: 64 }, { x: -66, z: -12 }, { x: 6, z: 6 }, { x: -18, z: -58 }, { x: 72, z: 34 }],
   turrets: [[26, -26], [86, -26], [56, -70]],
   coolants: [[30, -60], [82, -60], [56, -24]],
   depots: [[50, -64], [32, -32]],
@@ -378,6 +378,33 @@ export function validateMap(m) {
     if (Math.abs(a.x - m.compound.x) > m.compound.hw ||
         Math.abs(a.z - m.compound.z) > m.compound.hd) {
       bad.push(`${a.kind}(${a.x},${a.z}) is outside the perimeter`);
+    }
+  }
+  /* GROVES MUST BE TAKEABLE WITHOUT STANDING UNDER A GUN.
+
+     Reported from play as "some are too close to the data center, not really
+     fair, their turrets put my units down easily" -- and measured, exactly so:
+     three of forty groves sat inside a Sentry Turret's reach, two of them
+     (verdant-hollow, mirefen) with the grove CENTRE inside 21m. Capturing
+     needs a unit parked within 7m of the centre for three seconds and then
+     held indefinitely, against a gun that winds up to 36 damage a shot. That
+     is not a contested grove, it is an unavailable one -- and since income is
+     what the whole economy runs on, it quietly deleted a sixth of the map's
+     resources on three of the five rotation maps, the first one included.
+
+     SAFE = turret range 21 + capture radius 7 + 5 margin. Encoded here rather
+     than fixed once by hand, because the placement is easy to reintroduce and
+     nothing on screen tells an author they have done it. A deliberately
+     contested forward grove is a fine idea, but it needs to be a decision
+     somebody made on purpose, and it would fail this check loudly. */
+  const TURRET_REACH = 21, GROVE_CAPTURE = 7, MARGIN = 5;
+  const safe = TURRET_REACH + GROVE_CAPTURE + MARGIN;
+  for (const g of (m.groves || [])) {
+    for (const [tx, tz] of (m.turrets || [])) {
+      const d = Math.hypot(g.x - tx, g.z - tz);
+      if (d < safe) {
+        bad.push(`grove(${g.x},${g.z}) is ${d.toFixed(1)}m from turret(${tx},${tz}) — needs ${safe}m to be capturable under fire`);
+      }
     }
   }
   return bad;

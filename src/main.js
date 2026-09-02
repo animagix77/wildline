@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice } from './world.js';
+import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice, updateFinale } from './world.js';
 import { RTSCamera } from './camera.js';
 import { initInput } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
@@ -259,6 +259,9 @@ function frame(now, manual) {
   updateMusic(dt);              // music fades/ducking run in every phase, even menus
 
   if (G.over && G.phase === 'playing') G.phase = 'over';
+  /* The compound's death throes run on the real clock, after G.over and
+     therefore outside the 'playing' block below. See runFinale in world.js. */
+  updateFinale(simDt || dt);
 
   if (G.phase === 'playing' && !G.paused) {
     G.time += dt;

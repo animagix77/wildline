@@ -17,6 +17,7 @@ import { recordResult, setPending, campState, bankSurvivors } from './campaign.j
 import { SFX } from './audio.js';
 import { musicStop, musicStinger } from './music.js';
 import { ring, burst, kill } from './combat.js';
+import { explode, chainExplosion, igniteNear } from './vfx.js';
 
 /* =========================================================================
    Scene construction
@@ -399,8 +400,14 @@ export function populate() {
   const cp = layout().core || { x: COMPOUND.x, z: COMPOUND.z };
   const core = spawn('core', cp.x, cp.z);
   core.onDeath = () => {
+    /* THE COMPOUND COOKS OFF before the end card. Killing the Core used to set
+       G.over and show the results screen on the same frame, so the chain
+       explosion kill() fires was drawn behind a full-screen panel and the
+       match the player just won ended on a cut. Now the win is a sequence you
+       watch: see runFinale. G.over still goes true immediately, so nothing can
+       be ordered, no wave lands and no score moves during it. */
     G.over = true;
-    endMission(true);
+    startFinale();
   };
   G.core = core;
   G.obstacles.push(core);
@@ -596,6 +603,72 @@ function groveTint(g, t) {
   const pulse = urgent ? 0.78 + 0.22 * Math.sin(t * (key === 'contested' ? 7.5 : 3.4)) : 1;
   a.pillar.material.opacity = base * pulse;
   if (a.beaconRing && a.beaconRing.visible) a.beaconRing.material.opacity = 0.46 * pulse;
+}
+
+/* ------------------------------------------------------------- finale ----
+   The data centre going up. Runs on the real clock (not sim time) after
+   G.over, walks outward from the Core detonating what is left of the compound
+   one structure at a time, then hands over to the end screen.
+
+   Deliberately NOT routed through kill(): these buildings are already
+   irrelevant to the result, and running the real death path would fire their
+   onDeath toasts ("Generator down -- 1 still feeding the guns") over the top
+   of a victory. This is pyrotechnics on corpses. */
+const FINALE_SECS = 5.0;
+
+function startFinale() {
+  const cx = G.core.pos.x, cz = G.core.pos.z;
+  /* everything still standing in the yard, nearest the Core first, so the
+     blast reads as travelling outward rather than popping at random */
+  const targets = G.entities
+    .filter(e => e.alive && e.isBuilding && e.team === TEAM.MACHINE && e !== G.core
+                 && e.type !== 'wall')
+    .sort((a, b) => dist2D(a.pos, { x: cx, z: cz }) - dist2D(b.pos, { x: cx, z: cz }));
+
+  G.finale = { t: 0, next: 0.25, i: 0, targets, done: false };
+
+  SFX.boomBig(G.core.pos);
+  if (G.rts) {
+    /* push in on the compound and hold it there -- the player should be
+       looking at the thing they just killed, wherever their camera was */
+    G.rts.focus({ x: cx, y: 0, z: cz }, false, 78);
+    G.rts.shake = Math.min(2.2, (G.rts.shake || 0) + 1.2);
+  }
+  toast('The Core is gone. The compound is cooking off.', 'warn');
+}
+
+/* Driven from main.js's frame loop, which keeps running after G.over. */
+export function updateFinale(dt) {
+  const F = G.finale;
+  if (!F || F.done) return;
+  F.t += dt;
+
+  if (F.t >= F.next && F.i < F.targets.length) {
+    /* accelerate: the first few land slowly, then it runs away */
+    const gap = Math.max(0.10, 0.34 - F.i * 0.035);
+    F.next = F.t + gap;
+    const e = F.targets[F.i++];
+    const p = e.pos.clone(); p.y += e.def.radius * 0.5;
+    const power = e.type === 'coolant' ? 2.4 : e.type === 'depot' ? 2.0
+                : e.type === 'generator' ? 2.2 : 1.4;
+    explode(p, power, {});
+    igniteNear(e.pos, 14, 0.8);          // the treeline round the yard catches
+    if (e.mesh) e.mesh.visible = false;
+    e.alive = false;
+    if (G.rts) G.rts.shake = Math.min(2.4, (G.rts.shake || 0) + 0.3);
+  }
+
+  /* a last big one on the Core itself, halfway through */
+  if (!F.big && F.t > FINALE_SECS * 0.55) {
+    F.big = true;
+    chainExplosion(G.core.pos, G.core.def.radius * 1.4, 9, 2.6, {});
+    if (G.rts) G.rts.shake = Math.min(3, (G.rts.shake || 0) + 1.6);
+  }
+
+  if (F.t >= FINALE_SECS) {
+    F.done = true;
+    endMission(true);
+  }
 }
 
 /* Mission resolution: in a campaign, bank the result and route the end-screen

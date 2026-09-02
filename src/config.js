@@ -51,7 +51,26 @@ export const DEFS = {
        out from behind it; with it, putting capybaras in front is a real and
        discoverable answer to turret splash. */
     taunt: 20,
-    blurb: 'A wall that walks. Barely fights, soaks punishment, and the guns would rather shoot it than your wolves.'
+    /* SOLACE. The swarm had no in-combat healing of ANY kind: mend() only ever
+       targets buildings, and regen() needs five seconds out of contact, so the
+       only way to heal a hurt animal was to walk it home and wait. That is a
+       large part of why a committed push evaporates and no second army is ever
+       fielded -- measured repeatedly, armies peak near 45 and fall to single
+       digits without recovering.
+
+       The capybara is the right carrier for it. It already wants to stand at
+       the front (taunt), the animals already want to stand behind it, and a
+       calm centre that everything else gathers around is what the animal is.
+       So the aura rewards the formation the unit was already asking for.
+
+       DELIBERATELY WEAK PER SECOND. A Sentry Turret at full wind-up does about
+       42 dps to one target; solace is 3.5 hp/s and stacks at half each, so no
+       clump of capybaras ever beats a gun (the cap is ~7 hp/s on one animal).
+       It is sustain BETWEEN trades and through chip damage, never a healer
+       that wins a fight standing still -- the same lesson mendStack encodes
+       for beavers on the Heart Tree. */
+    solace: 3.5, solaceRange: 9,
+    blurb: 'A wall that walks. Barely fights, soaks punishment, draws the guns off your wolves — and the swarm heals just by staying close to it.'
   },
   raven: {
     name: 'Raven', team: TEAM.WILD, icon: '🦅', key: 'V',
@@ -829,6 +848,7 @@ export const RULES = {
      Tree does not heal itself. Pricing a tool nobody can find just makes it
      strictly worse, so discoverability shipped in the same change. */
   mendStack:      0.50,     // each additional mender on one structure, vs the last
+  solaceStack:    0.50,     // each additional capybara healing one animal, vs the last
   /* --- The Green (creep) ---------------------------------------------------
      A swarm of individually weak things only works if losing bodies is
      survivable and hurt bodies come back. Both live here. Regeneration is

@@ -1003,10 +1003,45 @@ export class Entity {
     this.hp = Math.min(this.maxHp, this.hp + this.maxHp * rate * dt);
   }
 
+  /* The capybara's aura. Heals nearby wild animals -- never itself, so a lone
+     capybara is still a wall and not a self-sustaining brick, and never a
+     building, which is the beaver's job. See DEFS.capybara.solace. */
+  solace(dt) {
+    if (!this.def.solace) return;
+    const reach = this.def.solaceRange || 9;
+    const rate = this.def.solace;
+    for (const o of G.entities) {
+      if (o === this || !o.alive || o.isBuilding) continue;
+      if (o.team !== this.team) continue;
+      if (o.hp >= o.maxHp) continue;
+      /* Same rule the player's own regeneration plays by: nothing heals a unit
+         that is being shot at this instant, and nothing heals a watered one --
+         drinking still trades healing for the buff. */
+      if (G.time - (o.lastHitAt || -99) < RULES.regenDelay) continue;
+      if (o.watered > 0) continue;
+      if (dist2D(this.pos, o.pos) > reach + o.radius) continue;
+      /* Geometric falloff per healer on the SAME animal, reset off G.time --
+         identical bookkeeping to mend(), and for the identical reason. */
+      if (o._solAt !== G.time) { o._solAt = G.time; o._solN = 0; }
+      const k = o._solN++;
+      const falloff = Math.pow(RULES.solaceStack !== undefined ? RULES.solaceStack : 0.5, k);
+      o.hp = Math.min(o.maxHp, o.hp + rate * falloff * dt);
+      o._solGlow = (o._solGlow || 0) + rate * falloff * dt;
+    }
+    /* one soft green motes puff off the capybara while it is actually healing */
+    this._solT = (this._solT || 0) + dt;
+    if (this._solT > 0.9) {
+      this._solT = 0;
+      _v1.copy(this.pos); _v1.y += this.def.radius * 0.9;
+      burst(_v1, 0x9bff6a, 4, 3, 0.45, 0.6);
+    }
+  }
+
   postUpdate(dt, speedNow) {
     this.regen(dt);
     this.drink(dt);
     this.mend(dt);
+    this.solace(dt);
     this.bleed(dt);
     // fliers hold a constant clearance over the ground rather than over their
     // spawn point, so they neither clip peaks nor balloon over troughs
