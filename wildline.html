@@ -2777,8 +2777,14 @@ const MAPS = {
             hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8,
             cloudShadow: 0.30, cloudCell: 52, cloudWind: [1.1, 0.5], wind: { amp: 0.9, speed: 0.9 } },
     season: 'late summer',
-    river: [{ x: -12, z: 56 }, { x: -8, z: 34 }, { x: 4, z: 18 }, { x: -2, z: -4 },
-            { x: -18, z: -26 }, { x: -30, z: -48 }, { x: -26, z: -72 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: -8, z: 4 }, { x: 2, z: -12 }, { x: -6, z: -30 },
+            { x: -20, z: -48 }, { x: -24, z: -70 }],
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
@@ -2869,8 +2875,13 @@ const MAPS = {
             hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05,
             cloudShadow: 0.16, cloudCell: 60, cloudWind: [0.5, 0.3], wind: { amp: 0.6, speed: 0.8 } },
     season: 'spring',
-    river: [{ x: -30, z: 28 }, { x: -12, z: 40 }, { x: 10, z: 52 }, { x: -8, z: 66 },
-            { x: -34, z: 4 }, { x: -48, z: -14 }, { x: -58, z: -30 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: 4, z: 28 }, { x: -2, z: 10 }, { x: -14, z: -8 }, { x: -36, z: -18 }],
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
@@ -2988,7 +2999,13 @@ const MAPS = {
             hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05,
             cloudShadow: 0.40, cloudCell: 50, cloudWind: [2.4, 0.8], wind: { amp: 1.4, speed: 1.3 } },
     season: 'high summer',
-    river: [{ x: -36, z: 36 }, { x: -48, z: 14 }, { x: -60, z: -8 }, { x: -70, z: -40 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: -42, z: 12 }, { x: -50, z: 0 }, { x: -58, z: -12 }, { x: -62, z: -20 }],
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
@@ -4779,17 +4796,18 @@ function initWater(scene, defs) {
     const mat = new THREE.ShaderMaterial({
       uniforms: uni, transparent: true, depthWrite: false,
       vertexShader: `
-        varying vec4 vScreen; varying vec2 vLocal;
+        varying vec4 vScreen; varying vec2 vLocal; varying vec3 vWorld;
         void main() {
           vLocal = position.xz;
           vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorld = wp.xyz;                    // for a real view-angle fresnel
           gl_Position = projectionMatrix * viewMatrix * wp;
           vScreen = gl_Position;
         }`,
       fragmentShader: `
         uniform sampler2D uRefl; uniform float uTime, uLevel, uRadius;
         uniform vec3 uDeep, uShallow, uDry, uSky;
-        varying vec4 vScreen; varying vec2 vLocal;
+        varying vec4 vScreen; varying vec2 vLocal; varying vec3 vWorld;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
           return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
@@ -4804,13 +4822,28 @@ function initWater(scene, defs) {
             n(vLocal * 0.18 + uTime * 0.35),
             n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
           vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+          /* The mirror is LINEAR HDR now (see renderWaterReflection), so a
+             sun-lit sky comes back at or above 1.0 -- and the fresnel mix
+             below was tuned against a tone-mapped mirror bounded at 1.0. Fed
+             raw HDR it turned every lake and river into a white sheet.
+             Compress here (Reinhard) so the mix sees display-scale values
+             again; the surface still goes through post with everything else. */
+          refl = refl / (1.0 + refl);
           /* the mirror carries the sky's horizon in with it (see uSky) */
-          refl = mix(refl, uSky, 0.28);
+          refl = mix(refl, uSky, 0.12);
 
           float depth = smoothstep(edge, 0.0, r);
           vec3 body = mix(uShallow, uDeep, depth);
-          /* fresnel-ish: glancing angles are mirror, straight down is water */
-          float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+          /* REAL FRESNEL, from the view vector rather than from distance-to-shore.
+             The old term keyed off depth-to-shore, which made the SHORE the most
+             mirror-like part of a lake and the middle the least -- backwards,
+             and at this camera it washed an entire lake to pale grey because
+             most of the visible surface sits at middling depth. Schlick against
+             the surface normal (+Y) instead: looking down you see INTO the
+             water (body colour), and only the grazing far edge turns to mirror,
+             which is how water actually behaves. */
+          vec3 V = normalize(cameraPosition - vWorld);
+          float f = 0.02 + 0.60 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0);
           vec3 col = mix(body, refl, f);
           col += n(vLocal * 2.2 + uTime * 0.6) * 0.05;
 
@@ -4916,18 +4949,19 @@ function buildRiver(scene, pts, members) {
   const mat = new THREE.ShaderMaterial({
     uniforms: uni, transparent: true, depthWrite: false,
     vertexShader: `
-      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib; varying vec3 vWorld;
       void main() {
         vRib = uv;                               // x: 0..1 along, y: -1..1 across
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vLocal = wp.xz;
+        vWorld = wp.xyz;
         gl_Position = projectionMatrix * viewMatrix * wp;
         vScreen = gl_Position;
       }`,
     fragmentShader: `
       uniform sampler2D uRefl; uniform float uTime, uLevel, uLen;
       uniform vec3 uDeep, uShallow, uDry, uSky;
-      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib; varying vec3 vWorld;
       float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
       float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
         return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
@@ -4942,11 +4976,13 @@ function buildRiver(scene, pts, members) {
           n(vLocal * 0.18 + uTime * 0.35),
           n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
         vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
-        refl = mix(refl, uSky, 0.28);
+        refl = refl / (1.0 + refl);            // same HDR compression as the lake shader
+        refl = mix(refl, uSky, 0.12);
 
         float depth = smoothstep(edge, 0.0, across);
         vec3 body = mix(uShallow, uDeep, depth);
-        float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+        vec3 V = normalize(cameraPosition - vWorld);   // same real fresnel as the lake
+        float f = 0.02 + 0.60 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0);
         vec3 col = mix(body, refl, f);
         /* downstream flow: streaks slide along the ribbon's own axis */
         col += n(vec2(vRib.x * uLen * 0.35 - uTime * 1.7, vRib.y * 2.5)) * 0.06;

@@ -82,17 +82,18 @@ export function initWater(scene, defs) {
     const mat = new THREE.ShaderMaterial({
       uniforms: uni, transparent: true, depthWrite: false,
       vertexShader: `
-        varying vec4 vScreen; varying vec2 vLocal;
+        varying vec4 vScreen; varying vec2 vLocal; varying vec3 vWorld;
         void main() {
           vLocal = position.xz;
           vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorld = wp.xyz;                    // for a real view-angle fresnel
           gl_Position = projectionMatrix * viewMatrix * wp;
           vScreen = gl_Position;
         }`,
       fragmentShader: `
         uniform sampler2D uRefl; uniform float uTime, uLevel, uRadius;
         uniform vec3 uDeep, uShallow, uDry, uSky;
-        varying vec4 vScreen; varying vec2 vLocal;
+        varying vec4 vScreen; varying vec2 vLocal; varying vec3 vWorld;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
           return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
@@ -107,13 +108,28 @@ export function initWater(scene, defs) {
             n(vLocal * 0.18 + uTime * 0.35),
             n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
           vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
+          /* The mirror is LINEAR HDR now (see renderWaterReflection), so a
+             sun-lit sky comes back at or above 1.0 -- and the fresnel mix
+             below was tuned against a tone-mapped mirror bounded at 1.0. Fed
+             raw HDR it turned every lake and river into a white sheet.
+             Compress here (Reinhard) so the mix sees display-scale values
+             again; the surface still goes through post with everything else. */
+          refl = refl / (1.0 + refl);
           /* the mirror carries the sky's horizon in with it (see uSky) */
-          refl = mix(refl, uSky, 0.28);
+          refl = mix(refl, uSky, 0.12);
 
           float depth = smoothstep(edge, 0.0, r);
           vec3 body = mix(uShallow, uDeep, depth);
-          /* fresnel-ish: glancing angles are mirror, straight down is water */
-          float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+          /* REAL FRESNEL, from the view vector rather than from distance-to-shore.
+             The old term keyed off depth-to-shore, which made the SHORE the most
+             mirror-like part of a lake and the middle the least -- backwards,
+             and at this camera it washed an entire lake to pale grey because
+             most of the visible surface sits at middling depth. Schlick against
+             the surface normal (+Y) instead: looking down you see INTO the
+             water (body colour), and only the grazing far edge turns to mirror,
+             which is how water actually behaves. */
+          vec3 V = normalize(cameraPosition - vWorld);
+          float f = 0.02 + 0.60 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0);
           vec3 col = mix(body, refl, f);
           col += n(vLocal * 2.2 + uTime * 0.6) * 0.05;
 
@@ -219,18 +235,19 @@ function buildRiver(scene, pts, members) {
   const mat = new THREE.ShaderMaterial({
     uniforms: uni, transparent: true, depthWrite: false,
     vertexShader: `
-      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib; varying vec3 vWorld;
       void main() {
         vRib = uv;                               // x: 0..1 along, y: -1..1 across
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vLocal = wp.xz;
+        vWorld = wp.xyz;
         gl_Position = projectionMatrix * viewMatrix * wp;
         vScreen = gl_Position;
       }`,
     fragmentShader: `
       uniform sampler2D uRefl; uniform float uTime, uLevel, uLen;
       uniform vec3 uDeep, uShallow, uDry, uSky;
-      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib;
+      varying vec4 vScreen; varying vec2 vLocal; varying vec2 vRib; varying vec3 vWorld;
       float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
       float n(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
         return mix(mix(h(i),h(i+vec2(1,0)),u.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),u.x),u.y); }
@@ -245,11 +262,13 @@ function buildRiver(scene, pts, members) {
           n(vLocal * 0.18 + uTime * 0.35),
           n(vLocal * 0.21 - uTime * 0.28)) - 0.5;
         vec3 refl = texture2D(uRefl, clamp(uv + ripple * 0.02, 0.001, 0.999)).rgb;
-        refl = mix(refl, uSky, 0.28);
+        refl = refl / (1.0 + refl);            // same HDR compression as the lake shader
+        refl = mix(refl, uSky, 0.12);
 
         float depth = smoothstep(edge, 0.0, across);
         vec3 body = mix(uShallow, uDeep, depth);
-        float f = pow(1.0 - clamp(depth, 0.0, 1.0), 2.0) * 0.55 + 0.18;
+        vec3 V = normalize(cameraPosition - vWorld);   // same real fresnel as the lake
+        float f = 0.02 + 0.60 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0);
         vec3 col = mix(body, refl, f);
         /* downstream flow: streaks slide along the ribbon's own axis */
         col += n(vec2(vRib.x * uLen * 0.35 - uTime * 1.7, vRib.y * 2.5)) * 0.06;

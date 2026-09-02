@@ -56,8 +56,14 @@ export const MAPS = {
             hemiSky: 0xffcfa0, hemiGround: 0x3c4230, hemiI: 0.8,
             cloudShadow: 0.30, cloudCell: 52, cloudWind: [1.1, 0.5], wind: { amp: 0.9, speed: 0.9 } },
     season: 'late summer',
-    river: [{ x: -12, z: 56 }, { x: -8, z: 34 }, { x: 4, z: 18 }, { x: -2, z: -4 },
-            { x: -18, z: -26 }, { x: -30, z: -48 }, { x: -26, z: -72 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: -8, z: 4 }, { x: 2, z: -12 }, { x: -6, z: -30 },
+            { x: -20, z: -48 }, { x: -24, z: -70 }],
     props: { trees: 820, rocks: 240, ferns: 520 },
     base: { x: -72, z: 68 },
     compound: { x: 56, z: -50, hw: 40, hd: 33 },
@@ -148,8 +154,13 @@ export const MAPS = {
             hemiSky: 0x9fd4cf, hemiGround: 0x2e3d34, hemiI: 1.05,
             cloudShadow: 0.16, cloudCell: 60, cloudWind: [0.5, 0.3], wind: { amp: 0.6, speed: 0.8 } },
     season: 'spring',
-    river: [{ x: -30, z: 28 }, { x: -12, z: 40 }, { x: 10, z: 52 }, { x: -8, z: 66 },
-            { x: -34, z: 4 }, { x: -48, z: -14 }, { x: -58, z: -30 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: 4, z: 28 }, { x: -2, z: 10 }, { x: -14, z: -8 }, { x: -36, z: -18 }],
     props: { trees: 480, rocks: 140, ferns: 900 },
     base: { x: -70, z: 70 },
     compound: { x: 55, z: -48, hw: 36, hd: 30 },
@@ -267,7 +278,13 @@ export const MAPS = {
             hemiSky: 0xaec8e8, hemiGround: 0x33404a, hemiI: 1.05,
             cloudShadow: 0.40, cloudCell: 50, cloudWind: [2.4, 0.8], wind: { amp: 1.4, speed: 1.3 } },
     season: 'high summer',
-    river: [{ x: -36, z: 36 }, { x: -48, z: 14 }, { x: -60, z: -8 }, { x: -70, z: -40 }],
+    /* Routed to thread BETWEEN the meres, not through them. The first pass ran
+       the polyline straight through lake centres, so two transparent water
+       surfaces stacked and left a hard seam across every pond -- and mirefen's
+       even doubled back on itself. Each point now clears every lake by more
+       than the ribbon's half-width, so a river reads as the water CONNECTING
+       the ponds rather than as a decal laid over them. */
+    river: [{ x: -42, z: 12 }, { x: -50, z: 0 }, { x: -58, z: -12 }, { x: -62, z: -20 }],
     props: { trees: 560, rocks: 260, ferns: 380 },
     base: { x: -78, z: 74 },
     compound: { x: 50, z: -44, hw: 52, hd: 40 },
