@@ -3,11 +3,11 @@
 A browser 3D RTS in the spirit of Command & Conquer and Warcraft. You command a valley's
 wildlife against a fortified hyperscale data centre.
 
-**Ships as one file.** `wildline.html` is ~940 KB and completely self-contained: three.js
-r169 is vendored and inlined, and every mesh, texture, material, particle and sound
-effect is generated in code. The one exception is the score: twelve music tracks
+**Ships as one file.** `wildline.html` is ~3.9 MB: three.js r169, game code, images,
+styles and recorded wildlife effects are embedded. Meshes, materials, particles,
+weapons and ambient effects are generated in code. The one exception is the score: twelve music tracks
 (~40 MB — see [MUSIC.md](MUSIC.md)) stream lazily from `music/`, and the game runs
-silent-but-complete without them. Everything else — scripts, styles, fonts, images,
+without music when they are absent. Everything else — scripts, styles, fonts, images,
 SFX — ships inside the single file.
 
 
@@ -18,6 +18,24 @@ node serve.mjs          # dev server on http://localhost:8181
 ```
 
 `index.html` is the modular dev entry point (same game, unbundled, also offline).
+
+The September 4 polish pass adds faceted animal bodies, continuous walk cycles,
+soft contact shadows, antialiasing in the HDR scene, and a quieter reclamation
+colour overlay. Orders now use direction-aware formations with tanks forward and
+ranged wildlife behind. The command strip exposes the common hotkeys, and
+Overgrowth previews its terrain footprint and visible targets before casting.
+Footsteps distinguish grass from compound paving; attack and hold orders have
+separate cues. Audio is capped at 48 simultaneous sources, releases completed
+voice graphs, and remembers the mute preference.
+
+Run `node --experimental-vm-modules tools/review-check.mjs` for formation checks.
+With the dev server running, open `tools/review-smoke.html` for gameplay and shader
+checks; add `?bundle=1&map=substation-gary` to check the standalone build on the
+alpine map. The audio check button tests voice limits, cleanup, and mute after a
+browser user gesture. `tools/combat-pass.html` checks attack timing, interrupted
+windups, species filtering, wounded selection, and tactical markers; add
+`?bundle=1&width=900` for the portable game at a narrower width. See [REVIEW.md](REVIEW.md) for the scope of this pass.
+
 
 ---
 
@@ -123,11 +141,14 @@ Classic RTS layout: **letters are commands, arrows and the screen edge move the 
 **Camera** — arrows / screen edge / middle-drag / minimap · **Q E** rotate · wheel zoom ·
 **Shift** faster · **Space** snap to Heart Tree
 
+**Army panel** — click a species to select it · Shift-click removes a species ·
+Wounded selects animals below 40% health · Return to pack restores the group.
+
 **Units** — click select · drag box · double-click selects that species on screen ·
 right click move or attack · **A**+click attack-move · **S** stop · **H** hold ·
 **Ctrl+1..5** set group, **1..5** recall
 
-**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **G** porcupine · **H** beaver · **B** local · **F**+click Overgrowth
+**Build** — **Z** wolf · **X** boar · **C** bear · **V** raven · **G** porcupine · **N** beaver · **B** local · **F**+click Overgrowth
 
 **F1** reference · **F3** performance overlay · **M** mute
 
@@ -147,7 +168,8 @@ Chosen on the title screen; every field is a multiplier over `config.js`.
 
 ```
 index.html      markup + HUD; modular dev entry point
-style.css       HUD chrome          ui-extra.css   screens, score, perf overlay
+style.css       HUD foundation      ui-extra.css   screens, score, perf overlay
+ui-design.css   field-console theme, production grid, responsive layout
 build.mjs       single-file bundler (see below)
 serve.mjs       zero-dependency static server
 vendor/         three.js r169 (MIT), vendored for offline use
@@ -158,7 +180,11 @@ src/
   score.js      scoring, chain multiplier, floating popups, rank
   splash.js     parallax intro: 5 depth layers, mouse + drift, Get Started
   intro-art.js  those layers as inlined webp (tools/pack-intro.mjs regenerates)
-  audio.js      Web Audio synth: 32 positional voices, reverb bus, ambience
+  combat-motion.js  Species windup/recovery timing and animation envelopes
+  tactical-fx.js    Instanced facing/windup/hit/target markers
+  unit-portraits.js Shared vector portraits and role labels
+  animal-samples.js  Recorded wildlife event map (credits in sounds/CREDITS.md)
+  audio.js      Sample playback + Web Audio synth: shared 48-source limit, positional mix
   music.js      score: per-map track choice, crossfades, sweep stinger, ducking
   shaders.js    GLSL suite: terrain, sky, water, core shield, energy field
   meshes.js     every model, procedural; part merging for draw-call control
@@ -204,22 +230,24 @@ destroy.
 
 ## Sound
 
-Every voice is synthesised at runtime -- oscillators, filtered noise, and a
-convolution reverb built from a decaying noise buffer rather than a shipped
-impulse file. Thirty-two voices, no audio assets.
+Wildlife now uses **27 recorded clips** for wolf, bear, boar, raven and porcupine
+calls, plus beaver chewing. Deploying, selecting, approaching an attack target,
+attacking, and idle ambience have event-specific cues and varied excerpts. The
+bear recording is a bear cub; capybara still has a synthesized placeholder.
+Sources, individual licenses, and processing details are in
+[sounds/CREDITS.md](sounds/CREDITS.md), and are included in the in-game field guide.
+Open **? → Listen to the wildlife** to audition each species and event.
 
-Three things separate it from a beep library:
-
-- **Variation.** Ninety wolves biting the identical 200 Hz burst reads as a
-  glitch, not a pack. Every voice jitters pitch, length, filter cutoff, and its
-  read offset into the noise buffer.
-- **Position.** Sounds are panned and attenuated against the camera's right
-  vector, so rotating with Q/E swaps which ear a fight is in. Past 150 m a sound
-  is not played at all. Measured: 60 m to the left pans -0.9, 60 m right +0.9,
-  centred -0.08.
-- **Headroom.** The bus runs master -> compressor -> out, and throttles are
-  wall-clock rather than per-frame, so a coolant tower detonating inside a
-  forty-unit melee does not clip to a click.
+- Recordings preserve natural pitch. The source wolf growl has the recordist's
+  existing bass enhancement. Procedural weapons/impacts retain their variation.
+- Combat audio pans and attenuates with the camera and respects fog. Selection,
+  orders and deployment are clearly audible, even when the camera is remote.
+- Four active animal voices, one brief retiring tail, per-species cooldowns and
+  global combat spacing keep large packs readable. Direct responses have priority.
+- All audio shares a 48-source ceiling and saved mute control. Completed sample
+  and synth sources disconnect their nodes. Muting also fades out active samples.
+- MP3s load from local `sounds/` in development and are embedded by `build.mjs`
+  in the portable HTML. No third-party sound requests occur during play.
 
 Weapons have distinct voices because *which gun is firing is tactical
 information*: a turret is not a rifle is not a drone is not a quill volley.
@@ -227,7 +255,7 @@ The technician's arc welder is audible for the same reason -- it is the tell
 that your damage is being undone.
 
 The score is real now: twelve generated tracks (prompts in [MUSIC.md](MUSIC.md))
-stream lazily from `music/` — the one runtime asset the project has. Each map
+stream lazily from `music/`. Each map
 picks its bed from its own atmosphere (wetlands override weather; the finale
 gets the night track), a security sweep drops a 30-second stinger over the
 ducked bed, combat ducks the score under the informative sounds, and victory

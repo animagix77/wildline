@@ -7,8 +7,9 @@ import { fireProjectile, applyDamage, burst, bringOnline } from './combat.js';
 import { lakeAt } from './water.js';
 import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip, threatMark } from './vfx.js';
 import { HALF } from './config.js';
-import { SFX } from './audio.js';
+import { SFX, animalVoice } from './audio.js';
 import { toast } from './ui.js';
+import { ATTACK_MOTION, readAttackPose } from './combat-motion.js';
 
 const HB_Y = {
   wolf: 2.7, boar: 3.0, bear: 4.3, raven: 1.6, guard: 3.2, drone: 1.5, local: 3.2,
@@ -57,16 +58,18 @@ function makeHealthBar(width) {
   const fill = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0x7fd44a, depthTest: false }));
   fill.scale.set(width * 0.94, width * 0.09, 1);
   fill.position.z = 0.01;
+  const trail = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0xf6ce83, depthTest: false }));
+  trail.position.z = .005; trail.visible = false;
   /* A thin amber tick marking permanent structural damage — the ceiling a
      technician can no longer weld past. */
   const scar = new THREE.Mesh(hbBgGeo, new THREE.MeshBasicMaterial({ color: 0xffb15a, depthTest: false }));
   scar.scale.set(width * 0.02, width * 0.17, 1);
   scar.position.z = 0.02;
   scar.visible = false;
-  g.add(bg); g.add(fill); g.add(scar);
+  g.add(bg); g.add(trail); g.add(fill); g.add(scar);
   g.renderOrder = 999;
   g.visible = false;
-  return { g, bg, fill, scar, width: width * 0.94 };
+  return { g, bg, fill, trail, trailFrac: 1, scar, width: width * 0.94 };
 }
 
 /* =========================================================================
@@ -98,6 +101,8 @@ export class Entity {
     this.provokedBy = null;
     this.provokeUntil = 0;
     this.chargeT = 0;
+    this.attackMotion = null;
+    this.attackPose = { wind: 0, hit: 0, follow: 0, progress: 0 };
     this.rootedUntil = 0;
     /* Set each tick by the machine brain for raiders in a strike column: the
        unit holds its ground so the rest of the column can close up. Deliberately
@@ -109,6 +114,7 @@ export class Entity {
     this.vel = new THREE.Vector3();
     this.selected = false;
     this.animT = rand(0, 100);
+    this.gaitPhase = this.animT;
     this.lastHitAt = -99;
 
     this.pos = new THREE.Vector3(x, terrainHeight(x, z), z);
@@ -135,10 +141,11 @@ export class Entity {
     hb.g.raycast = () => {};        // HUD furniture, never a click target
     hb.bg.raycast = () => {};
     hb.fill.raycast = () => {};
+    hb.trail.raycast = () => {};
     this.mesh.add(hb.g);
 
     // selection ring
-    if (!opts.noRing) {
+    if (!opts.noRing && (this.isBuilding || !G.tacticalMarkers)) {
       const rr = Math.max(1.4, def.radius * 1.25);
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(rr, rr * 1.22, 26),
@@ -165,6 +172,10 @@ export class Entity {
     if (opts.kills) { this.kills = opts.kills; this.refreshVeterancy(); }
     this.anim = this.mesh.userData.anim || null;
     if (this.anim && this.anim.torso) this.anim.torsoY = this.anim.torso.position.y;
+    if (this.anim?.head) {
+      this.anim.headY = this.anim.head.position.y;
+      this.anim.headZ = this.anim.head.position.z;
+    }
   }
 
   get speed() {
@@ -291,7 +302,12 @@ export class Entity {
     this.provokeUntil = G.time + 5;
     this.target = attacker;
     // and it breaks into a run to get there
-    if (!this.def.ranged && dist2D(this.pos, attacker.pos) > 6) this.chargeT = 2.4;
+    if (!this.def.ranged && dist2D(this.pos, attacker.pos) > 6) this.startCharge(2.4);
+  }
+
+  startCharge(seconds) {
+    if (this.chargeT <= 0) animalVoice(this, 'charge');
+    this.chargeT = seconds;
   }
 
   /* ------------------------------------------------------------ orders -- */
@@ -313,13 +329,18 @@ export class Entity {
        `target` with the provoker and, on expiry, replayed the order the player
        had ALREADY replaced — so a squad re-tasked while under fire (the normal
        case in an RTS) obeyed neither the old order nor the new one. */
+    // An uncommitted swing cannot hit after an explicit retreat/retarget order.
+    if (this.attackMotion && !this.attackMotion.struck) this.attackMotion = null;
     this.provokedBy = null;
     this.resumeOrder = null;
     this.provokeAnchor = null;
     this.order.type = type;
     this.order.pos = pos ? pos.clone() : null;
     this.order.target = target || null;
-    if (type === 'attack') this.target = target;
+    if (type === 'attack') {
+      this.target = target;
+      if (target && dist2D(this.pos, target.pos) > this.def.range + 3) animalVoice(this, 'charge');
+    }
     if (type === 'move' || type === 'attackmove') this.target = null;
     if (type === 'stop' || type === 'hold') { this.target = null; this.order.type = type === 'stop' ? 'idle' : 'hold'; }
     this.leash = null;
@@ -335,6 +356,7 @@ export class Entity {
     if (this.isBuilding) { this.updateBuilding(dt); this.postUpdate(dt, 0); return; }
     if (this.def.repair) { this.updateTech(dt); return; }
 
+    this.advanceAttack(dt);
     if (this.chargeT > 0) this.chargeT -= dt;
 
     /* resolve an outstanding grudge */
@@ -375,7 +397,8 @@ export class Entity {
         if (t) {
           this.target = t;
           if (ot !== 'move' && !this.leash) this.leash = this.pos.clone();
-          if (!this.def.ranged && dist2D(this.pos, t.pos) > 8) this.chargeT = 2.2;
+          if (!this.def.ranged && dist2D(this.pos, t.pos) > 8) this.startCharge(2.2);
+          else if (this.def.ranged && dist2D(this.pos, t.pos) > this.def.range + 3) animalVoice(this, 'charge');
         }
       }
     }
@@ -708,10 +731,38 @@ export class Entity {
   }
 
   attack(tgt) {
-    this.cooldown = this.def.rate / (this.watered > 0 ? RULES.wateredRate : 1);
+    if (this.attackMotion && !this.attackMotion.struck) return;
+    const tempo = this.watered > 0 ? RULES.wateredRate : 1;
+    this.cooldown = this.def.rate / tempo;
+    const motion = ATTACK_MOTION[this.type];
+    if (motion) {
+      this.attackMotion = { target: tgt, elapsed: 0, struck: false,
+        windup: motion.windup / tempo, recovery: motion.recovery / tempo };
+      return;
+    }
+    this.strike(tgt);
+  }
+
+  advanceAttack(dt) {
+    const a = this.attackMotion;
+    if (!a) return;
+    if (!this.alive || this.isRooted()) { this.attackMotion = null; return; }
+    a.elapsed += dt;
+    if (!a.struck && a.elapsed >= a.windup) {
+      a.struck = true;
+      const tgt = a.target;
+      // The windup is an actual commitment, never a delayed hit on a dead or
+      // fleeing target. Ranged wildlife releases its projectile at this point.
+      if (tgt?.alive && !tgt.downed && dist2D(this.pos, tgt.pos) - tgt.radius <= this.def.range + 1.2) this.strike(tgt);
+    }
+    if (a.elapsed >= a.windup + a.recovery) this.attackMotion = null;
+  }
+
+  strike(tgt) {
     // siege units hit structures far harder than they hit flesh
     const dmg = this.def.dmg * (tgt.isBuilding ? (this.def.siege || 1) : 1) * (this.dmgMult || 1)
               * (this.watered > 0 ? RULES.wateredDmg : 1);
+    animalVoice(this, 'attack');
     if (this.def.ranged) {
       this.muzzlePoint(_v2);
       muzzleFlash(_v2, this.def.projectile.color);
@@ -721,12 +772,7 @@ export class Entity {
       this.shotSfx();
     } else {
       applyDamage(tgt, dmg, this);
-      this.lunge = 1;
-      /* melee species get their own bark on the lunge, throttled hard so a pack
-         reads as a pack rather than a wall of noise */
-      if (this.type === 'bear') SFX.roar(this.pos);
-      else if (this.type === 'boar') SFX.snort(this.pos);
-      else if (this.type === 'beaver') SFX.gnaw(this.pos);
+      if (!ATTACK_MOTION[this.type]) this.lunge = 1;
       burst(tgt.aimPoint(), 0xffd9a0, 4, 6, 0.25, 0.4);
     }
   }
@@ -745,7 +791,7 @@ export class Entity {
     if (t === 'turret') SFX.turretShot(this.pos);
     else if (t === 'drone') SFX.droneShot(this.pos);
     else if (t === 'porcupine') SFX.quill(this.pos);
-    else if (t === 'hearttree') SFX.quill(this.pos);
+    else if (t === 'hearttree' || t === 'raven') SFX.quill(this.pos);
     else SFX.shot(this.pos);
   }
 
@@ -937,7 +983,7 @@ export class Entity {
       this._mendT = 0;
       _v1.copy(best.pos); _v1.y += best.radius * 0.5;
       burst(_v1, 0x9bff6a, 5, 4, 0.5, 0.5);
-      SFX.gnaw(this.pos);
+      animalVoice(this, 'attack');
     }
   }
 
@@ -1078,15 +1124,29 @@ export class Entity {
     if (this.recoil > 0) this.recoil -= dt * 8;
     if (!this.isBuilding) this.mesh.rotation.x = lean;
 
+    readAttackPose(this.attackMotion, this.attackPose);
+    const pose = this.attackPose;
+    if (ATTACK_MOTION[this.type]) {
+      const reach = this.type === 'boar' ? .95 : this.type === 'wolf' ? .7 : .35;
+      const shift = pose.hit * reach - pose.wind * .16;
+      this.mesh.position.x += Math.sin(this.mesh.rotation.y) * shift;
+      this.mesh.position.z += Math.cos(this.mesh.rotation.y) * shift;
+    }
     this.animate(dt, speedNow);
 
     // health bar
     const frac = clamp(this.hp / this.maxHp, 0, 1);
+    if (frac >= this.hb.trailFrac) this.hb.trailFrac = frac;
+    else if (G.time - this.lastHitAt > .28) this.hb.trailFrac += (frac - this.hb.trailFrac) * Math.min(1, dt * 5);
     const show = !!(this.selected
       || (frac < 0.999 && G.time - this.lastHitAt < 6)
       || (this.def.critical && this.team === TEAM.MACHINE));
     this.hb.g.visible = show;
     if (show) {
+      const trailFrac = this.hb.trailFrac;
+      this.hb.trail.visible = trailFrac - frac > .008;
+      this.hb.trail.scale.set(this.hb.width * trailFrac, this.hb.width * .096, 1);
+      this.hb.trail.position.x = -this.hb.width * (1-trailFrac) / 2;
       this.hb.fill.scale.x = this.hb.width * frac;
       this.hb.fill.position.x = -this.hb.width * (1 - frac) / 2;
       /* Scar tick: a dark notch marking the ceiling this structure can never be
@@ -1107,33 +1167,74 @@ export class Entity {
       this.rankPips.quaternion.copy(G.camera.quaternion);
       this.rankPips.quaternion.premultiply(_q.setFromAxisAngle(_yAxis, -this.mesh.rotation.y));
     }
-    if (this.ring) this.ring.visible = this.selected;
+    if (this.ring) this.ring.visible = this.selected && (this.isBuilding || !G.tacticalMarkers);
   }
 
   animate(dt, speedNow) {
     const a = this.anim;
     if (!a) return;
     const t = this.animT;
+    const { wind, hit, follow } = this.attackPose;
     switch (a.kind) {
       case 'quad': {
         const rel = clamp(speedNow / Math.max(1, this.speed), 0, 1.4);
-        const ph = t * (6 + rel * 9);
+        this.gaitPhase += dt * (6 + rel * 9);
+        const ph = this.gaitPhase;
         // two merged diagonal pairs, each baked at rest — swing them in antiphase
         for (let i = 0; i < a.legs.length; i++) {
           const l = a.legs[i];
-          const sgn = i === 0 ? 1 : -1;
+          const sgn = a.legPhases ? a.legPhases[i] : i === 0 ? 1 : -1;
           const sw = Math.sin(ph) * sgn;
+          l.rotation.set(0, 0, 0);
           l.position.z = sw * 0.45 * rel;
           l.position.y = Math.max(0, sw) * 0.16 * rel;
         }
         if (a.torso) a.torso.position.y = a.torsoY + Math.sin(ph * 2) * 0.07 * rel;
-        if (a.head) a.head.rotation.x = Math.sin(t * 1.7) * 0.05 - rel * 0.12;
+        if (a.torso) a.torso.rotation.set(0, 0, 0);
+        if (a.head) {
+          a.head.rotation.set(Math.sin(t * 1.7) * .05 - rel * .12, 0, 0);
+          a.head.position.y = a.headY; a.head.position.z = a.headZ;
+        }
+        if (a.jaw) a.jaw.rotation.x = .48 * wind - .12 * hit;
+        const charging = this.chargeT > 0 && speedNow > 1 ? 1 : 0;
+        if (this.type === 'bear') {
+          a.torso.rotation.x = -.4 * wind + .16 * hit;
+          a.torso.position.y += .5 * wind;
+          a.head.position.y += 1.05 * wind - .2 * hit;
+          a.head.position.z -= .32 * wind;
+          a.head.rotation.x += -.26 * wind + .32 * hit;
+          for (const [i, leg] of (a.frontLegs || []).entries()) {
+            const side = i === this.id % 2 ? 1 : .45;
+            leg.position.y += .65 * wind;
+            leg.rotation.x = -.55 * wind + .6 * hit * side;
+            leg.rotation.z = (i ? -1 : 1) * (.2 * wind + .55 * follow * side);
+          }
+        } else if (this.type === 'boar') {
+          a.head.rotation.x += .35 * charging + .55 * wind - .25 * hit;
+          a.head.position.y -= .15 * charging + .25 * wind;
+          a.torso.rotation.x = .12 * wind - .1 * hit;
+        } else if (this.type === 'wolf') {
+          a.torso.position.y += -.2 * wind + .18 * hit;
+          a.head.rotation.x += -.22 * wind + .46 * hit;
+          a.head.rotation.y = (this.id % 2 ? 1 : -1) * .22 * follow;
+          a.head.position.z += .3 * hit;
+        } else if (this.type === 'porcupine') {
+          a.torso.rotation.x = -.18 * wind + .22 * hit;
+          a.torso.position.y += .18 * wind - .1 * hit;
+          a.head.rotation.x += .25 * wind;
+        } else if (this.type === 'beaver') {
+          a.head.rotation.x += .18 * wind - .32 * hit;
+          a.head.position.z += .18 * hit;
+        } else {
+          a.head.rotation.x += .15 * wind - .22 * hit;
+        }
         if (a.tail) a.tail.rotation.y = Math.sin(t * 4) * 0.35 * (0.3 + rel);
         break;
       }
       case 'biped': {
         const rel = clamp(speedNow / Math.max(1, this.speed), 0, 1.4);
-        const ph = t * (5 + rel * 8);
+        this.gaitPhase += dt * (5 + rel * 8);
+        const ph = this.gaitPhase;
         a.legs[0].position.z = Math.sin(ph) * 0.42 * rel;
         a.legs[1].position.z = -Math.sin(ph) * 0.42 * rel;
         a.legs[0].position.y = 0.52 + Math.max(0, Math.sin(ph)) * 0.09 * rel;
@@ -1162,9 +1263,13 @@ export class Entity {
       }
       case 'bird': {
         const flap = Math.sin(t * 11 + a.hover);
-        for (const { w, s } of a.wings) { w.rotation.z = -s * (flap * 0.6 + 0.15); w.rotation.x = flap * 0.1; }
-        a.body.position.y = Math.sin(t * 2.3 + a.hover) * 0.45;
-        a.body.rotation.x = -clamp(speedNow / 40, 0, 0.35);
+        for (const { w, s } of a.wings) {
+          w.rotation.z = -s * (flap * .6 * (1 - wind * .75) + .15 + wind * .9 - follow * .55);
+          w.rotation.x = flap * .1 + wind * .35;
+        }
+        a.body.position.y = Math.sin(t * 2.3 + a.hover) * .45 + wind * .45 - hit * 1.25 - follow * .55;
+        a.body.position.z = hit * .7 + follow * .35;
+        a.body.rotation.x = -clamp(speedNow / 40, 0, .35) + wind * .18 + hit * .62 - follow * .22;
         break;
       }
       case 'drone': {
@@ -1236,6 +1341,7 @@ export class Entity {
      thing it was: flesh falls over, fliers fall out of the sky, machines that
      were holding themselves up stop. */
   onKilled() {
+    this.attackMotion = null;
     const style = this.def.death || (this.isBuilding ? 'collapse' : 'topple');
     this.corpse = {
       style, t: 0, settled: false, sinking: 0,
@@ -1351,6 +1457,7 @@ export class Entity {
     if (this.hb) {
       this.hb.bg.material.dispose();
       this.hb.fill.material.dispose();
+      this.hb.trail.material.dispose();
       if (this.hb.scar) this.hb.scar.material.dispose();
       this.hb = null;
     }

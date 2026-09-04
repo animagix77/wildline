@@ -207,9 +207,9 @@ export function showStartScreen(onStart) {
 
   /* ---- masthead ---- */
   panel.appendChild(sxEl('div', 'ss-head', `
-    <div class="ss-rule"></div>
-    <h1 class="ss-mark">CRITTERS VS COMPUTE</h1>
-    <p class="ss-tag">You are the forest. They are the data centre. Take it back.</p>
+    <div class="ss-eyebrow">A VALLEY WORTH FIGHTING FOR</div>
+    <h1 class="ss-mark">CRITTERS<br><span>vs COMPUTE</span></h1>
+    <p class="ss-tag">Command the wildlife. Reclaim the valley.</p>
     <div class="ss-rule"></div>
   `));
 
@@ -229,12 +229,12 @@ export function showStartScreen(onStart) {
       <dd>Break the <b>3 Coolant Towers</b>. The <b>Server Core</b> overheats, loses its
           shielding, and can then be brought down.</dd>
       <dt class="lose">Lose</dt>
-      <dd>The <b>Heart Tree</b> falls. Sit still and the fourth security sweep does it for you.</dd>
+      <dd>Protect your <b>Heart Tree</b>. If it falls, the valley is lost.</dd>
     </dl>
   `));
 
-  cols.appendChild(sxEl('section', 'ss-card', `
-    <h2>Orders</h2>
+  cols.appendChild(sxEl('details', 'ss-card ss-guide', `
+    <summary>Field guide <span>CONTROLS &amp; HOTKEYS +</span></summary>
     <div class="ss-keys">
       <h3>Camera</h3>
       <ul>
@@ -265,7 +265,7 @@ export function showStartScreen(onStart) {
   if (index < 0) index = 0;
 
   const diffWrap = sxEl('section', 'ss-diff');
-  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Choose your season'));
+  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Choose your challenge'));
   const row = sxEl('div', 'ss-diff-row');
 
   const pct = v => (v === 1 ? '—' : (v > 1 ? '+' : '') + Math.round((v - 1) * 100) + '%');
@@ -306,7 +306,7 @@ export function showStartScreen(onStart) {
   camp.addEventListener('click', () => showCampaignMap());
   foot.appendChild(sxCoffee('Enjoying it? Buy me a coffee'));
   foot.appendChild(sxEl('p', 'ss-hint',
-    `${sxKey('←')}${sxKey('→')} choose season · ${sxKey('Enter')} begin · audio starts on your first click`));
+    `${sxKey('←')}${sxKey('→')} choose challenge · ${sxKey('Enter')} begin · audio starts on your first click`));
   panel.appendChild(foot);
 
   root.appendChild(panel);
@@ -328,7 +328,7 @@ export function showStartScreen(onStart) {
 
   function select(i) {
     index = ((i % DIFFICULTIES.length) + DIFFICULTIES.length) % DIFFICULTIES.length;
-    buttons.forEach((b, n) => b.classList.toggle('on', n === index));
+    buttons.forEach((b, n) => { b.classList.toggle('on', n === index); b.setAttribute('aria-pressed', String(n === index)); });
   }
   select(index);
 
@@ -352,6 +352,8 @@ export function showStartScreen(onStart) {
   begin.addEventListener('click', begin_);
 
   startKeyHandler = (ev) => {
+    // Let focused controls perform their own native Enter/Space action.
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.closest?.('button, summary, a')) return;
     if (ev.repeat && ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
     switch (ev.key) {
       case 'Enter':

@@ -1,0 +1,183 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Game review checks</title>
+<style>body{margin:0;background:#102016;color:#dbe6d4;font:14px system-ui}pre{padding:18px;white-space:pre-wrap}iframe{width:1280px;height:720px;border:0;max-width:100%}</style>
+<pre id="results">Running game integration checks…</pre><div id="fixture"></div>
+<script type="module">
+const output = document.querySelector('#results');
+const lines = [];
+const report = line => { lines.push(line); output.textContent = lines.join('\n'); };
+const assert = (v, msg) => { if (!v) throw new Error(msg); report('PASS · ' + msg); };
+const delay = ms => new Promise(r => setTimeout(r, ms));
+const args = new URLSearchParams(location.search);
+const source = args.get('bundle') === '1' ? 'wildline.html' : 'index.html';
+const map = args.get('map') || 'verdant-hollow';
+const iframe = document.createElement('iframe');
+iframe.style.width = `${Math.max(360, Number(args.get('width')) || 1280)}px`;
+iframe.style.height = `${Math.max(600, Number(args.get('height')) || 720)}px`;
+iframe.src = `../${source}?headless=1&map=${encodeURIComponent(map)}`;
+document.querySelector('#fixture').append(iframe);
+await new Promise(r => iframe.addEventListener('load', r, { once: true }));
+const w = iframe.contentWindow;
+try {
+  for (let i = 0; i < 60 && !w.__begin; i++) await delay(100);
+  assert(!!w.__begin, source + ' loads');
+  w.__step(1); w.__begin();
+  for (let i = 0; i < 30 && w.G.phase !== 'playing'; i++) { await delay(100); w.__begin(); }
+  assert(w.G.phase === 'playing', 'mission starts');
+  w.__step(8, 33);
+  const G = w.G, api = w.__api, doc = w.document;
+  assert(!w.__lastErr, 'no runtime error at boot');
+  assert(Object.keys(w.__validateMaps()).length === 0, 'all authored map layouts validate');
+  assert(G.entities.filter(e => e.alive && e.team === 'wild' && !e.isBuilding).length === 4, 'starting wildlife intact');
+  doc.querySelector('[data-command="all"]').click();
+  assert(G.selection.length === 4, 'all-wildlife button selects the pack');
+  await delay(60); w.__step(1);
+  doc.querySelector('[data-command="hold"]').click();
+  assert(G.selection.every(e => e.order.type === 'hold'), 'hold command reaches every selected unit');
+  doc.querySelector('[data-command="stop"]').click();
+  assert(G.selection.every(e => e.order.type === 'idle'), 'stop clears orders');
+  const key = code => w.dispatchEvent(new w.KeyboardEvent('keydown', { code, bubbles: true }));
+  key('KeyP');
+  const t = G.time, biomass = G.biomass;
+  key('KeyZ'); doc.querySelector('[data-command="spell"]').click();
+  w.__step(3, 33);
+  assert(G.time === t && G.biomass === biomass && G.queue.length === 0 && G.mode === 'normal', 'pause blocks time, recruitment and spell targeting');
+  key('KeyP'); key('F1');
+  key('KeyZ'); doc.querySelector('#spellcard').click(); doc.querySelector('.card[data-type=wolf]').click();
+  assert(G.paused && G.biomass === biomass && G.mode === 'normal', 'help pause also blocks gameplay hotkeys and spell card');
+  key('F1');
+  assert(!G.paused, 'closing help resumes play');
+  assert(api.queueUnit('wolf'), 'recruitment accepts an affordable unit');
+  w.__step(24, 100);
+  assert(G.entities.filter(e => e.alive && e.type === 'wolf').length === 5, 'production completes and spawns wildlife');
+  const point = { x: G.heart.pos.x + 15, z: G.heart.pos.z - 10 };
+  const guard = api.spawn('guard', point.x, point.z);
+  const turret = api.spawn('turret', point.x + 5, point.z);
+  const wall = api.spawn('wall', point.x + 8, point.z);
+  wall.box = { hw: 4, hd: 1 };
+  const fog = G.fogVisible;
+  G.fogVisible = (x,z) => x !== guard.pos.x || z !== guard.pos.z;
+  assert(!api.overgrowthTargets(point, true).includes(guard), 'target preview does not reveal hidden machines');
+  assert(api.overgrowthTargets(point, true).includes(turret) && !api.overgrowthTargets(point, true).includes(wall), 'preview includes guns and excludes inert walls');
+  G.fogVisible = fog;
+  G.biomass = 200;
+  const result = api.cast(point.x, point.z);
+  assert(result.rooted >= 1 && result.guns >= 1 && guard.rootedUntil > G.time && turret.smotheredUntil > G.time, 'Overgrowth roots units and disables guns');
+  assert(G.biomass === 200 - api.RULES.spellCost && api.cast(point.x, point.z) === false, 'spell charges once and enforces cooldown');
+  w.__step(3, 33);
+  const geometryCount = G.renderer.info.memory.geometries;
+  const slots = api.makeFormation(G.selection, new w.THREE.Vector3(G.heart.pos.x + 15, 0, G.heart.pos.z + 15));
+  G.selection.forEach((u,i) => u.setOrder('move', slots[i]));
+  w.__step(12, 33);
+  assert(G.renderer.info.memory.geometries <= geometryCount + 3, 'moving squads reuse geometry');
+  assert(!w.__lastErr, 'combat, targeting and movement render without runtime errors');
+  const roster = ['wolf', 'capybara', 'boar', 'bear', 'raven', 'porcupine', 'beaver', 'local'];
+  for (const [i, type] of roster.entries()) {
+    const u = api.spawn(type, G.heart.pos.x + (i % 4) * 5 - 8, G.heart.pos.z + 15 + Math.floor(i / 4) * 5);
+    if (u.anim.kind === 'quad' || u.anim.kind === 'biped') {
+      const phase = u.gaitPhase;
+      u.animate(0.016, u.speed); u.animate(0.016, 0.1);
+      assert(u.gaitPhase > phase && u.gaitPhase - phase < 0.6, type + ' gait stays continuous across speed changes');
+    }
+  }
+  w.__step(2, 33);
+  const programs = G.renderer.info.programs;
+  assert(programs.every(p => !p.diagnostics || p.diagnostics.runnable !== false), 'all WebGL shader programs compile');
+  const cardRects = [...doc.querySelectorAll('#cards .card')].map(e => e.getBoundingClientRect());
+  const dock = doc.querySelector('#cardpanel').getBoundingClientRect();
+  const queue = doc.querySelector('#queue').getBoundingClientRect();
+  const mini = doc.querySelector('#minimap').getBoundingClientRect();
+  assert(cardRects.length === 10 && cardRects.every(r => r.left >= 0 && r.right <= w.innerWidth && r.bottom <= dock.bottom), 'all ten production cards fit the viewport');
+  assert(queue.bottom <= dock.bottom - 8, 'growth queue stays inside its panel');
+  assert(Math.abs(mini.width - mini.height) < 1, 'minimap keeps a square aspect ratio');
+  report(`DONE · ${source} · ${map} · ${programs.length} shader programs · ${G.entities.length} entities`);
+  G.paused = false;
+  w.__step(1);
+  const audioButton = document.createElement('button');
+  audioButton.textContent = 'Check audio voice limit and cleanup';
+  audioButton.style.cssText = 'margin:0 18px 18px;padding:12px';
+  output.after(audioButton);
+  audioButton.onclick = async () => {
+    audioButton.disabled = true;
+    const muteButton = doc.querySelector('#mutebtn');
+    const wasMuted = muteButton.getAttribute('aria-pressed') === 'true';
+    try {
+      // Run inside the browser's user gesture, as normal game audio does.
+      w.dispatchEvent(new w.PointerEvent('pointerdown'));
+      if (wasMuted) muteButton.click();
+      await delay(100);
+      for (let i = 0; i < 80; i++) api.SFX.spawn();
+      const stats = api.audioStats();
+      assert(stats.state === 'running' && stats.active > 0 && stats.active <= stats.limit, 'audio runs with a bounded voice count');
+      await delay(1800);
+      assert(api.audioStats().active === 0, 'completed audio sources release their graph connections');
+      await api.loadAnimalAudio();
+      const sampleStats = api.audioStats().samples;
+      assert(sampleStats.ready === sampleStats.total && !sampleStats.failed.length && sampleStats.total === 27, 'all 27 recorded animal clips decode');
+      assert(sampleStats.embedded === (source === 'wildline.html'), 'portable build embeds the recordings; development uses local files');
+      // Exercise the same event dispatcher used by production and entities.
+      for (const type of sampleStats.species) {
+        const unit = G.entities.find(e => e.type === type && e.alive);
+        for (const kind of ['select', 'deploy', 'charge', 'attack']) {
+          await delay(900);
+          const before = api.audioStats().samples.played[kind] || 0;
+          api.animalVoice({ type, alive: true }, kind);
+          const after = api.audioStats().samples;
+          assert(after.played[kind] === before + 1 && after.last.species === type, type + ' ' + kind + ' plays a recording');
+        }
+      }
+      await delay(4000);
+      assert(api.audioStats().active === 0, 'sampled voices release after playback');
+      const wolf = G.entities.find(e => e.alive && e.type === 'wolf');
+      const guard = G.entities.find(e => e.alive && e.type === 'guard');
+      const originalFog = G.fogVisible;
+      G.fogVisible = () => false;
+      let before = api.audioStats().samples.played.attack || 0;
+      api.animalVoice(wolf, 'attack');
+      assert((api.audioStats().samples.played.attack || 0) === before, 'fog suppresses unseen combat audio');
+      G.fogVisible = () => true;
+      // Camera may be remote; headless units near origin keep the source audible.
+      const fighter = api.spawn('wolf', 0, 0);
+      const foe = api.spawn('guard', 20, 0);
+      before = api.audioStats().samples.played.charge || 0;
+      fighter.setOrder('attack', foe.pos, foe);
+      assert(api.audioStats().samples.played.charge === before + 1, 'explicit attack approach triggers a charge call');
+      await delay(850);
+      before = api.audioStats().samples.played.attack || 0;
+      fighter.pos.x = foe.pos.x - 3;
+      fighter.attack(foe);
+      fighter.advanceAttack(.15);
+      assert(api.audioStats().samples.played.attack === before + 1, 'entity attack triggers a recorded combat call');
+      await delay(900);
+      before = api.audioStats().samples.played.select || 0;
+      doc.querySelector('[data-command="all"]').click();
+      assert(api.audioStats().samples.played.select === before + 1, 'selection button triggers a recorded acknowledgement');
+      await delay(850);
+      before = api.audioStats().samples.played.deploy || 0;
+      G.biomass = 999;
+      api.queueUnit('wolf');
+      w.__step(24, 100);
+      assert(api.audioStats().samples.played.deploy === before + 1, 'completed recruitment triggers a recorded deployment call');
+      G.fogVisible = originalFog;
+      await delay(4000);
+      before = api.audioStats().samples.played.select || 0;
+      for (let i = 0; i < 100; i++) api.animalVoice({ type: 'wolf' }, 'select');
+      assert(api.audioStats().samples.played.select === before + 1, 'repeated clicks are throttled');
+      for (const type of sampleStats.species) for (const kind of ['attack','charge','select']) api.animalVoice({ type }, kind);
+      const crowded = api.audioStats();
+      assert(crowded.active <= crowded.limit && crowded.samples.active <= crowded.samples.limit, 'mixed animal swarm obeys both voice budgets');
+      muteButton.click();
+      await delay(100);
+      before = api.audioStats().samples.played.deploy || 0;
+      api.animalVoice({ type: 'wolf' }, 'deploy');
+      assert((api.audioStats().samples.played.deploy || 0) === before && api.audioStats().samples.active === 0, 'mute releases recordings and prevents new animal playback');
+      api.SFX.spawn();
+      assert(api.audioStats().active === 0, 'muted effects allocate no audio sources');
+      if (!wasMuted) muteButton.click();
+      report('DONE · audio lifecycle');
+    } catch (error) {
+      if ((muteButton.getAttribute('aria-pressed') === 'true') !== wasMuted) muteButton.click();
+      report('FAIL · audio · ' + error.message);
+    }
+  };
+} catch (error) { report('FAIL · ' + error.stack); }
+</script></html>

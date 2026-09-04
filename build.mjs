@@ -2,7 +2,7 @@
    WILDLINE single-file build.
 
    Emits `wildline.html`: one self-contained document with three.js, every
-   game module, all CSS and all markup inlined. No network, no assets.
+   game module, all CSS, markup and wildlife recordings inlined. Music is optional.
 
      node build.mjs
 
@@ -42,12 +42,14 @@ const MODULES = [
   'src/water.js',
   'src/ui.js',
   'src/score.js',
+  'src/animal-samples.js',
   'src/audio.js',
   'src/music.js',
   'src/shaders.js',
   'src/meshes.js',
   'src/vfx.js',
   'src/combat.js',
+  'src/combat-motion.js',
   'src/entity.js',
   'src/fog.js',
   'src/verdant.js',
@@ -56,13 +58,17 @@ const MODULES = [
   'src/camera.js',
   'src/perf.js',
   'src/screens.js',
+  'src/tactics.js',
+  'src/ground-fx.js',
+  'src/tactical-fx.js',
+  'src/unit-portraits.js',
   'src/input.js',
   'src/hud.js',
   'src/main.js',
 ];
 for (const f of MODULES) if (!exists(f)) throw new Error(`missing module: ${f}`);
 
-const STYLES = ['style.css', 'ui-extra.css'].filter(exists);
+const STYLES = ['style.css', 'ui-extra.css', 'ui-design.css'].filter(exists);
 
 /* ---------------------------------------------------------------- three -- */
 function inlineThree() {
@@ -270,7 +276,16 @@ ${safeJs}
 }
 
 /* ------------------------------------------------------------------ main -- */
-const sources = MODULES.map(file => ({ file, src: stripModuleSyntax(read(file), file) }));
+const sources = MODULES.map(file => {
+  let src = read(file);
+  if (file === 'src/animal-samples.js') {
+    const embedded = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'sounds'))
+      .filter(name => name.endsWith('.mp3')).map(name => [name.slice(0, -4),
+        'data:audio/mpeg;base64,' + fs.readFileSync(path.join(ROOT, 'sounds', name)).toString('base64')]));
+    src = src.replace('const EMBEDDED_ANIMAL_AUDIO = null;', 'const EMBEDDED_ANIMAL_AUDIO = ' + JSON.stringify(embedded) + ';');
+  }
+  return { file, src: stripModuleSyntax(src, file) };
+});
 aliasGuard();
 missingImportGuard();
 const bindings = collisionGuard(sources);

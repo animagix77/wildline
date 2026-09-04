@@ -62,8 +62,8 @@ export function initVerdant(scene) {
       uTime:  { value: 0 },
       uHalf:  { value: HALF },
       uWorld: { value: WORLD },
-      uNear:  { value: new THREE.Color(0x74d64a) },
-      uDeep:  { value: new THREE.Color(0x2f7a34) },
+      uNear:  { value: new THREE.Color(0x6cac58) },
+      uDeep:  { value: new THREE.Color(0x315f3b) },
     },
     transparent: true, depthWrite: false,
     vertexShader: `
@@ -97,12 +97,12 @@ export function initVerdant(scene) {
         float mottle = n(vWorld*0.5 + uTime*0.05)*0.5 + n(vWorld*1.6)*0.3;
         vec3 col = mix(uDeep, uNear, mottle);
         /* a slow pulse outward from wherever it is thickest */
-        col += 0.05 * sin(uTime*0.7 + vWorld.x*0.05 + vWorld.y*0.04) * v;
+        col += 0.018 * sin(uTime*0.7 + vWorld.x*0.05 + vWorld.y*0.04) * v;
         /* the advancing edge glows — brighter than 1.0 so the bloom pass picks
            it up and the reclamation front reads from a full zoom-out */
         float front = smoothstep(0.14, 0.26, v) * (1.0 - smoothstep(0.26, 0.46, v));
         col += front * vec3(0.5, 1.25, 0.4) * (0.7 + 0.3*sin(uTime*2.6 + vWorld.x*0.3 + vWorld.y*0.21));
-        gl_FragColor = vec4(col, a * 0.5);
+        gl_FragColor = vec4(col, a * 0.3);
       }`,
   });
 

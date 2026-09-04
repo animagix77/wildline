@@ -2,9 +2,12 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice, updateFinale } from './world.js';
 import { RTSCamera } from './camera.js';
-import { initInput } from './input.js';
+import { initGroundFX, updateGroundFX } from './ground-fx.js';
+import { initTacticalFX, updateTacticalFX, tacticalStats } from './tactical-fx.js';
+import { initInput, updateCommandPreview } from './input.js';
 import { initHUD, updateHUD } from './hud.js';
-import { updateAI, castOvergrowth } from './ai.js';
+import { makeFormation } from './tactics.js';
+import { updateAI, castOvergrowth, overgrowthTargets } from './ai.js';
 import { spawn } from './entity.js';
 import { updateCombatFX } from './combat.js';
 import { updateVFX, initVFXLights, igniteNear } from './vfx.js';
@@ -12,7 +15,7 @@ import { commsEvent, updateComms } from './comms.js';
 import { updateWeather } from './weather.js';
 import { updateWater, renderWaterReflection } from './water.js';
 import { initPost, renderPost, resizePost } from './post.js';
-import { SFX, updateListener, ambientVoices } from './audio.js';
+import { SFX, updateListener, ambientVoices, audioStats, animalVoice, loadAnimalAudio } from './audio.js';
 import { tickShaders } from './shaders.js';
 import { BASE, COMPOUND, RULES, TEAM, DEFS } from './config.js';
 import { updateCanopyFade } from './meshes.js';
@@ -106,6 +109,8 @@ window.__validateMaps = validateAllMaps;
    backdrop to orbit, but no entities exist until the player commits. */
 buildScene(scene);
 initPost(renderer);          // HDR + bloom chain
+initGroundFX(scene);
+initTacticalFX(scene);
 initVFXLights(scene);        // fixed light pool, never added or removed after this
 
 const rtsCamera = new RTSCamera(camera);
@@ -220,7 +225,7 @@ if (HEADLESS) {
      exercise everything the player can. Overgrowth was reachable only from a UI
      click path, so the game's only ability went unmeasured across whole playtest
      sessions — an ability nobody can test is an ability nobody can tune. */
-  window.__api = { queueUnit, SFX, musicState, exportCode, importCode, campState,
+  window.__api = { makeFormation, overgrowthTargets, tacticalStats, audioStats, animalVoice, loadAnimalAudio, queueUnit, SFX, musicState, exportCode, importCode, campState,
     order(units, type, pos, target) {
       for (const u of units) u.setOrder(type, pos, target);
     },
@@ -291,12 +296,16 @@ function frame(now, manual) {
 
   if (camera.aspect !== vw() / vh()) fitViewport();
 
+  updateGroundFX();
+  updateTacticalFX();
   tickShaders(G.time, simDt);
   updateCombatFX(simDt);
   updateVFX(simDt);
   updateComms(simDt);
   updateWeather(simDt);
   rtsCamera.update(dt);          // the camera stays live so you can look around
+
+  updateCommandPreview();
 
   /* Canopies get out of the way of anything that matters: your own units, and
      any machine currently shooting at them. Machines only qualify while they

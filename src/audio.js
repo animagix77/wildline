@@ -1,25 +1,19 @@
-/* =========================================================================
-   Web Audio synth. No asset files -- every voice here is oscillators, filtered
-   noise, and a procedurally generated impulse response for the room.
-
-   Three things separate this from a beep library:
-
-   * Variation. Ninety wolves biting the identical 200Hz noise burst reads as a
-     glitch, not a pack. Every voice jitters pitch, length and filter.
-   * Position. Sounds are panned and attenuated against the camera, so a fight
-     at the edge of the screen sounds like it is over there. This is most of
-     what makes an RTS feel like a place rather than a spreadsheet.
-   * Headroom. Forty simultaneous voices will clip a naive master gain, so the
-     bus runs through a compressor and the throttles are per-voice.
-   ========================================================================= */
+/* Recorded wildlife voices + procedural impacts, weapons and ambience.
+   All sources share the spatial mixer, mute control and bounded voice budget. */
 
 import { G } from './state.js';
+import { insideCompound } from './utils.js';
+import { ANIMAL_CUES, EMBEDDED_ANIMAL_AUDIO } from './animal-samples.js';
 
 let ctx = null, master = null, comp = null, verb = null, verbSend = null;
 let listenX = 0, listenZ = 0, rightX = 1, rightZ = 0;
 
 const MASTER = 0.35;
 let muted = false;
+try { muted = localStorage.getItem('cvc.muted') === '1'; } catch (_) {}
+const activeAudioSources = new Set();
+const MAX_AUDIO_SOURCES = 48;
+export function audioStats() { return { active: activeAudioSources.size, limit: MAX_AUDIO_SOURCES, muted, state: ctx ? ctx.state : 'uninitialized', samples: animalSampleStats() }; }
 
 export function initAudio() {
   if (ctx) return;
@@ -45,6 +39,7 @@ export function initAudio() {
     verb.connect(vg); vg.connect(comp);
     verbSend = ctx.createGain(); verbSend.gain.value = muted ? 0 : MASTER * 0.5;
     verbSend.connect(verb);
+    loadAnimalAudio();
   } catch (e) { ctx = null; }
 }
 
@@ -66,6 +61,8 @@ export function resumeAudio() { if (ctx && ctx.state === 'suspended') ctx.resume
 export function isMuted() { return muted; }
 export function setMuted(v) {
   muted = !!v;
+  if (muted) for (const voice of animalVoices) voice.release();
+  try { localStorage.setItem('cvc.muted', muted ? '1' : '0'); } catch (_) {}
   if (master) master.gain.setTargetAtTime(muted ? 0 : MASTER, ctx.currentTime, 0.02);
   if (verbSend) verbSend.gain.setTargetAtTime(muted ? 0 : MASTER * 0.5, ctx.currentTime, 0.02);
   return muted;
@@ -131,15 +128,16 @@ function voiceOut(node, t0, a, d, peak, opt) {
   else g.connect(master);
 
   /* send to the room, dry-heavy so the mix stays readable */
+  let send = null;
   if (verbSend && (opt.wet || 0) > 0) {
-    const s = ctx.createGain(); s.gain.value = opt.wet;
+    const s = ctx.createGain(); send = s; s.gain.value = opt.wet;
     (p || g).connect(s); s.connect(verbSend);
   }
-  return g;
+  return () => { g.disconnect(); if (p) p.disconnect(); if (send) send.disconnect(); };
 }
 
 function tone(freq, o = {}) {
-  if (!ctx) return;
+  if (!ctx || muted || ctx.state !== 'running' || activeAudioSources.size >= MAX_AUDIO_SOURCES) return;
   const t0 = ctx.currentTime;
   const a = o.a === undefined ? 0.005 : o.a;
   const d = (o.d === undefined ? 0.12 : o.d) * rnd(0.9, 1.12);
@@ -150,13 +148,15 @@ function tone(freq, o = {}) {
   if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f + o.slide), t0 + a + d);
   let node = osc;
   if (o.lp) { const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.lp; osc.connect(lp); node = lp; }
-  voiceOut(node, t0, a, d, (o.peak === undefined ? 0.3 : o.peak) * (o.gain === undefined ? 1 : o.gain), o);
+  const cleanup = voiceOut(node, t0, a, d, (o.peak === undefined ? 0.3 : o.peak) * (o.gain === undefined ? 1 : o.gain), o);
+  activeAudioSources.add(osc);
+  osc.onended = () => { osc.disconnect(); if (node !== osc) node.disconnect(); cleanup(); activeAudioSources.delete(osc); };
   osc.start(t0); osc.stop(t0 + a + d + 0.05);
 }
 
 let noiseBuf = null;
 function noise(o = {}) {
-  if (!ctx) return;
+  if (!ctx || muted || ctx.state !== 'running' || activeAudioSources.size >= MAX_AUDIO_SOURCES) return;
   if (!noiseBuf) {
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 1.2, ctx.sampleRate);
     const ch = noiseBuf.getChannelData(0);
@@ -176,8 +176,10 @@ function noise(o = {}) {
   if (o.q) f2.Q.value = o.q;    // resonant lowpass — NOT a bandpass; that
                                 // repitched weld/gnaw/drain an octave up
   src.connect(f1); f1.connect(f2);
-  voiceOut(f2, t0, o.a === undefined ? 0.004 : o.a, d,
+  const cleanup = voiceOut(f2, t0, o.a === undefined ? 0.004 : o.a, d,
         (o.peak === undefined ? 0.25 : o.peak) * (o.gain === undefined ? 1 : o.gain), o);
+  activeAudioSources.add(src);
+  src.onended = () => { src.disconnect(); f1.disconnect(); f2.disconnect(); cleanup(); activeAudioSources.delete(src); };
   src.start(t0, off); src.stop(t0 + d + 0.15);
 }
 
@@ -185,7 +187,7 @@ function noise(o = {}) {
 const gates = Object.create(null);
 function gate(key, ms) {
   const now = performance.now();
-  if (now - (gates[key] || 0) < ms) return false;
+  if (now - (gates[key] ?? -Infinity) < ms) return false;
   gates[key] = now; return true;
 }
 
@@ -193,7 +195,7 @@ function gate(key, ms) {
    `SFX.bite(unit.pos)` is the whole API. */
 function sited(key, ms, play) {
   return (pos) => {
-    if (!ctx) return false;
+    if (!ctx || muted || ctx.state !== 'running') return false;
     const p = place(pos);
     if (!p) return false;                     // off-screen and far: skip entirely
     if (ms && !gate(key, ms)) return false;
@@ -208,6 +210,11 @@ export const SFX = {
   /* ---- interface: deliberately unpositioned, these are the player's own UI -- */
   select:   () => gate('sel', 60) && tone(660, { type: 'triangle', d: 0.07, peak: 0.12, vary: false }),
   order:    () => gate('ord', 60) && tone(440, { type: 'triangle', d: 0.09, peak: 0.14, slide: 180, vary: false }),
+  attackOrder: () => gate('atkord', 90) && (() => {
+    tone(330, { type: 'triangle', d: 0.10, peak: 0.12, slide: 165, vary: false });
+    later(65, () => tone(660, { type: 'sine', d: 0.12, peak: 0.075, vary: false }));
+  })(),
+  holdOrder: () => gate('hldord', 100) && tone(392, { type: 'triangle', d: 0.16, peak: 0.13, slide: -98, vary: false }),
   deny:     () => gate('dny', 200) && tone(160, { type: 'square', d: 0.12, peak: 0.12, vary: false }),
 
   /* ---- gunfire ---- */
@@ -272,44 +279,19 @@ export const SFX = {
   }),
 
   /* ---- species voices: the pack should sound like a pack ---- */
-  howl: sited('hwl', 2600, (g, pan) => {
-    const f = rnd(300, 380);
-    tone(f, { type: 'sawtooth', a: 0.09, d: 0.75, peak: 0.10 * g, slide: f * 0.5, lp: 1500, pan, wet: 0.9, vary: false });
-    later(120, () => tone(f * 1.5, { type: 'sine', a: 0.12, d: 0.6, peak: 0.04 * g, slide: -f * 0.3, pan, wet: 0.9, vary: false }));
-  }),
-  roar: sited('ror', 1400, (g, pan) => {
-    tone(rnd(70, 95), { type: 'sawtooth', a: 0.05, d: 0.55, peak: 0.17 * g, slide: -28, lp: 700, pan, wet: 0.6 });
-    noise({ d: 0.5, peak: 0.09 * g, hp: 90, lp: 900, pan, wet: 0.6 });
-  }),
-  snort: sited('snt', 900, (g, pan) => {
-    noise({ d: 0.13, peak: 0.10 * g, hp: 150, lp: 1400, pan, wet: 0.25 });
-    tone(rnd(110, 150), { type: 'square', d: 0.09, peak: 0.06 * g, slide: -50, lp: 800, pan });
-  }),
-  caw: sited('caw', 1100, (g, pan) => {
-    const f = rnd(760, 1000);
-    tone(f, { type: 'sawtooth', a: 0.01, d: 0.13, peak: 0.07 * g, slide: -f * 0.45, lp: 4200, pan, wet: 0.5, vary: false });
-    later(150, () => tone(f * 0.9, { type: 'sawtooth', a: 0.01, d: 0.10, peak: 0.05 * g, slide: -f * 0.4, lp: 4000, pan, wet: 0.5, vary: false }));
-  }),
+  howl: pos => animalVoice({ type: 'wolf', pos }, 'idle'),
+  roar: pos => animalVoice({ type: 'bear', pos }, 'attack'),
+  snort: pos => animalVoice({ type: 'boar', pos }, 'attack'),
+  caw: pos => animalVoice({ type: 'raven', pos }, 'idle'),
 
-  /* Capybara: the largest rodent alive, and it sounds like it — a low, placid
-     purr-grunt with no urgency in it whatsoever. */
+  /* Capybara placeholder: a licensed species recording has not been sourced.
+     Kept explicitly synthetic; no other rodent is passed off as a capybara. */
   purr: sited('pur', 1500, (g, pan) => {
     tone(rnd(105, 135), { type: 'triangle', a: 0.04, d: 0.42, peak: 0.09 * g, slide: -18, lp: 700, pan, wet: 0.45 });
     noise({ d: 0.34, peak: 0.045 * g, hp: 90, lp: 620, q: 2, pan, wet: 0.35 });
   }),
-  /* Beaver: a fast chitter, teeth and air. */
-  chitter: sited('chi', 1200, (g, pan) => {
-    for (let i = 0; i < 4; i++) {
-      later(i * 55, () => noise({ d: 0.035, peak: 0.05 * g, hp: 1600, lp: 6500, q: 4, pan, wet: 0.3 }));
-    }
-    tone(rnd(700, 900), { type: 'square', d: 0.09, peak: 0.028 * g, slide: -260, lp: 3200, pan });
-  }),
-  /* Porcupine: quills rattling — dry, and a warning rather than a threat. */
-  rattle: sited('rat', 1400, (g, pan) => {
-    for (let i = 0; i < 7; i++) {
-      later(i * 34, () => noise({ d: 0.03, peak: 0.035 * g, hp: 3200, lp: 12000, pan, wet: 0.25 }));
-    }
-  }),
+  chitter: pos => animalVoice({ type: 'beaver', pos }, 'idle'),
+  rattle: pos => animalVoice({ type: 'porcupine', pos }, 'idle'),
   /* The Locals are people. They do not growl; they shout at a data centre. */
   shout: sited('sht2', 2200, (g, pan) => {
     const f = rnd(210, 330);
@@ -400,36 +382,117 @@ export const SFX = {
   })(),
 };
 
-/* ----------------------------------------------------------- responses -- */
-/* Click a wolf and a wolf answers. This is the oldest trick in the genre and
-   the game did not have it: selection and orders played one synthetic blip
-   regardless of what you had selected, so a pack of bears sounded like a menu.
+/* ------------------------------------------------------- recorded voices -- */
+const animalBuffers = new Map();
+const animalLoads = new Map();
+const animalErrors = new Set();
+const animalVoices = new Set();
+const animalRotation = new Map();
+const animalPlayed = Object.create(null);
+let animalLast = null;
+const ANIMAL_VOICE_LIMIT = 4;
+const ANIMAL_PRIORITY = { idle: 0, attack: 1, charge: 2, deploy: 3, order: 4, select: 5 };
+const ANIMAL_INTERVAL = { idle: 4200, attack: 750, charge: 2200, deploy: 750, order: 450, select: 280 };
 
-   Exactly ONE unit of a selection speaks, chosen by id so the same click gives
-   the same voice, and it is throttled hard — thirty wolves acknowledging at
-   once is not atmosphere, it is a fault. */
-let lastVoiceAt = 0;
-export function voiceFor(units, kind) {
-  if (!ctx || muted || !units || !units.length) return;
-  const now = performance.now();
-  if (now - lastVoiceAt < (kind === 'order' ? 260 : 200)) return;
-  /* prefer something with an actual voice over, say, a lone beaver */
-  let pick = null;
-  for (const u of units) { if (u.alive && IDLE_VOICE[u.type]) { pick = u; break; } }
-  if (!pick) return;
-  lastVoiceAt = now;
-  const fn = SFX[IDLE_VOICE[pick.type]];
-  if (!fn) return;
-  /* bypass the per-voice idle gate: this is a direct answer to the player, and
-     it should never be swallowed because the same species chirped recently */
-  gates[VOICE_GATE[pick.type] || ''] = 0;
-  fn(pick.pos);
+function animalSampleStats() {
+  return { ready: animalBuffers.size, total: new Set(Object.values(ANIMAL_CUES).flatMap(c => Object.values(c).flat())).size,
+    failed: [...animalErrors], embedded: !!EMBEDDED_ANIMAL_AUDIO, active: animalVoices.size, limit: ANIMAL_VOICE_LIMIT + 1, mixingLimit: ANIMAL_VOICE_LIMIT,
+    species: Object.keys(ANIMAL_CUES), played: { ...animalPlayed }, last: animalLast && { ...animalLast } };
 }
-/* map species -> the gate key its voice uses, so a response can clear it */
-const VOICE_GATE = {
-  wolf: 'hwl', raven: 'caw', bear: 'ror', boar: 'snt',
-  capybara: 'pur', beaver: 'chi', porcupine: 'rat', local: 'sht2',
-};
+
+export function loadAnimalAudio() {
+  if (!ctx) return Promise.resolve();
+  const names = new Set(Object.values(ANIMAL_CUES).flatMap(c => Object.values(c).flat()));
+  return Promise.all([...names].map(name => {
+    if (animalLoads.has(name)) return animalLoads.get(name);
+    const url = EMBEDDED_ANIMAL_AUDIO?.[name] || new URL('../sounds/' + name + '.mp3', import.meta.url).href;
+    const work = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(bytes => ctx.decodeAudioData(bytes))
+      .then(buffer => { animalBuffers.set(name, buffer); animalErrors.delete(name); })
+      .catch(() => { animalErrors.add(name); animalLoads.delete(name); });
+    animalLoads.set(name, work);
+    return work;
+  }));
+}
+
+/* One natural recording per cue. Clicks get priority over incidental battle
+   chatter, and selections are audible even when the camera is elsewhere.
+   A whole army shares four voices and per-species combat cooldowns. */
+export function animalVoice(unit, kind = 'select') {
+  const cues = ANIMAL_CUES[unit?.type]?.[kind];
+  if (!cues || unit.alive === false || !ctx || muted || ctx.state !== 'running') return false;
+  const direct = kind === 'select' || kind === 'order' || kind === 'deploy';
+  const position = direct ? { gain: 1, pan: 0 } : place(unit.pos);
+  if (!position || (!direct && position.gain < 0.08)) return false;
+  if (!gate('animal:' + unit.type + ':' + kind, ANIMAL_INTERVAL[kind])) return true;
+  // Explicit selection must never be swallowed by combat or idle throttling.
+  if (!direct && !gate('animal:world', kind === 'idle' ? 1600 : 180)) return true;
+  const rotation = animalRotation.get(unit.type + ':' + kind) || 0;
+  const name = cues[rotation % cues.length];
+  const buffer = animalBuffers.get(name);
+  if (!buffer) {
+    // Assets normally decode during the title click. Never play a stale event
+    // seconds later or silently substitute a synthetic animal for a recording.
+    const requested = performance.now();
+    loadAnimalAudio().then(() => {
+      if (animalBuffers.has(name) && performance.now() - requested < 500 && unit.alive !== false && !muted && !G.paused && !G.over) {
+        gates['animal:' + unit.type + ':' + kind] = -Infinity;
+        animalVoice(unit, kind);
+      }
+    });
+    return true;
+  }
+  const priority = ANIMAL_PRIORITY[kind];
+  // A new direct acknowledgement releases the previous one with a tiny fade.
+  if (direct) for (const voice of animalVoices) if (voice.direct) voice.release();
+  const live = [...animalVoices].filter(v => !v.releasing);
+  if (live.length >= ANIMAL_VOICE_LIMIT) {
+    const expendable = live.find(v => v.priority < priority);
+    if (!expendable) return true;
+    expendable.release();
+  }
+  // Reserve room for releasing tails as well: the global budget is absolute.
+  if (animalVoices.size >= ANIMAL_VOICE_LIMIT + 1 || activeAudioSources.size >= MAX_AUDIO_SOURCES) return true;
+  animalRotation.set(unit.type + ':' + kind, rotation + 1);
+  const source = ctx.createBufferSource(); source.buffer = buffer;
+  const gain = ctx.createGain();
+  const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+  const now = ctx.currentTime;
+  const level = position.gain * (kind === 'attack' ? 0.58 : kind === 'idle' ? 0.4 : 0.92);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(level, now + 0.015);
+  gain.gain.setValueAtTime(level, now + Math.max(0.02, buffer.duration - 0.08));
+  gain.gain.linearRampToValueAtTime(0, now + buffer.duration);
+  source.connect(gain);
+  if (pan) { pan.pan.value = position.pan; gain.connect(pan); pan.connect(master); }
+  else gain.connect(master);
+  const voice = { source, direct, priority, releasing: false, release() {
+    if (voice.releasing) return;
+    voice.releasing = true;
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
+    source.stop(ctx.currentTime + 0.04);
+  } };
+  animalVoices.add(voice); activeAudioSources.add(source);
+  source.onended = () => { source.disconnect(); gain.disconnect(); pan?.disconnect(); animalVoices.delete(voice); activeAudioSources.delete(source); };
+  source.start(now);
+  animalPlayed[kind] = (animalPlayed[kind] || 0) + 1;
+  animalLast = { species: unit.type, kind, clip: name };
+  return true;
+}
+
+let lastVoiceAt = -Infinity;
+export function voiceFor(units, kind) {
+  if (!ctx || muted || !units?.length) return false;
+  const pick = units.find(u => u.alive && (ANIMAL_CUES[u.type] || IDLE_VOICE[u.type]));
+  if (!pick) return false;
+  if (ANIMAL_CUES[pick.type]) return animalVoice(pick, kind);
+  const now = performance.now();
+  if (now - lastVoiceAt < 300) return true;
+  lastVoiceAt = now;
+  SFX[IDLE_VOICE[pick.type]]?.(pick.pos);
+  return true;
+}
 
 /* ------------------------------------------------------------- ambience -- */
 /* Occasional idle voices from whatever is actually on screen. Scheduling this
@@ -439,7 +502,7 @@ const VOICE_GATE = {
 
    Only units that are NOT fighting speak, so combat never has to compete with
    flavour, and the sudden quiet when a fight starts does real work. */
-let ambT = 0, humT = 0, drainT = 0;
+let ambT = 0, humT = 0, drainT = 0, footT = 0;
 const IDLE_VOICE = {
   wolf: 'howl', raven: 'caw', bear: 'roar', boar: 'snort',
   capybara: 'purr', beaver: 'chitter', porcupine: 'rattle', local: 'shout',
@@ -447,6 +510,30 @@ const IDLE_VOICE = {
 
 export function ambientVoices(dt) {
   if (!ctx || muted) return;
+
+  // A sparse mix of the nearest moving bodies: grass rustle, heavier paws,
+  // and hard-surface clicks. The budget stays constant for a whole army.
+  footT -= dt;
+  if (footT <= 0) {
+    footT = 0.16;
+    if (activeAudioSources.size < 24) {
+      const movers = [];
+      for (const e of G.entities) {
+        if (!e.alive || e.isBuilding || e.flying || e.isRooted() || e.vel.lengthSq() < 3) continue;
+        const p = place(e.pos);
+        if (p && p.gain > 0.3) movers.push({ e, p });
+      }
+      movers.sort((a, b) => b.p.gain - a.p.gain);
+      for (const { e, p } of movers.slice(0, 2)) {
+        const hard = insideCompound(e.pos.x, e.pos.z);
+        const heavy = e.radius > 1.2;
+        const gain = p.gain * (e.target ? 0.45 : 1);
+        noise({ d: hard ? 0.035 : 0.085, peak: 0.055 * gain,
+          hp: hard ? 600 : 180, lp: hard ? 3200 : 1500, pan: p.pan, wet: 0.06 });
+        if (heavy) tone(70, { d: 0.065, peak: 0.055 * gain, slide: -25, pan: p.pan });
+      }
+    }
+  }
 
   ambT -= dt;
   if (ambT <= 0) {
@@ -460,8 +547,7 @@ export function ambientVoices(dt) {
     }
     if (cands.length) {
       const e = cands[(Math.random() * cands.length) | 0];
-      const fn = SFX[IDLE_VOICE[e.type]];
-      if (fn) fn(e.pos);
+      if (!animalVoice(e, 'idle')) SFX[IDLE_VOICE[e.type]]?.(e.pos);
     }
   }
 

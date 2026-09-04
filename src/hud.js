@@ -5,17 +5,39 @@ import { fmt, queuedPop, rootsPrice, rootsMaxed, coolantsOnline } from './world.
 import { waterLevel, lakeCount } from './water.js';
 import { isPouring, nextFront, precipWord } from './weather.js';
 import { setSelection, syncHoverTip, refreshRootsCard } from './input.js';
+import { unitPortrait, UNIT_ROLES } from './unit-portraits.js';
+import { voiceFor } from './audio.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
 
 const el = id => document.getElementById(id);
 let mmCtx, cards = null, spellCard = null, rootsCard = null;
 let lastSelSig = '';
+let armyRoster = [];
+let armyFiltered = false;
 
 export function initHUD() {
   mmCtx = el('minimap').getContext('2d');
+  el('mapname').textContent = G.map.name + ' / OBJECTIVE';
   cards = [...document.querySelectorAll('#cards .card[data-type]')];
   spellCard = el('spellcard');
   rootsCard = el('rootscard');
+  el('selbody').addEventListener('click', event => {
+    const button = event.target.closest('button[data-army]');
+    if (!button || G.paused || G.over || G.phase !== 'playing') return;
+    const selected = G.selection.filter(e => e.alive);
+    let next;
+    if (button.dataset.army === 'restore') next = armyRoster.filter(e => e.alive);
+    else {
+      if (!armyFiltered) armyRoster = selected.slice();
+      const type = button.dataset.army;
+      next = selected.filter(e => type === 'wounded' ? e.hp / e.maxHp < .4 : event.shiftKey ? e.type !== type : e.type === type);
+    }
+    if (!next.length) return;
+    armyFiltered = button.dataset.army !== 'restore';
+    setSelection(next);
+    lastSelSig = ''; // composition changed; return control must update too
+    voiceFor(next, 'select');
+  });
   const pips = el('objpips');
   pips.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -119,16 +141,19 @@ export function updateHUD() {
     const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
+    c.setAttribute('aria-disabled', String(!afford));
   }
   /* Deepen the Roots: price climbs with each purchase, so the card is re-read
      rather than painted once at init. */
   if (rootsCard) {
     refreshRootsCard();
-    rootsCard.classList.toggle('locked',
-      rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive);
+    const unavailable = rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive;
+    rootsCard.classList.toggle('locked', unavailable);
+    rootsCard.setAttribute('aria-disabled', String(unavailable));
   }
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
+  spellCard.setAttribute('aria-disabled', String(rem > 0 || G.biomass < RULES.spellCost));
   if (rem > 0) { cd.style.display = 'flex'; cd.textContent = Math.ceil(rem); }
   else { cd.style.display = 'none'; spellCard.classList.toggle('locked', G.biomass < RULES.spellCost); }
 
@@ -142,7 +167,7 @@ export function updateHUD() {
     q.dataset.sig = sig;
     q.innerHTML = (G.queue.length
       ? G.queue.map((i, n) => `<div class="qitem${n < lanes ? ' q-live' : ''}" data-i="${n}" title="Click to cancel">${DEFS[i.type].icon}<i></i></div>`).join('')
-      : '<span class="qhint">nothing growing — pick a card above</span>')
+      : '<span class="qhint">Growth queue empty <span>Choose wildlife · Shift-click for five</span></span>')
       + `<span class="qlanes" title="Growing lanes — one per two bloomed groves, up to three">×${lanes}</span>`;
   }
   if (G.queue.length) {
@@ -162,66 +187,84 @@ export function updateHUD() {
 function updateSelectionPanel() {
   const body = el('selbody');
   const sel = G.selection.filter(e => e.alive);
-  const sig = sel.length + ':' + sel.map(e => e.id).join(',');
+  const sig = sel.length + ':' + sel.map(e => e.id).sort((a,b) => a-b).join(',');
   const solo = sel.length === 1;
+  el('selectioncount').textContent = `${sel.length} selected`;
 
   if (sig !== lastSelSig) {
     lastSelSig = sig;
+    if (armyFiltered && sel.some(e => !armyRoster.includes(e))) armyFiltered = false;
+    if (!armyFiltered) armyRoster = sel.slice();
     body.classList.toggle('empty', sel.length === 0);
-    if (!sel.length) { body.innerHTML = 'Nothing selected'; return; }
+    if (!sel.length) { armyFiltered = false; armyRoster = []; body.innerHTML = '<span class="empty-mark">⌖</span><b>The valley is yours.</b><span>Click wildlife or drag a box to select your pack.</span><kbd>` &nbsp; Select all wildlife</kbd>'; return; }
     if (solo) {
       const e = sel[0];
       const d = e.def;
       const stats = d.building
         ? `${d.dmg ? `<b>${d.dmg}</b> dmg · <b>${d.range}</b>m range · ` : ''}<b>${d.armor || 0}</b> armour`
-        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.pop || 1}</b> pop`
-          + (e.watered > 0 ? ` · <b class="wet">Watered ${Math.ceil(e.watered)}s</b>` : '')
-          + (e.vet ? ` · <b class="vet">Rank ${e.vet}</b>` : '');
+        : `<b>${d.dmg}</b> dmg · <b>${(d.dmg / d.rate).toFixed(0)}</b> dps · <b>${d.armor}</b> armour · <b>${d.pop || 1}</b> pop`;
       body.innerHTML = `<div class="solo">
-        <div class="big">${d.icon}</div>
+        <div class="big">${unitPortrait(e.type, d.icon)}</div>
         <div class="meta">
           <h4>${d.name}</h4>
           <div class="hpbar ${e.team === TEAM.MACHINE ? 'foe' : ''}"><i id="soloHp"></i></div>
           <div class="st" id="soloHpText"></div>
-          <div class="st">${stats}</div>
+          <div class="st" id="soloStatus"></div><div class="st">${stats}</div>
           ${d.blurb ? `<div class="st" style="opacity:.75">${d.blurb}</div>` : ''}
         </div></div>`;
     } else {
-      // cap the grid at what actually fits; the overflow becomes a count
-      const CAP = 27;
-      const shown = sel.slice(0, CAP);
-      const rest = sel.length - shown.length;
-      body.innerHTML = `<div class="selgrid">${shown.map(e =>
-        `<div class="selchip" data-id="${e.id}" title="${e.def.name}">${e.def.icon}<div class="bar"><i></i></div></div>`
-      ).join('')}${rest > 0 ? `<div class="selmore" title="${rest} more selected">+${rest}</div>` : ''}</div>`;
-      body.querySelectorAll('.selchip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          const ent = G.byId.get(+chip.dataset.id);
-          if (ent && ent.alive) setSelection([ent]);
-        });
-      });
+      const types = [...new Set(sel.map(e => e.type))].sort((a,b) => BUILDABLE.indexOf(a) - BUILDABLE.indexOf(b));
+      body.innerHTML = `<div class="army-overview"><div><strong id="army-health"></strong><span>PACK HEALTH</span></div><button type="button" data-army="wounded" id="army-wounded">Wounded</button></div>
+        <div class="army-health-track"><i id="army-health-fill"></i></div>
+        <div class="army-composition" role="group" aria-label="Selected army composition">${types.map(type => `<button type="button" class="army-row" data-army="${type}">
+          <span class="army-portrait">${unitPortrait(type, DEFS[type].icon)}</span><span class="army-species"><b>${DEFS[type].name}</b><small>${UNIT_ROLES[type] || 'Structure'}</small><span class="army-row-health"><i></i></span></span><strong class="army-count"></strong><span class="army-state"></span>
+        </button>`).join('')}</div><p class="army-hint">Click a species to select · Shift-click to remove</p>`;
+
     }
   }
 
   if (!sel.length) return;
+  let back = body.querySelector('[data-army="restore"]');
+  const canRestore = armyFiltered && armyRoster.filter(e => e.alive).length > sel.length;
+  if (canRestore && !back) {
+    back = document.createElement('button'); back.type = 'button'; back.dataset.army = 'restore';
+    back.className = 'army-restore'; back.textContent = '← Return to pack'; body.prepend(back);
+  } else if (!canRestore && back) back.remove();
   if (solo) {
     const e = sel[0];
     const f = Math.max(0, e.hp / e.maxHp);
     const bar = el('soloHp'); if (bar) bar.style.width = (f * 100) + '%';
+    const status = el('soloStatus');
+    if (status) status.textContent = `${UNIT_ROLES[e.type] || 'Structure'} · ${e.attackMotion && !e.attackMotion.struck ? 'Winding up' : e.target?.alive ? 'Fighting' : e.order.type === 'hold' ? 'Holding' : e.order.pos ? 'Moving' : 'Ready'}`;
     const t = el('soloHpText');
     if (t) {
       let extra = '';
       if (e.type === 'grove') extra = e.owned ? ' · <b style="color:#7fd44a">bloomed</b>' : ` · capture ${(e.prog / RULES.captureTime * 100) | 0}%`;
       if (e.type === 'core' && !G.coreExposed) extra = ' · <b style="color:#39d7ea">shielded by coolant</b>';
+      if (e.watered > 0) extra += ` · <b class="wet">Watered ${Math.ceil(e.watered)}s</b>`;
+      if (e.vet) extra += ` · Rank ${e.vet}`;
       if (e.isRooted && e.isRooted()) extra += ' · <b style="color:#9bff6a">rooted</b>';
       t.innerHTML = `<b>${Math.ceil(e.hp)}</b> / ${e.maxHp} hp${extra}`;
     }
   } else {
-    const chips = el('selbody').querySelectorAll('.selchip');
-    for (let i = 0; i < chips.length && i < sel.length; i++) {
-      const f = Math.max(0, sel[i].hp / sel[i].maxHp);
-      const b = chips[i].querySelector('i');
-      if (b) { b.style.width = (f * 100) + '%'; b.style.background = f > 0.4 ? '#7fd44a' : '#ff6a3d'; }
+    const hp = sel.reduce((sum,e) => sum + Math.max(0,e.hp), 0);
+    const max = sel.reduce((sum,e) => sum + e.maxHp, 0);
+    const frac = hp / Math.max(1,max);
+    el('army-health').textContent = `${Math.round(frac * 100)}%`;
+    el('army-health-fill').style.width = `${frac * 100}%`;
+    el('army-health-fill').style.background = frac < .4 ? '#ed9674' : '#b4d887';
+    const wounded = sel.filter(e => e.hp / e.maxHp < .4).length;
+    const woundedButton = el('army-wounded');
+    woundedButton.textContent = `${wounded} wounded`; woundedButton.disabled = wounded === 0;
+    for (const row of body.querySelectorAll('.army-row')) {
+      const group = sel.filter(e => e.type === row.dataset.army);
+      const health = group.reduce((sum,e) => sum + Math.max(0,e.hp),0) / group.reduce((sum,e) => sum + e.maxHp,0);
+      row.querySelector('.army-count').textContent = '×' + group.length;
+      const bar = row.querySelector('.army-row-health i');
+      bar.style.width = `${health * 100}%`; bar.style.background = health < .4 ? '#ed9674' : '#b4d887';
+      const fighting = group.filter(e => e.target?.alive || e.attackMotion).length;
+      row.querySelector('.army-state').textContent = fighting ? `${fighting} fighting` : group.every(e => e.order.type === 'hold') ? 'Holding' : group.some(e => e.order.pos) ? 'Moving' : 'Ready';
+      row.setAttribute('aria-label', `${group.length} ${DEFS[row.dataset.army].name}, ${Math.round(health * 100)} percent health. Select this species; Shift-click to remove.`);
     }
   }
 }

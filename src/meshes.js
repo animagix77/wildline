@@ -133,6 +133,10 @@ function part(geo, color, sx, sy, sz, x, y, z, rx = 0, ry = 0, rz = 0) {
   };
 }
 const pBox  = (c, sx, sy, sz, x, y, z, rx, ry, rz) => part(boxGeo, c, sx, sy, sz, x, y, z, rx, ry, rz);
+// Faceted organic volume, specified by full dimensions like pBox. Kept in
+// merged body buffers so the softer silhouettes add no draw calls.
+const pOrganic = (c, sx, sy, sz, x, y, z, rx, ry, rz) =>
+  part(sphGeo, c, sx * 0.56, sy * 0.56, sz * 0.56, x, y, z, rx, ry, rz);
 const pCyl  = (c, r, h, x, y, z, rx, ry, rz) => part(cylGeo, c, r, h, r, x, y, z, rx, ry, rz);
 const pCone = (c, r, h, x, y, z, rx, ry, rz) => part(conGeo, c, r, h, r, x, y, z, rx, ry, rz);
 const pSph  = (c, r, x, y, z) => part(sphGeo, c, r, r, r, x, y, z);
@@ -157,27 +161,27 @@ const shade = k => new THREE.Color(k, k, k);
      roundEars  bool     sphere ears instead of pricked cones (bear)
      earIn      colour   inner-ear panel, defaults to the belly tone */
 function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, ears, extras,
-                     saddle, bushyTail, hump, roundEars, earIn }) {
+                     saddle, bushyTail, hump, roundEars, earIn, independentPaws, bitingJaw }) {
   const g = new THREE.Group();
   const y = legH + bodyH / 2;
   const DARK = 0x15130f;
 
   /* ---- body: torso, belly, shoulder/haunch masses, and the shaping pass ---- */
   const bodyParts = [
-    pBox(fur,   bodyW, bodyH, bodyL, 0, 0, 0),
-    pBox(belly, bodyW * 0.86, bodyH * 0.45, bodyL * 0.8, 0, -bodyH * 0.32, 0),
+    pOrganic(fur,   bodyW, bodyH, bodyL, 0, 0, 0),
+    pOrganic(belly, bodyW * 0.86, bodyH * 0.45, bodyL * 0.8, 0, -bodyH * 0.32, 0),
     /* haunches tilt a few degrees so they read as muscle, not crates */
-    pBox(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28, -0.08),
-    pBox(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3, 0.1),
+    pOrganic(fur,   bodyW * 1.12, bodyH * 1.06, bodyL * 0.26, 0, bodyH * 0.05, bodyL * 0.28, -0.08),
+    pOrganic(fur,   bodyW * 1.05, bodyH * 1.12, bodyL * 0.28, 0, bodyH * 0.05, -bodyL * 0.3, 0.1),
     /* rump slope and chest brisket break the brick silhouette front and rear */
-    pBox(fur,   bodyW * 0.92, bodyH * 0.5, bodyL * 0.34, 0, bodyH * 0.3, -bodyL * 0.44, 0.5),
-    pBox(belly, bodyW * 0.7, bodyH * 0.42, bodyL * 0.2, 0, -bodyH * 0.28, bodyL * 0.46, -0.35),
+    pOrganic(fur,   bodyW * 0.92, bodyH * 0.5, bodyL * 0.34, 0, bodyH * 0.3, -bodyL * 0.44, 0.5),
+    pOrganic(belly, bodyW * 0.7, bodyH * 0.42, bodyL * 0.2, 0, -bodyH * 0.28, bodyL * 0.46, -0.35),
     /* neck wedge: the head used to float ahead of the torso with a visible gap
        at three-quarter angles; this closes it without joining the nod pivot */
-    pBox(fur,   headS * 0.95, bodyH * 0.62, headS * 1.2, 0, bodyH * 0.26, bodyL * 0.46, -0.45),
+    pOrganic(fur,   headS * 0.95, bodyH * 0.62, headS * 1.2, 0, bodyH * 0.26, bodyL * 0.46, -0.45),
   ];
-  if (saddle) bodyParts.push(pBox(saddle, bodyW * 1.02, bodyH * 0.22, bodyL * 0.62, 0, bodyH * 0.46, -bodyL * 0.06));
-  if (hump)   bodyParts.push(pBox(fur, bodyW * 0.9, bodyH * 0.55, bodyL * 0.32, 0, bodyH * 0.52, bodyL * 0.18, 0.25));
+  if (saddle) bodyParts.push(pOrganic(saddle, bodyW * 1.02, bodyH * 0.22, bodyL * 0.62, 0, bodyH * 0.46, -bodyL * 0.06));
+  if (hump)   bodyParts.push(pOrganic(fur, bodyW * 0.9, bodyH * 0.55, bodyL * 0.32, 0, bodyH * 0.52, bodyL * 0.18, 0.25));
   if (extras && extras.body) bodyParts.push(...extras.body);
   const body = mergeParts(bodyParts, VC_MAT);
   body.position.y = y;
@@ -186,14 +190,14 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
 
   /* ---- head, baked around its own pivot so it can still nod ---- */
   const headParts = [
-    pBox(fur, headS, headS * 0.86, headS * 1.1, 0, 0, 0),
+    pOrganic(fur, headS, headS * 0.86, headS * 1.1, 0, 0, 0),
     pBox(DARK, headS * 0.5, headS * 0.16, headS * 0.16, 0, headS * 0.06, headS * 0.5),
     /* eyes -- two dark beads; invisible at strategic zoom, all character up close */
     pSph(DARK, headS * 0.09, -headS * 0.3, headS * 0.16, headS * 0.42),
     pSph(DARK, headS * 0.09,  headS * 0.3, headS * 0.16, headS * 0.42),
   ];
   if (snout) {
-    headParts.push(pBox(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
+    headParts.push(pOrganic(fur, headS * 0.5, headS * 0.44, snout, 0, -headS * 0.2, headS * 0.55 + snout * 0.4));
     headParts.push(pBox(DARK, headS * 0.28, headS * 0.18, headS * 0.14,
       0, -headS * 0.08, headS * 0.55 + snout * 0.82));                    // nose tip
   }
@@ -214,10 +218,21 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
   head.castShadow = true;
   g.add(head);
 
+  let jaw = null;
+  if (bitingJaw) {
+    jaw = mergeParts([
+      pOrganic(belly, headS * .42, headS * .17, snout * 1.25, 0, 0, snout * .43),
+      pCone(0xeee6c9, .045, .15, -headS * .14, .09, snout * .72),
+      pCone(0xeee6c9, .045, .15, headS * .14, .09, snout * .72),
+    ], VC_MAT);
+    jaw.position.set(0, -headS * .4, headS * .45);
+    head.add(jaw);
+  }
+
   /* ---- legs: diagonal pairs, which is how a quadruped actually walks ---- */
   const lw = bodyW * 0.24;
   const legs = [];
-  const pairs = [[[-1, -1], [1, 1]], [[-1, 1], [1, -1]]];
+  const pairs = independentPaws ? [[[-1,-1]], [[1,1]], [[-1,1]], [[1,-1]]] : [[[-1, -1], [1, 1]], [[-1, 1], [1, -1]]];
   for (const pair of pairs) {
     const parts = [];
     for (const [sx, sz] of pair) {
@@ -247,11 +262,14 @@ function quadruped({ fur, belly, bodyL, bodyW, bodyH, legH, headS, snout, tail, 
     g.add(tailObj);
   }
 
-  g.userData.anim = { legs, head, tail: tailObj, torso: body, kind: 'quad' };
+  g.userData.anim = { legs, head, jaw, tail: tailObj, torso: body, kind: 'quad',
+    legPhases: independentPaws ? [1, 1, -1, -1] : [1, -1],
+    frontLegs: independentPaws ? [legs[1], legs[2]] : [] };
   return g;
 }
 
 export const buildWolf = () => quadruped({
+  bitingJaw: true,
   fur: 0x767d88, belly: 0x9aa2ab, bodyL: 2.5, bodyW: 0.95, bodyH: 0.9,
   legH: 0.95, headS: 0.72, snout: 0.55, tail: 1.1, ears: true,
   saddle: 0x565d68, bushyTail: true,
@@ -271,6 +289,7 @@ export const buildBoar = () => quadruped({
 });
 
 export const buildBear = () => quadruped({
+  independentPaws: true,
   fur: 0x5e4128, belly: 0x74522f, bodyL: 3.5, bodyW: 1.9, bodyH: 1.8,
   legH: 1.25, headS: 1.15, snout: 0.7, tail: 0.35, ears: true,
   hump: true, roundEars: true,

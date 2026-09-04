@@ -14,7 +14,7 @@ import { showEndScreen } from './screens.js';
 import { addScore, getStats } from './score.js';
 import { commsEvent } from './comms.js';
 import { recordResult, setPending, campState, bankSurvivors } from './campaign.js';
-import { SFX } from './audio.js';
+import { SFX, animalVoice } from './audio.js';
 import { musicStop, musicStinger } from './music.js';
 import { ring, burst, kill } from './combat.js';
 import { explode, chainExplosion, igniteNear } from './vfx.js';
@@ -1023,7 +1023,7 @@ export function updateWorld(dt) {
       const a = rand(0, 6.28);
       const e = spawn(item.type, BASE.x + Math.cos(a) * 11, BASE.z + Math.sin(a) * 11);
       if (G.rally) e.setOrder('attackmove', rallySlot());
-      SFX.spawn();
+      if (!animalVoice(e, 'deploy')) SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
     }
   } else G.lanes = laneCount();

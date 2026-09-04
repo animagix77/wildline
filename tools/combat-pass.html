@@ -1,0 +1,107 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Combat and army checks</title>
+<style>body{background:#101d16;color:#dce9ce;margin:0;font:13px system-ui}pre{padding:16px;white-space:pre-wrap}iframe{width:1280px;height:720px;border:0}</style>
+<pre id="results">Loading combat checks…</pre><div id="fixture"></div>
+<script type="module">
+const out=document.querySelector('#results'), lines=[];
+const log=s=>{lines.push(s);out.textContent=lines.join('\n')};
+const assert=(x,s)=>{if(!x)throw Error(s);log('PASS · '+s)};
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const args=new URLSearchParams(location.search), bundle=args.has('bundle');
+const frame=document.createElement('iframe');frame.src=`../${bundle?'wildline.html':'index.html'}?headless=1&map=verdant-hollow`;
+if(args.has('width'))frame.style.width=args.get('width')+'px';
+document.querySelector('#fixture').append(frame);
+await new Promise(r=>frame.addEventListener('load',r,{once:true}));
+const w=frame.contentWindow;
+try{
+ for(let i=0;i<60&&!w.__begin;i++)await delay(100);
+ w.__step(1);w.__begin();
+ for(let i=0;i<40&&w.G.phase!=='playing';i++){await delay(100);w.__begin()}
+ w.__step(2,33);
+ const G=w.G,api=w.__api,doc=w.document;
+ const x=G.heart.pos.x+15,z=G.heart.pos.z+15;
+ const roster=['wolf','boar','bear','raven','porcupine','beaver','capybara'];
+ const actors=[];
+ for(const [i,type] of roster.entries()){
+  const u=api.spawn(type,x+i*4,z), t=api.spawn('wall',x+i*4,z+3);
+  t.hp=t.maxHp=10000;t.scar=0;t.box={hw:1,hd:1};
+  const hp=t.hp;
+  u.attack(t);const a=u.attackMotion;
+  assert(a&&!a.struck&&t.hp===hp,type+' winds up before dealing damage');
+  u.advanceAttack(a.windup*.5);u.postUpdate(.01,0);
+  assert(t.hp===hp&&u.attackPose.wind>0,type+' has a visible anticipation pose');
+  const before=api.audioStats().samples.played.attack||0;
+  u.advanceAttack(a.windup*.51);u.postUpdate(.01,0);
+  assert(a.struck,type+' commits once at strike time');
+  if(!u.def.ranged){assert(t.hp<hp,type+' damage lands on the strike');const hitHp=t.hp;u.advanceAttack(.01);assert(t.hp===hitHp,type+' does not hit twice');}
+  u.advanceAttack(1);u.postUpdate(.01,0);
+  assert(u.attackMotion===null&&u.attackPose.hit===0,type+' recovers to locomotion');
+  actors.push(u);
+ }
+ const wolf=actors[0], target=api.spawn('wall',wolf.pos.x,wolf.pos.z+3);target.hp=target.maxHp=10000;target.box={hw:1,hd:1};
+ wolf.cooldown=0;wolf.attack(target);const hp=target.hp;wolf.setOrder('move',wolf.pos.clone().add(new w.THREE.Vector3(0,0,-10)));wolf.advanceAttack(1);
+ assert(target.hp===hp&&!wolf.attackMotion,'retreat cancels an uncommitted bite');
+ wolf.attack(target);wolf.rootedUntil=G.time+2;wolf.advanceAttack(.3);assert(target.hp===hp&&!wolf.attackMotion,'rooting interrupts a windup');wolf.rootedUntil=0;
+ wolf.attack(target);target.pos.z+=30;wolf.advanceAttack(.2);assert(target.hp===hp,'a fleeing target is not hit outside melee reach');target.pos.z-=30;
+ wolf.advanceAttack(1);wolf.attack(target);const cadence=wolf.cooldown;wolf.advanceAttack(.5);assert(wolf.cooldown===cadence,'strike does not reset the attack cooldown');
+ const bear=actors[2],bear2=api.spawn('bear',x,z-5);
+ assert(bear.anim.frontLegs.length===2&&bear.anim.legs.length===4,'bear has independent forepaws for swiping');
+ assert(bear.anim.frontLegs[0]!==bear2.anim.frontLegs[0]&&bear.anim.frontLegs[0].geometry===bear2.anim.frontLegs[0].geometry,'bear rigs animate independently while sharing geometry');
+ assert(wolf.anim.jaw&&wolf.anim.jaw.parent===wolf.anim.head,'wolf has a hinged bite jaw');
+ // Use actual selection toolbar and rows, with a stable fixture for screenshots.
+ for(const e of G.entities){if(e.team==='wild'&&!e.isBuilding)e.setOrder('hold');}
+ doc.querySelector('[data-command="all"]').click();w.__step(3,33);
+ assert(doc.querySelectorAll('.army-row').length===7,'selection panel groups the seven animal species');
+ assert(doc.querySelectorAll('#cards .unit-portrait').length===8,'production roster uses matching vector portraits');
+ assert(doc.querySelector('#army-health').textContent.includes('%'),'army panel shows weighted pack health');
+ wolf.hp=wolf.maxHp*.2;wolf.lastHitAt=G.time;w.__step(3,33);await delay(100);w.__step(3,33);
+ assert(!doc.querySelector('#army-wounded').disabled,'wounded shortcut becomes available');
+ doc.querySelector('#army-wounded').click();w.__step(3,33);await delay(100);w.__step(3,33);
+ assert(G.selection.length===1&&G.selection[0]===wolf,'wounded shortcut selects only injured pack members');
+ assert(doc.querySelector('[data-army="restore"]'),'filtered selection offers return to the original pack');
+ doc.querySelector('[data-army="restore"]').click();w.__step(3,33);await delay(100);w.__step(3,33);
+ const full=G.selection.length;
+ doc.querySelector('[data-army="bear"]').click();w.__step(3,33);await delay(100);w.__step(3,33);
+ assert(G.selection.length===2&&G.selection.every(e=>e.type==='bear'),'species row selects both bears');
+ doc.querySelector('[data-army="restore"]').click();w.__step(3,33);await delay(100);w.__step(3,33);
+ assert(G.selection.length===full,'return restores the previous pack');
+ doc.querySelector('[data-army="bear"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true,shiftKey:true}));w.__step(3,33);await delay(100);w.__step(3,33);
+ assert(G.selection.length===full-2&&G.selection.every(e=>e.type!=='bear'),'Shift-click removes a species');
+ doc.querySelector('[data-army="restore"]').click();w.__step(3,33);
+ wolf.target=target;target.alive=true;const fog=G.fogVisible;
+ G.fogVisible=()=>true;w.__step(3,33);assert(api.tacticalStats().count>0,'selected wildlife has tactical markers');
+ G.fogVisible=()=>false;w.__step(3,33);assert(api.tacticalStats().count===0,'tactical markers do not reveal fogged units');G.fogVisible=fog;
+ wolf.target=null;wolf.setOrder('hold');w.__step(2,33);
+ wolf.hp=wolf.maxHp*.1;wolf.hb.trailFrac=1;wolf.lastHitAt=G.time;wolf.postUpdate(.016,0);
+ assert(wolf.hb.trail.visible&&wolf.hb.trailFrac>wolf.hp/wolf.maxHp,'damage leaves a readable health trail');
+ assert(G.renderer.info.programs.every(p=>!p.diagnostics||p.diagnostics.runnable!==false),'all combat-feedback shaders compile');
+ assert(!w.__lastErr,'no runtime error during combat and UI checks');
+ const panel=doc.querySelector('#selpanel').getBoundingClientRect(),body=doc.querySelector('#selbody').getBoundingClientRect();
+ assert(panel.width>0&&body.height>0,'selected-army controls remain visible at this viewport');
+ assert(body.bottom<=panel.bottom&&body.right<=panel.right,'army list stays inside its dock panel');
+ const cards=[...doc.querySelectorAll('#cards .card')].map(e=>e.getBoundingClientRect());
+ assert(cards.every(r=>r.right<=w.innerWidth&&r.left>=0),'portrait cards fit the viewport');
+ // A full late-game selection uses one marker draw and shared cached rigs.
+ if(args.has('stress')){
+   const warm=api.spawn('wolf',x,z);warm.setOrder('hold');api.fogRevealAll();w.__step(3,33);
+   const geometry=G.renderer.info.memory.geometries;
+   for(let i=0;i<200;i++){const u=api.spawn(i%4?'wolf':'bear',x+(i%20)*1.5,z+Math.floor(i/20)*1.5);u.setOrder('hold');}
+   doc.querySelector('[data-command="all"]').click();api.fogRevealAll();w.__step(3,33);
+   log(`Geometry before/after stress: ${geometry}/${G.renderer.info.memory.geometries}`);
+   assert(G.renderer.info.memory.geometries<=geometry+3,'200 extra animals reuse rig and marker geometry');
+   assert(api.tacticalStats().count>=200&&api.tacticalStats().count<=api.tacticalStats().limit,'large selections fit the bounded tactical marker pool');
+   assert(!w.__lastErr,'large army renders without a runtime error');
+ }
+ const preview=document.createElement('button');preview.textContent='Show combat preview';preview.style.cssText='padding:12px;margin:10px';out.after(preview);
+ preview.onclick=()=>{frame.scrollIntoView();};
+ api.fogRevealAll();G.rts.focus({x:x+12,z:z+4},true,52);
+ for(const [i,u] of actors.entries()){
+   const target=G.entities.find(e=>e.type==='wall'&&e.pos.x===x+i*4);
+   u.setOrder('hold');u.mesh.rotation.y=0;u.attackMotion=null;u.attack(target);
+   u.advanceAttack(u.attackMotion.windup*.8);u.postUpdate(.016,0);
+ }
+ G.paused=true;
+ for(const e of G.entities)if(e.type==='wall'&&e.box?.hw===1)e.mesh.visible=false;
+ w.__step(3,33);
+ log('DONE · '+(bundle?'portable':'modular')+' combat and army pass');
+}catch(e){log('FAIL · '+e.stack)}
+</script></html>

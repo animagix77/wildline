@@ -43,6 +43,8 @@ export function initPost(renderer) {
     type: THREE.HalfFloatType, depthBuffer: true, stencilBuffer: false,
   };
   sceneRT = new THREE.WebGLRenderTarget(w, h, opts);
+  // Canvas antialiasing does not apply when the scene is rendered offscreen.
+  sceneRT.samples = Math.min(4, renderer.capabilities.maxSamples);
 
   /* three descending levels: wide, soft falloff without a huge kernel */
   chain = [2, 4, 8].map(scale => ({
@@ -90,7 +92,7 @@ export function initPost(renderer) {
   compMat = new THREE.ShaderMaterial({
     uniforms: {
       tScene: { value: null }, tB0: { value: null }, tB1: { value: null }, tB2: { value: null },
-      uStrength: { value: 0.7 }, uExposure: { value: 1.08 },
+      uStrength: { value: 0.48 }, uExposure: { value: 1.08 },
       uVignette: { value: 0.32 }, uShake: { value: 0 }, uAberration: { value: 0.0 },
       /* the grade — see setPostGrade(); neutral until a map says otherwise */
       uShadowTint: { value: new THREE.Vector3(1, 1, 1) },
@@ -238,8 +240,8 @@ export function renderPost(renderer, scene, camera, dt) {
     renderer.render(scene, camera);
     return;
   }
-  aberration = Math.max(0, aberration - (dt || 0.016) * 0.05);
-  postClock += dt || 0.016;          // grain reseeds off this; wraps harmlessly
+  aberration = Math.max(0, aberration - (dt ?? 0.016) * 0.05);
+  postClock += dt ?? 0.016;          // grain reseeds off this; wraps harmlessly
 
   /* 1 · scene, linear and un-tonemapped, into HDR */
   const prevTone = renderer.toneMapping, prevOut = renderer.outputColorSpace;

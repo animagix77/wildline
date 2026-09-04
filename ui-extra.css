@@ -861,3 +861,44 @@ body.paused #cardpanel, body.paused #selpanel{ opacity:.45; }
 }
 .heat-wrap.cooling .heat-num{ color:#6fb6c4; font-weight:600; }
 @keyframes heatPulse{ 50%{ filter:brightness(1.35); } }
+
+
+/* Field controls remain legible above the production dock. */
+#commands{position:absolute;bottom:208px;left:50%;transform:translateX(-50%);z-index:12;
+  display:flex;gap:4px;padding:5px;border:1px solid rgba(186,213,160,.2);border-radius:7px;
+  background:rgba(10,19,15,.94);box-shadow:0 5px 22px #0005;max-width:calc(100% - 20px)}
+#commands button{display:flex;align-items:center;gap:6px;border:1px solid transparent;
+  padding:6px 9px;background:transparent;color:#c9d8c5;border-radius:4px;
+  font:500 11px var(--font);white-space:nowrap;cursor:pointer}
+#commands button:hover,#commands button.active{background:#87b95222;border-color:#a6cf7255;color:#d7efb4}
+#commands button:disabled{opacity:.32;cursor:default}
+#commands kbd{font:10px var(--font);color:#9bab96;border:1px solid #b3c89c33;border-radius:3px;padding:1px 4px}
+#commands button:focus-visible{outline:2px solid #b4e384;outline-offset:2px}
+#commandhint{position:absolute;bottom:257px;left:50%;transform:translateX(-50%);z-index:12;
+  padding:8px 15px;border-radius:4px;background:#102116ee;border:1px solid #b5d79455;
+  color:#d8edbc;font-size:11px;letter-spacing:.6px;text-align:center;pointer-events:none;max-width:90vw}
+#commandhint[hidden],body.menu #commands,body.menu #commandhint,body.paused #commands{display:none}
+#topbar{gap:clamp(8px,1.25vw,22px)}
+#objective{min-width:170px;flex:1;margin-left:4px;padding-left:12px}
+#topbar>.res{flex-shrink:0}
+#topbar>button{flex-shrink:0}
+@media(max-width:1200px){
+  #topbar{padding:0 10px;gap:10px}
+  #topbar .res{gap:4px}
+  #topbar .res>span:nth-child(2){font-size:17px}
+  #topbar .res .sub{font-size:9px;letter-spacing:.3px}
+  #objective{min-width:145px}.obj-text{font-size:11px}
+  #sweepsub{max-width:65px}
+}
+@media(max-width:1000px){
+  #topbar{height:88px;align-items:flex-start;padding-top:12px}
+  #objective{position:absolute;left:12px;right:12px;top:47px;border:0;padding:0;display:flex;align-items:center;gap:10px}
+  .obj-title{font-size:8px}.obj-pips{margin-top:0}.obj-text{margin:0}
+  #topbar .res.right{margin-left:auto}
+}
+@media(max-width:650px){
+  #commands{width:calc(100% - 16px);overflow-x:auto;justify-content:flex-start}
+  #commands button{padding:6px;font-size:10px}
+  #topbar .glyph,#topbar .res.right,#topbar .res .sub{display:none}
+  #topbar{gap:13px}#topbar #pausebtn{margin-left:auto}
+}

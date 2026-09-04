@@ -6,6 +6,7 @@
 <title>CRITTERS VS COMPUTE</title>
 <link rel="stylesheet" href="./style.css">
 <link rel="stylesheet" href="./ui-extra.css">
+<link rel="stylesheet" href="./ui-design.css">
 <script type="importmap">
 {
   "imports": {
@@ -20,70 +21,79 @@
   <div id="selbox"></div>
   <div id="hovertip" style="display:none"></div>
 
-  <!-- ================= TOP BAR ================= -->
+  <svg class="ui-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C9 3 3 7 5 14c2 7 13 7 15-10Z"/><path d="m4 21 11-12M9 15l-1-5M12 12h5"/></symbol>
+    <symbol id="i-pack" viewBox="0 0 24 24"><path d="M7 20c-4-1-3-5-1-7l4-3c1-1 3-1 4 0l4 3c3 3 3 6-1 7-2 1-3-1-5-1s-3 2-5 1Z"/><ellipse cx="4" cy="8" rx="2" ry="3"/><ellipse cx="9" cy="4" rx="2" ry="3"/><ellipse cx="15" cy="4" rx="2" ry="3"/><ellipse cx="20" cy="8" rx="2" ry="3"/></symbol>
+    <symbol id="i-grove" viewBox="0 0 24 24"><path d="m12 2-7 9h4l-6 7h18l-6-7h4L12 2ZM12 18v4"/></symbol>
+    <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 2S4 11 4 15a8 8 0 0 0 16 0c0-4-8-13-8-13Z"/><path d="M8 15a4 4 0 0 0 4 4"/></symbol>
+    <symbol id="i-threat" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z M12 9v5 M12 17v1"/></symbol>
+  </defs></svg>
   <div id="topbar">
-    <div class="res">
-      <span class="glyph">🍃</span>
-      <span id="biomass">0</span>
-      <span class="sub" id="biorate">+0.0/s</span>
+    <div class="res" title="Biomass · spend to grow wildlife">
+      <svg class="glyph" aria-hidden="true"><use href="#i-leaf"/></svg><span id="biomass">0</span>
+      <span class="res-label">Biomass</span><span class="sub" id="biorate">+0.0/s</span>
     </div>
-    <div class="res">
-      <span class="glyph">🐾</span>
-      <span id="pop">0<span class="slash">/</span>0</span>
-      <span class="sub">wildlife</span>
+    <div class="res" title="Wildlife population / capacity">
+      <svg class="glyph" aria-hidden="true"><use href="#i-pack"/></svg><span id="pop">0/0</span>
+      <span class="res-label">Wildlife</span><span class="sub">population</span>
     </div>
-    <div class="res">
-      <span class="glyph">🌱</span>
-      <span id="groves">0<span class="slash">/</span>0</span>
-      <span class="sub">groves</span>
+    <div class="res" title="Bloomed groves / total groves">
+      <svg class="glyph" aria-hidden="true"><use href="#i-grove"/></svg><span id="groves">0/0</span>
+      <span class="res-label">Groves</span><span class="sub">controlled</span>
     </div>
-    <div class="res" id="waterres">
-      <span class="glyph">💧</span>
-      <span id="waterlvl">100<span class="slash">%</span></span>
-      <span class="sub" id="watersub">water</span>
+    <div class="res" id="waterres" title="Water reserves · destroy pumps to restore the lakes">
+      <svg class="glyph" aria-hidden="true"><use href="#i-water"/></svg><span id="waterlvl">100%</span>
+      <span class="res-label">Water</span><span class="sub" id="watersub">water</span>
     </div>
-    <div class="res" id="sweepres">
-      <span class="glyph">⚠</span>
-      <span id="sweeptime">--</span>
-      <span class="sub" id="sweepsub">next sweep</span>
+    <div class="res" id="sweepres" title="Time until the next security sweep">
+      <svg class="glyph" aria-hidden="true"><use href="#i-threat"/></svg><span id="sweeptime">--</span>
+      <span class="res-label">Next sweep</span><span class="sub" id="sweepsub">next sweep</span>
     </div>
     <div id="objective">
-      <div class="obj-title">OBJECTIVE</div>
+      <div class="obj-title" id="mapname">FIELD OBJECTIVE</div>
       <div class="obj-text" id="objtext">Knock all 3 Coolant Towers offline</div>
-      <div class="obj-pips" id="objpips"></div>
+      <div class="obj-pips" id="objpips" aria-label="Coolant towers and server core"></div>
       <div class="heat-wrap" id="heatwrap" style="display:none">
-        <div class="heat-track"><div class="heat-fill" id="heatbar"></div></div>
-        <span class="heat-num" id="heatnum">--</span>
+        <div class="heat-track"><div class="heat-fill" id="heatbar"></div></div><span class="heat-num" id="heatnum">--</span>
       </div>
     </div>
-    <div class="res right">
-      <span class="sub">TIME</span>
-      <span id="clock">0:00</span>
-    </div>
-    <button id="pausebtn" title="Pause (P)">❚❚</button>
-    <button id="mutebtn" title="Mute audio (M)">♪</button>
-    <button id="helpbtn" title="Toggle help (F1)">?</button>
+    <div class="res right"><span class="sub">Elapsed</span><span id="clock">0:00</span></div>
+    <button id="pausebtn" title="Pause (P)" aria-label="Pause game">❚❚</button>
+    <button id="mutebtn" title="Mute audio (M)" aria-label="Mute audio">♪</button>
+    <button id="helpbtn" title="Toggle help (F1)" aria-label="Open field guide">?</button>
   </div>
 
+  <div id="commandhint" hidden></div>
+
+
   <!-- ================= TOASTS ================= -->
-  <div id="toasts"></div>
+  <div id="toasts" role="status" aria-live="polite"></div>
 
   <!-- ================= BOTTOM BAR ================= -->
   <div id="bottombar">
     <div id="selpanel">
-      <div class="panel-title">SELECTION</div>
-      <div id="selbody" class="empty">Nothing selected</div>
+      <div class="panel-title">YOUR PACK <span id="selectioncount">0 selected</span></div>
+      <div id="selbody" class="empty"><span class="empty-mark">⌖</span><b>The valley is yours.</b><span>Click wildlife or drag a box to select your pack.</span><kbd>` &nbsp; Select all wildlife</kbd></div>
     </div>
 
     <div id="cardpanel">
-      <div class="panel-title" id="cardtitle">HEART TREE — GROW</div>
+      <div class="panel-title" id="cardtitle">HEART TREE <span>GROW YOUR PACK</span></div>
+  <div id="commands" role="toolbar" aria-label="Wildlife orders">
+    <button data-command="all" title="Select the whole swarm (`)"><kbd>`</kbd> All wildlife</button>
+    <button data-command="attack" title="Attack while moving to a destination"><kbd>A</kbd> Attack move</button>
+    <button data-command="hold" title="Defend without chasing"><kbd>H</kbd> Hold</button>
+    <button data-command="stop" title="Clear current orders"><kbd>S</kbd> Stop</button>
+    <button data-command="water" title="Send selected wildlife to drink"><kbd>W</kbd> Drink</button>
+    <button data-command="spell" title="Preview Overgrowth before casting"><kbd>F</kbd> Overgrowth</button>
+  </div>
       <div id="cards"></div>
       <div id="queue"></div>
     </div>
 
     <div id="mappanel">
-      <div class="panel-title">TERRITORY</div>
-      <canvas id="minimap" width="200" height="200"></canvas>
+      <div class="panel-title">TERRITORY <span>LIVE</span></div>
+      <canvas id="minimap" width="200" height="200" aria-label="Territory map · click to move camera"></canvas>
+      <div class="map-legend"><span>● Wildlife</span><span>● Machine</span></div>
     </div>
   </div>
 
@@ -196,6 +206,24 @@
         </ul>
       </div>
     </div>
+    <details class="wildlife-audio">
+      <summary>Listen to the wildlife <span>Recordings &amp; credits</span></summary>
+      <div class="wildlife-audio-controls">
+        <label for="animal-preview-event">Play a cue</label>
+        <select id="animal-preview-event"><option value="select">Selected</option><option value="deploy">Deployed</option><option value="charge">Charging</option><option value="attack">Attacking</option></select>
+      </div>
+      <div class="wildlife-audio-species" role="group" aria-label="Preview animal recordings">
+        <button type="button" data-animal-preview="wolf">Wolf</button><button type="button" data-animal-preview="bear">Bear</button><button type="button" data-animal-preview="boar">Boar</button><button type="button" data-animal-preview="raven">Raven</button><button type="button" data-animal-preview="porcupine">Porcupine</button><button type="button" data-animal-preview="beaver">Beaver</button>
+      </div>
+      <p id="animal-preview-status" role="status">Choose a species to hear its recorded sound.</p>
+      <p>Beaver cues use recorded chewing. Capybara still uses a synthesized placeholder.</p>
+      <p class="wildlife-audio-credits">Recordings: <a href="https://commons.wikimedia.org/wiki/File:Wolf_howls.ogg" target="_blank" rel="noopener">Wolf howls · USFWS</a> and <a href="https://commons.wikimedia.org/wiki/File:Common_Raven_Grand_Teton_National_Park.ogg" target="_blank" rel="noopener">raven · NPS</a> (public domain);
+      <a href="https://freesound.org/people/newagesoup/sounds/338674/" target="_blank" rel="noopener">wolf growl · newagesoup</a> and <a href="https://freesound.org/people/Mobius_Play109/sounds/685527/" target="_blank" rel="noopener">beaver · Mobius_Play109</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>);
+      <a href="https://commons.wikimedia.org/wiki/File:Bear_growl.ogg" target="_blank" rel="noopener">bear cub growl · Shizhao</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>);
+      <a href="https://commons.wikimedia.org/wiki/File:Boar.Grwls(1).ogg" target="_blank" rel="noopener">boar · GrWolf1129</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>);
+      <a href="https://freesound.org/people/craigsmith/sounds/675452/" target="_blank" rel="noopener">porcupine · craigsmith / USC Cinema</a> (<a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>).
+      Clips trimmed, filtered, faded and loudness-balanced; boar edits shared under CC BY-SA 4.0. Wolf growl includes the source author's bass enhancement.</p>
+    </details>
     <button id="helpclose">Close</button>
   </div>
 

@@ -541,15 +541,19 @@ function pruneOvergrowths() {
    immune to the swarm's only spell. Now the vines go in the barrel too: a
    caught turret goes dark for the duration exactly as if its generator had
    died, which is a tell the player already knows how to read. */
+export function overgrowthTargets(point, visibleOnly = false) {
+  return G.entities.filter(e => e.alive && e.team === TEAM.MACHINE
+    && (!e.isBuilding || e.def.ranged)
+    && (!visibleOnly || !G.fogVisible || G.fogVisible(e.pos.x, e.pos.z))
+    && dist2D(e.pos, point) <= RULES.spellRadius + (e.isBuilding ? e.radius : 0));
+}
+
 export function castOvergrowth(point) {
   commsEvent('overgrowth', 0.7);
   spawnOvergrowthField(point);
   let hit = 0, guns = 0;
-  for (const e of G.entities) {
-    if (!e.alive || e.team !== TEAM.MACHINE) continue;
-    if (dist2D(e.pos, point) > RULES.spellRadius + (e.isBuilding ? e.radius : 0)) continue;
+  for (const e of overgrowthTargets(point)) {
     if (e.isBuilding) {
-      if (!e.def.ranged) continue;          // no point smothering a wall
       e.smotheredUntil = G.time + RULES.spellDuration;
       e.target = null;
       guns++;

@@ -2,10 +2,13 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { TEAM, DEFS, RULES, BUILDABLE } from './config.js';
 import { queueUnit, cancelQueue, resetRallySpiral, deepenRoots, rootsPrice, rootsMaxed } from './world.js';
-import { castOvergrowth } from './ai.js';
+import { makeFormation } from './tactics.js';
+import { terrainHeight } from './utils.js';
+import { castOvergrowth, overgrowthTargets } from './ai.js';
 import { ring, burst } from './combat.js';
 import { toast } from './ui.js';
-import { SFX, initAudio, resumeAudio, toggleMute, isMuted, voiceFor } from './audio.js';
+import { unitPortrait, UNIT_ROLES } from './unit-portraits.js';
+import { SFX, initAudio, resumeAudio, toggleMute, isMuted, voiceFor, animalVoice, loadAnimalAudio, audioStats } from './audio.js';
 import { shorePoint } from './water.js';
 
 const _wv = new THREE.Vector3();   // scratch for the send-to-water order
@@ -33,14 +36,33 @@ export function initInput(canvasEl, rtsCam) {
   canvas.addEventListener('wheel', e => { e.preventDefault(); rts.zoom(e.deltaY); }, { passive: false });
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', e => G.keys.delete(e.code));
-  window.addEventListener('blur', () => G.keys.clear());
+  window.addEventListener('blur', () => { G.keys.clear(); down = null; dragging = false; hideSelBox(); pointerOnField = false; });
+  window.addEventListener('keydown', () => { initAudio(); resumeAudio(); musicUnlock(); }, { once: true });
   window.addEventListener('pointerdown', () => { initAudio(); resumeAudio(); musicUnlock(); }, { once: true });
 
-  document.addEventListener('mouseleave', () => { rts.mouse.inside = false; });
+  document.addEventListener('mouseleave', () => { rts.mouse.inside = false; pointerOnField = false; });
+  canvas.addEventListener('pointerleave', () => { pointerOnField = false; });
   document.addEventListener('mouseenter', () => { rts.mouse.inside = true; });
 
   initMinimap();
   initCards();
+  initCommandPreview();
+  document.querySelectorAll('[data-animal-preview]').forEach(button => {
+    button.addEventListener('click', async () => {
+      initAudio(); resumeAudio();
+      const status = document.getElementById('animal-preview-status');
+      if (isMuted()) { status.textContent = 'Sound is muted. Press M to listen.'; return; }
+      status.textContent = 'Loading wildlife recordings…';
+      await loadAnimalAudio();
+      const type = button.dataset.animalPreview;
+      const kind = document.getElementById('animal-preview-event').value;
+      if (audioStats().samples.failed.some(name => name.startsWith(type + '-'))) {
+        status.textContent = 'This recording could not load. Try again.'; return;
+      }
+      const available = animalVoice({ type, alive: true }, kind);
+      status.textContent = available ? button.textContent + ' · ' + kind : 'Audio is unavailable. Try again.';
+    });
+  });
 }
 
 /* ------------------------------------------------------------- picking -- */
@@ -153,11 +175,11 @@ function positionTip(x, y) {
 
 /* ------------------------------------------------------------- pointer -- */
 function onDown(e) {
-  if (G.over) return;
+  if (G.over || G.phase !== 'playing') return;
   /* Middle-drag still pans while paused — surveying the board is the whole
      reason to pause — but nothing that changes the game state gets through. */
   if (e.button === 1) { down = { x: e.clientX, y: e.clientY, button: 1 }; e.preventDefault(); return; }
-  if (pausedByPlayer) return;
+  if (G.paused) return;
   down = { x: e.clientX, y: e.clientY, button: e.button, t: performance.now() };
   dragging = false;
 }
@@ -165,6 +187,8 @@ function onDown(e) {
 let hoverAt = 0;
 
 function onMove(e) {
+  pointerOnField = e.target === canvas;
+  pointerX = e.clientX; pointerY = e.clientY;
   rts.mouse.x = e.clientX; rts.mouse.y = e.clientY;
   rts.mouse.inside = true;
   if (!down) {
@@ -191,7 +215,7 @@ function onUp(e) {
   if (!down) return;
   const d = down; down = null;
   hideSelBox();
-  if (G.over) return;
+  if (G.over || G.paused || G.phase !== 'playing') return;
   if (d.button === 1) return;
 
   if (d.button === 0) {
@@ -238,7 +262,7 @@ function clickSelect(x, y, additive, screenOnly) {
     const same = G.entities.filter(o => o.alive && o.team === TEAM.WILD
       && o.type === ent.type && (screenOnly ? onScreen(o) : true));
     setSelection(same);
-    SFX.select(); voiceFor(G.selection, 'select');
+    if (!voiceFor(G.selection, 'select')) SFX.select();
     lastClickType = null;
     return;
   }
@@ -251,7 +275,7 @@ function clickSelect(x, y, additive, screenOnly) {
   } else {
     setSelection([ent]);
   }
-  SFX.select(); voiceFor(G.selection, 'select');
+  if (!voiceFor(G.selection, 'select')) SFX.select();
 }
 
 function onScreen(e) {
@@ -278,7 +302,7 @@ function boxSelect(x0, y0, x1, y1, additive) {
     for (const f of found) set.add(f);
     setSelection([...set]);
   } else setSelection(found);
-  SFX.select(); voiceFor(G.selection, 'select');
+  if (!voiceFor(G.selection, 'select')) SFX.select();
 }
 
 function drawSelBox(x0, y0, x1, y1) {
@@ -320,7 +344,7 @@ function issueAt(x, y, attackMove) {
     }
     for (const e of sel) e.setOrder('attack', null, ent);
     ring(ent.pos, 0xff6a3d, ent.radius * 2 + 1.5, 0.7);
-    SFX.order(); voiceFor(commandable(), 'order');
+    SFX.attackOrder(); voiceFor(commandable(), 'order');
     return;
   }
   if (!pt) return;
@@ -329,25 +353,9 @@ function issueAt(x, y, attackMove) {
   sel.forEach((e, i) => e.setOrder(attackMove ? 'attackmove' : 'move', formation[i]));
   ring(pt, attackMove ? 0xffc85c : 0x9bff6a, 2.6, 0.6);
   burst(pt, attackMove ? 0xffc85c : 0x9bff6a, 5, 5, 0.4, 0.35);
-  SFX.order(); voiceFor(commandable(), 'order');
+  (attackMove ? SFX.attackOrder : SFX.order)(); voiceFor(commandable(), 'order');
 }
 
-function makeFormation(sel, center) {
-  const n = sel.length;
-  if (n === 1) return [center.clone()];
-  const spacing = 3.0;
-  const cols = Math.ceil(Math.sqrt(n));
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const r = Math.floor(i / cols), c = i % cols;
-    out.push(new THREE.Vector3(
-      center.x + (c - (cols - 1) / 2) * spacing,
-      0,
-      center.z + (r - (Math.ceil(n / cols) - 1) / 2) * spacing
-    ));
-  }
-  return out;
-}
 
 function castAt(x, y) {
   const pt = groundUnder(x, y);
@@ -371,6 +379,7 @@ function castAt(x, y) {
 
 /* Tell the player *before* they pick a target that the cast will not happen. */
 function enterSpellMode() {
+  if (G.phase !== 'playing' || G.paused || G.over) return;
   if (G.time < G.spellReady) {
     toast(`Overgrowth recovering — ${Math.ceil(G.spellReady - G.time)}s`, 'warn');
     SFX.deny(); return;
@@ -390,7 +399,8 @@ export function setMode(m) {
 
 /* ----------------------------------------------------------- keyboard -- */
 function onKey(e) {
-  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.target && (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable)) return;
+  if (e.code === 'Space' && e.target.closest?.('button, summary, a')) return;
   G.keys.add(e.code);
   // a held key repeats ~30x/second; without this one keypress queued 8 units
   if (e.repeat) return;
@@ -407,36 +417,22 @@ function onKey(e) {
     return;
   }
   if (e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
+  if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }
+  if (G.phase !== 'playing' || G.over || G.paused) return;
   if (e.code === 'Backquote') {          // ` — the whole swarm, wherever it is
     e.preventDefault();
     setSelection(G.entities.filter(o => o.alive && o.team === TEAM.WILD && !o.isBuilding));
+    if (!voiceFor(G.selection, 'select')) SFX.select();
     return;
   }
-  if (e.code === 'KeyM') { syncMuteButton(toggleMute()); return; }   // works even once the round is over
-  if (G.over) return;
-  if (pausedByPlayer) return;    // no orders, no production, no spell while paused
+
 
   switch (e.code) {
     case 'KeyA': if (commandable().length) setMode('attack'); return;
     case 'KeyF': enterSpellMode(); return;
-    case 'KeyS': for (const u of commandable()) u.setOrder('stop'); return;
-    case 'KeyW': {
-      /* Send to water. Drinking was acquired entirely by accident -- a unit
-         that happened to wander near a shore for 1.8s got a ~38% combat swing.
-         That is weather, not a decision. This makes staging before a push
-         something the player actually does. */
-      const sel = commandable();
-      if (!sel.length) { SFX.deny(); return; }
-      let sent = 0;
-      for (const u of sel) {
-        const p = shorePoint(u.pos.x, u.pos.z, _wv);
-        if (p) { u._wantsDrink = true; u.setOrder('move', p.clone()); sent++; }
-      }
-      if (sent) { SFX.order(); voiceFor(commandable(), 'order'); toast(`${sent} sent to drink`); }
-      else { SFX.deny(); toast('No water left to drink', 'warn'); }
-      return;
-    }
-    case 'KeyH': for (const u of commandable()) u.setOrder('hold'); return;
+    case 'KeyS': stanceOrder('stop'); return;
+    case 'KeyW': sendToWater(); return;
+    case 'KeyH': stanceOrder('hold'); return;
     case 'Space': e.preventDefault(); if (G.heart) rts.focus(G.heart.pos); return;
     case 'KeyZ': queueUnit('wolf'); return;
     case 'KeyX': queueUnit('boar'); return;
@@ -470,15 +466,37 @@ function onKey(e) {
       const now = performance.now();
       if (lastGroupKey.key === k && now - lastGroupKey.at < 400) rts.focus(g[0].pos);
       lastGroupKey = { key: k, at: now };
-      SFX.select(); voiceFor(G.selection, 'select');
+      if (!voiceFor(G.selection, 'select')) SFX.select();
     }
   }
+}
+
+function stanceOrder(type) {
+  const units = commandable();
+  if (!units.length) return;
+  for (const u of units) u.setOrder(type);
+  setMode('normal');
+  SFX.holdOrder();
+  toast(type === 'hold' ? 'Holding position — defend without chasing' : 'Orders cleared');
+}
+
+function sendToWater() {
+  const sel = commandable();
+  if (!sel.length) { SFX.deny(); return; }
+  let sent = 0;
+  for (const u of sel) {
+    const p = shorePoint(u.pos.x, u.pos.z, _wv);
+    if (p) { u._wantsDrink = true; u.setOrder('move', p.clone()); sent++; }
+  }
+  setMode('normal');
+  if (sent) { SFX.order(); voiceFor(sel, 'order'); toast(`${sent} sent to drink`); }
+  else { SFX.deny(); toast('No water left to drink', 'warn'); }
 }
 
 function syncMuteButton(off) {
   musicSetMuted(off);           // one M key silences the synth and the score alike
   const mb = document.getElementById('mutebtn');
-  if (mb) { mb.classList.toggle('off', off); mb.title = off ? 'Unmute audio (M)' : 'Mute audio (M)'; }
+  if (mb) { mb.classList.toggle('off', off); mb.title = off ? 'Unmute audio (M)' : 'Mute audio (M)'; mb.setAttribute('aria-label', mb.title); mb.setAttribute('aria-pressed', String(off)); }
 }
 
 /* Pause has two independent sources — the player asking for it, and the help
@@ -549,7 +567,8 @@ function initCards() {
   host.innerHTML = '';
   for (const type of BUILDABLE) {
     const d = DEFS[type];
-    const el = document.createElement('div');
+    const el = document.createElement('button');
+    el.type = 'button';
     el.className = 'card';
     el.dataset.type = type;
     /* Population is the constraint that decides the late game — a Bear is four
@@ -561,10 +580,11 @@ function initCards() {
        flesh. A player could field a perfectly good army that was quietly bad at
        the only thing that ends the match. Both numbers now sit on the card. */
     const siege = d.siege || 1;
-    el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${d.icon}</span>
+    el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${unitPortrait(type, d.icon)}</span>
       <span class="nm">${d.name}</span>
-      <span class="cost">🍃 ${d.cost}<i class="pop">🐾${d.pop || 1}</i>`
-      + (siege > 1 ? `<i class="siege" title="damage vs structures">🏗×${siege}</i>` : '')
+      <span class="unit-role">${UNIT_ROLES[type]}</span>
+      <span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${d.cost}<i class="pop">${d.pop || 1} pop</i>`
+      + (siege > 1 ? `<i class="siege" title="damage vs structures">×${siege}</i>` : '')
       + `</span>`;
     /* Structure DPS against the Server Core (armour 8) — the number that
        actually decides whether a composition can finish the game. Flat armour is
@@ -576,28 +596,32 @@ function initCards() {
     /* Shift-click queues five. Filling a 96-pop army one press at a time is
        not a decision, it is typing. */
     el.addEventListener('click', ev => {
+      if (G.phase !== 'playing' || G.paused || G.over) return;
       const n = ev.shiftKey ? 5 : 1;
       for (let i = 0; i < n; i++) if (!queueUnit(type)) break;
     });
+    el.setAttribute('aria-label', `${d.name}, ${d.cost} biomass, ${d.pop || 1} population. ${d.blurb}`);
     host.appendChild(el);
   }
   /* Deepen the Roots — the late game's second thing to buy. Sits at the end of
      the roster because that is where the eye lands once every unit is greyed out
      by the pop cap, which is exactly the moment it is for. */
-  const rt = document.createElement('div');
+  const rt = document.createElement('button');
+  rt.type = 'button';
   rt.className = 'card roots';
   rt.id = 'rootscard';
   rt.innerHTML = `<span class="key">T</span><span class="ico">🌳</span>
-    <span class="nm">Deepen the Roots</span><span class="cost">🍃 <b class="rcost">${rootsPrice()}</b></span>`;
+    <span class="nm">Deepen Roots</span><span class="unit-role">Expand capacity</span><span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg><b class="rcost">${rootsPrice()}</b></span>`;
   rt.title = `Raise the wildlife limit by ${RULES.rootsStep}. Each one costs more than the last.`;
-  rt.addEventListener('click', () => { deepenRoots(); refreshRootsCard(); });
+  rt.addEventListener('click', () => { if (G.phase === 'playing' && !G.paused && !G.over) { deepenRoots(); refreshRootsCard(); } });
   host.appendChild(rt);
 
-  const sp = document.createElement('div');
+  const sp = document.createElement('button');
+  sp.type = 'button';
   sp.className = 'card spell';
   sp.id = 'spellcard';
   sp.innerHTML = `<span class="key">F</span><span class="ico">🌿</span>
-    <span class="nm">Overgrowth</span><span class="cost">🍃 ${RULES.spellCost}</span>
+    <span class="nm">Overgrowth</span><span class="unit-role">Root &amp; suppress</span><span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${RULES.spellCost}</span>
     <div class="cd" style="display:none"></div>`;
   sp.title = `Roots erupt in a ${RULES.spellRadius}m circle for ${RULES.spellDuration}s: machines are held in place, and any Sentry Turret caught in it goes dark.`;
   sp.addEventListener('click', enterSpellMode);
@@ -615,6 +639,7 @@ function initCards() {
   if (ph) ph.addEventListener('click', () => { setPaused(false); toggleHelp(); });
   document.getElementById('helpclose').addEventListener('click', toggleHelp);
   document.getElementById('queue').addEventListener('click', ev => {
+    if (G.phase !== 'playing' || G.paused || G.over) return;
     const i = ev.target.closest('.qitem');
     if (i) cancelQueue(+i.dataset.i);
   });
@@ -634,3 +659,84 @@ export function refreshRootsCard() {
 }
 
 export { setSelection };
+
+
+/* Terrain-following targeting disc. Its footprint uses the exact same radius
+   and target predicate as the spell. Hidden enemies never enter the readout. */
+let commandDisc = null, commandDiscRest = null, commandHint = null;
+let commandStrip = null, commandButtons = [];
+let pointerOnField = false, pointerX = 0, pointerY = 0, previewAt = -Infinity;
+function initCommandPreview() {
+  const geo = new THREE.RingGeometry(0, 1, 64, 4);
+  geo.rotateX(-Math.PI / 2);
+  commandDiscRest = geo.attributes.position.array.slice();
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uCommandColor: { value: new THREE.Color(0x9bff6a) } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vCommandUV; void main(){vCommandUV=uv;
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform vec3 uCommandColor; varying vec2 vCommandUV;
+      void main(){vec2 p=(vCommandUV-.5)*2.;float r=length(p);
+      float edge=smoothstep(.955,.978,r)*(1.-smoothstep(.99,1.,r));
+      float inner=smoothstep(.02,.12,r)*(1.-smoothstep(.78,.95,r))*.045;
+      float ticks=step(.88,r)*step(.92,cos(atan(p.y,p.x)*24.))*.28;
+      gl_FragColor=vec4(uCommandColor,edge*.8+inner+ticks);}`,
+  });
+  commandDisc = new THREE.Mesh(geo, mat);
+  commandDisc.frustumCulled = false;
+  commandDisc.renderOrder = 6;
+  commandDisc.raycast = () => {};
+  commandDisc.visible = false;
+  G.scene.add(commandDisc);
+  commandHint = document.getElementById('commandhint');
+  commandStrip = document.getElementById('commands');
+  commandButtons = [...commandStrip.querySelectorAll('button')];
+  commandStrip.addEventListener('click', ev => {
+    const btn = ev.target.closest('button[data-command]');
+    if (!btn || G.phase !== 'playing' || G.paused || G.over) return;
+    const cmd = btn.dataset.command;
+    if (cmd === 'all') { setSelection(G.entities.filter(u => u.alive && u.team === TEAM.WILD && !u.isBuilding)); if (!voiceFor(G.selection, 'select')) SFX.select(); }
+    else if (cmd === 'attack') { if (commandable().length) setMode('attack'); }
+    else if (cmd === 'water') sendToWater();
+    else if (cmd === 'spell') enterSpellMode();
+    else stanceOrder(cmd);
+  });
+}
+
+export function updateCommandPreview() {
+  if (!commandDisc) return;
+  const active = G.phase === 'playing' && !G.over && !G.paused;
+  commandStrip.classList.toggle('hidden', !active);
+  const spell = G.mode === 'spell', attack = G.mode === 'attack';
+  commandDisc.visible = active && pointerOnField && (spell || attack);
+  commandHint.hidden = !active || (!spell && !attack);
+  if (!active) return;
+  const now = performance.now();
+  if (now - previewAt < 50) return;
+  previewAt = now;
+  const hasUnits = commandable().length > 0;
+  for (const btn of commandButtons) {
+    const cmd = btn.dataset.command;
+    btn.disabled = !hasUnits && !['all', 'spell'].includes(cmd);
+    btn.classList.toggle('active', (cmd === 'spell' && spell) || (cmd === 'attack' && attack));
+  }
+  if (!spell && !attack) return;
+  commandHint.textContent = spell ? 'OVERGROWTH · point to aim · right-click to cancel' : 'ATTACK MOVE · click ground · right-click to cancel';
+  if (!commandDisc.visible) return;
+  const point = groundUnder(pointerX, pointerY);
+  if (!point) { commandDisc.visible = false; return; }
+  const radius = spell ? RULES.spellRadius : 3;
+  const pos = commandDisc.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = point.x + commandDiscRest[i * 3] * radius;
+    const z = point.z + commandDiscRest[i * 3 + 2] * radius;
+    pos.setXYZ(i, x, terrainHeight(x, z) + 0.18, z);
+  }
+  pos.needsUpdate = true;
+  commandDisc.material.uniforms.uCommandColor.value.setHex(spell ? 0x9bff6a : 0xffc85c);
+  if (spell) {
+    const targets = overgrowthTargets(point, true);
+    const guns = targets.filter(e => e.isBuilding).length;
+    commandHint.textContent = `OVERGROWTH · ${targets.length - guns} machines / ${guns} guns in sight · ${RULES.spellCost} biomass · click to cast`;
+  }
+}
