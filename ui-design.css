@@ -239,3 +239,60 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
 .army-restore{display:block;width:100%;margin:0 0 8px;padding:6px 7px;background:#c4d9b00c;color:#c8d9b8;border:1px solid #bdd2a52a;border-radius:4px;font:10px var(--font);text-align:left;cursor:pointer}
 #soloStatus{color:#bdd995;margin-bottom:4px}
 @media(max-width:1150px){#cards .card .ico{width:28px;height:28px}}
+
+/* Restore the original dock footprint while retaining the new portraits and orders. */
+:root{--dock-height:206px}
+#bottombar{padding:0 10px 10px;gap:8px}
+#selpanel,#cardpanel,#mappanel{padding:8px 10px;border-radius:6px}
+#selpanel{width:210px;min-width:180px}
+#cardpanel{overflow:hidden}
+#mappanel{width:164px}
+.panel-title{margin-bottom:5px}
+#commands{padding-bottom:4px;margin-bottom:5px;gap:3px;min-height:31px}
+#commands button{flex-shrink:0;white-space:nowrap;padding:3px 6px;min-height:24px}
+#cards{display:flex;flex-wrap:nowrap;gap:5px;overflow-x:auto;overflow-y:hidden;
+  padding:0 0 4px;scrollbar-width:thin;scrollbar-color:#749b57 #102017;flex:1 0 90px}
+#cards .card{display:flex;flex-direction:column;justify-content:center;align-items:center;
+  flex:1 0 68px;width:76px;min-width:68px;height:84px;padding:5px 3px;gap:2px;text-align:center}
+#cards .card .ico{width:32px;height:32px;flex-shrink:0;font-size:28px}
+#cards .card .nm{font-size:10px;line-height:12px}
+#cards .card.roots .nm{font-size:9px}
+#cards .card .unit-role,#cards .card .cost i{display:none}
+#cards .card .cost{font-size:10px;line-height:13px}
+#cards .card .key{top:2px;left:3px}
+#cards .card.gated:after{font-size:6px!important;letter-spacing:0;bottom:1px}
+#queue{height:22px;min-height:22px;margin-top:4px}
+.qhint{overflow:hidden;text-overflow:ellipsis}
+.qhint>span{display:none}
+#minimap{width:138px;height:138px;max-width:100%}
+.map-legend{margin-top:4px;font-size:7px}
+#selbody.empty{gap:5px;padding:0 4px}
+#selbody.empty .empty-mark{display:none}
+#selbody.empty kbd{margin-top:3px;padding:3px 5px}
+.solo{flex-direction:row;gap:8px;align-items:flex-start}
+.solo .big{width:38px;height:38px;flex:0 0 38px;padding:2px}
+.solo .meta{min-width:0;flex:1}
+.solo .meta h4{font-size:12px}
+.solo .meta .st{font-size:9px;line-height:1.4}
+.solo .hpbar{min-width:0;width:100%}
+.army-overview{margin-bottom:4px}
+.army-overview strong{font-size:15px;letter-spacing:0}
+.army-overview span{display:inline;margin-left:5px;font-size:6px}
+#army-wounded{font-size:8px;padding:4px}
+.army-health-track{margin-bottom:5px}
+.army-composition{display:grid;grid-template-columns:repeat(auto-fill,minmax(39px,1fr));gap:4px}
+.army-row{position:relative;display:block;width:100%;height:42px;padding:2px}
+.army-portrait{width:30px;height:30px;margin:auto}
+.army-species{position:absolute;left:3px;right:3px;bottom:3px}
+.army-species b,.army-species small,.army-state{display:none}
+.army-count{position:absolute;right:2px;top:1px;font-size:10px;background:#102017dd;border-radius:2px;padding:0 2px}
+.army-hint{margin-top:5px;font-size:7px}
+.army-restore{padding:3px 5px;margin-bottom:4px;font-size:9px}
+@media(max-width:1100px){#selpanel{width:180px;min-width:180px}}
+@media(max-width:920px){#selpanel{display:none}}
+@media(max-width:760px){
+  #selpanel{position:static;height:auto}
+  #mappanel{display:none}
+  #bottombar{padding:0 7px 7px}
+  #cardpanel{padding:8px}
+}

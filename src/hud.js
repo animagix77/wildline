@@ -265,6 +265,7 @@ function updateSelectionPanel() {
       const fighting = group.filter(e => e.target?.alive || e.attackMotion).length;
       row.querySelector('.army-state').textContent = fighting ? `${fighting} fighting` : group.every(e => e.order.type === 'hold') ? 'Holding' : group.some(e => e.order.pos) ? 'Moving' : 'Ready';
       row.setAttribute('aria-label', `${group.length} ${DEFS[row.dataset.army].name}, ${Math.round(health * 100)} percent health. Select this species; Shift-click to remove.`);
+      row.title = `${DEFS[row.dataset.army].name} · ${UNIT_ROLES[row.dataset.army] || 'Structure'} · ${Math.round(health * 100)}% health · ${row.querySelector('.army-state').textContent}\nClick to select this species; Shift-click to remove.`;
     }
   }
 }
