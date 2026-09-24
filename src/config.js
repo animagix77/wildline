@@ -653,10 +653,17 @@ export const RULES = {
                                                   a rush before the first
                                                   sweep lands; far too soft
        as shipped, held-out seeds 3001-3008,
-         verdant-hollow + mirefen, 4 Evolve paths:
-           commit ~3:30 (early)                   45/64  (70%)
-           commit 5:00 (into Operational)         14/16
-           commit 8:00 (into Hyperscale)           2/32
+         verdant-hollow + mirefen, 4 Evolve paths:  first    RE-MEASURED
+           commit ~3:30 (early)                   45/64    43/64  (67%)
+           commit 5:00 (into Operational)         14/16    16/16
+           commit 8:00 (into Hyperscale)           2/32     2/32
+       The first column was measured while gameplay still shared Math.random
+       with three.js object creation (see the two-stream note in utils.js),
+       so any change to how a unit is drawn reshuffled every seed. RE-MEASURED
+       is the same 320 jobs on the isolated stream, where no seed was ever
+       tuned. The shape held; the one change worth knowing is that commit 5:00
+       now clearly BEATS commit 3:30 (16/16 vs the early rate) -- the stages
+       punish waiting for Hyperscale but do not yet reward the EARLIEST strike.
      So the cliff is Hyperscale, not Operational: striking any time before
      ~7:30 is live, waiting past it is not. Passive (G1) still dies at
      6:51-6:52 on every seed and the all-in with nobody home (G2) at
@@ -782,17 +789,24 @@ export const RULES = {
      biomass, roughly a 45-animal army), so buying it pushes the strike from
      ~1:50 to ~3:30, into the Operational window, which is the trade.
 
-     AS SHIPPED, held-out seeds 3001-3008, early strike at 90 pop:
-                                          verdant   mirefen
-       Warren / Den / Ironhide             4/8       5/8
-       Mycelium / Thornwall / Alpha        6/8       7/8
-       Mycelium / Den / Ironhide           5/8       4/8
-       Warren / Thornwall / Alpha          7/8       7/8
-       no Evolve at all                    1/8       2/8
-     Tuning seeds 1001-1008 landed within a seed or two of every cell, so this
-     is not overfit. The Thornwall + Alpha paths are the strongest on both
-     maps (and they field wolf-heavy armies: part of that edge is simply more
-     bodies per pop); Den + Ironhide is the weaker but still live pair. That
+     AS SHIPPED, held-out seeds 3001-3008, early strike at 90 pop
+     (first = shared Math.random stream; RE-MEASURED = isolated stream, all
+     32 seeds per path = tuning + held-out, none tuned on the new stream):
+                                          first            RE-MEASURED
+                                          verdant mirefen  held-out   all 32
+       Warren / Den / Ironhide             4/8     5/8     2/8 5/8    15/32
+       Mycelium / Thornwall / Alpha        6/8     7/8     6/8 7/8    23/32
+       Mycelium / Den / Ironhide           5/8     4/8     3/8 5/8    15/32
+       Warren / Thornwall / Alpha          7/8     7/8     7/8 8/8    29/32
+       no Evolve at all                    1/8     2/8     7/8 1/8    17/32
+     CORRECTION, and it matters: the first column said Evolve beat skipping it
+     on every path. RE-MEASURED, it does not. Both Den + Ironhide paths (47%)
+     are no better than no Evolve at all (53%) -- the no-Evolve row is also
+     the noisiest (3/8 6/8 7/8 1/8 across its four cells), but on 32 seeds
+     each there is no evidence the Den/Ironhide branch buys anything. The
+     Thornwall + Alpha paths (72%, 91%) are the real game right now; they
+     also field wolf-heavy armies, so part of that edge is simply more
+     bodies per pop. That
      is the first thing to look at next round, on FRESH seeds.
 
      Deepen the Roots stays separate: it is capacity, this is character. */
