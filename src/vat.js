@@ -25,7 +25,7 @@ import { G } from './state.js';
    topple and corpse sink, which all move that Group, carry over with no extra
    code. All this module decides is WHICH FRAME each animal shows.
 
-   Replaced by build.mjs with the baked assets inlined as base64; the dev build
+   Replaced by build.mjs with the baked assets inlined (raw deflate, base64); the dev build
    fetches assets/vat/<species>.{json,bin} instead.
    ========================================================================= */
 export const EMBEDDED_VAT = null;
@@ -33,7 +33,7 @@ export const EMBEDDED_VAT = null;
 /* Species with a baked asset. The build embeds whatever is in assets/vat/, but
    only these are switched on — a baked species is not a shipped species until
    it has been looked at. */
-const VAT_SPECIES = ['wolf'];
+const VAT_SPECIES = ['wolf', 'alpha', 'boar', 'ironhide', 'bear', 'capybara', 'porcupine', 'beaver'];
 
 /* ?vat=0 forces the procedural models: an A/B for performance and a kill switch
    if a GPU chokes on half-float textures. */
@@ -59,33 +59,33 @@ function vatSrgbToLinear(c) {
    normal is left alone on purpose — the material is flat-shaded, so lighting
    comes from screen-space derivatives of the DEFORMED position and needs no
    baked normals at all, which halves the texture. */
-function vatHook(tex) {
+function vatHook(tex, range) {
+  /* rgba8-delta: `position` is the bind pose; each texel is an 8-bit offset from
+     it, scaled per axis by the largest offset in the bake. Interpolating the
+     normalised texels and decoding once is exact, because decoding is linear. */
   return shader => {
     shader.uniforms.uVat = { value: tex };
-    shader.vertexShader = 'uniform highp sampler2D uVat;\nattribute float aVid;\nattribute vec3 aVat;\n'
+    shader.uniforms.uVatRange = { value: range };
+    shader.vertexShader = 'uniform highp sampler2D uVat;\nuniform vec3 uVatRange;\nattribute float aVid;\nattribute vec3 aVat;\n'
       + shader.vertexShader.replace('#include <begin_vertex>', `
         ivec2 vatA = ivec2(int(aVid), int(aVat.x));
         ivec2 vatB = ivec2(int(aVid), int(aVat.y));
-        vec3 transformed = mix(texelFetch(uVat, vatA, 0).xyz, texelFetch(uVat, vatB, 0).xyz, aVat.z);
+        vec3 vatN = mix(texelFetch(uVat, vatA, 0).xyz, texelFetch(uVat, vatB, 0).xyz, aVat.z);
+        vec3 transformed = position + (vatN * 2.0 - 1.0) * uVatRange;
       `);
   };
 }
 
 function vatBuildSet(name, manifest, buf) {
   const V = manifest.vertexCount, R = manifest.rows;
+  if (manifest.positionFormat !== 'rgba8-delta') throw new Error('unsupported VAT format ' + manifest.positionFormat);
   const idx = new Uint16Array(buf, manifest.offsets.indices, manifest.indexCount);
   const col = new Uint8Array(buf, manifest.offsets.colors, V * 4);
-  const vat = new Uint16Array(buf, manifest.offsets.vat, R * V * 4);
+  const rest = new Float32Array(buf, manifest.offsets.rest, V * 3);
+  const vat = new Uint8Array(buf, manifest.offsets.vat, R * V * 4);
 
   const geo = new THREE.BufferGeometry();
-  // rest positions = the first idle row; only used for normals and bounds
-  const pos = new Float32Array(V * 3);
-  for (let i = 0; i < V; i++) {
-    pos[i * 3]     = THREE.DataUtils.fromHalfFloat(vat[i * 4]);
-    pos[i * 3 + 1] = THREE.DataUtils.fromHalfFloat(vat[i * 4 + 1]);
-    pos[i * 3 + 2] = THREE.DataUtils.fromHalfFloat(vat[i * 4 + 2]);
-  }
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rest), 3));
   /* Colours are baked as sRGB bytes and converted here, because every other
      vertex-coloured mesh in the game stores LINEAR colour (THREE.Color does the
      conversion when the procedural builders run). Skip it and the wolf comes
@@ -104,21 +104,22 @@ function vatBuildSet(name, manifest, buf) {
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
 
-  const tex = new THREE.DataTexture(new Uint16Array(vat), V, R, THREE.RGBAFormat, THREE.HalfFloatType);
+  const tex = new THREE.DataTexture(new Uint8Array(vat), V, R, THREE.RGBAFormat, THREE.UnsignedByteType);
+  const range = new THREE.Vector3().fromArray(manifest.range);
   tex.minFilter = tex.magFilter = THREE.NearestFilter;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
 
   // matches VC_MAT, so a baked wolf lights exactly like the procedural boar beside it
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0 });
-  mat.onBeforeCompile = vatHook(tex);
-  mat.customProgramCacheKey = () => 'vat_std_v1';
+  mat.onBeforeCompile = vatHook(tex, range);
+  mat.customProgramCacheKey = () => 'vat_std_v2';
   /* The shadow pass draws with its own depth material. Without the same hook
      the shadow would be the rest pose — a frozen wolf's shadow under a running
      one. */
   const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-  depth.onBeforeCompile = vatHook(tex);
-  depth.customProgramCacheKey = () => 'vat_depth_v1';
+  depth.onBeforeCompile = vatHook(tex, range);
+  depth.customProgramCacheKey = () => 'vat_depth_v2';
 
   const clips = {};
   for (const c of manifest.clips) clips[c.name] = c;
@@ -132,8 +133,13 @@ function vatBuildSet(name, manifest, buf) {
 if (VAT_ENABLED) {
   for (const name of VAT_SPECIES) {
     if (EMBEDDED_VAT && EMBEDDED_VAT[name]) {
-      try { vatBuildSet(name, EMBEDDED_VAT[name].manifest, vatB64(EMBEDDED_VAT[name].bin)); }
-      catch (err) { console.warn('[vat] embedded asset failed for', name, err); }
+      /* Inflating is async, a few milliseconds per species: done long before the
+         title screen is cleared, and anything spawned sooner builds procedurally. */
+      const E = EMBEDDED_VAT[name];
+      if (typeof DecompressionStream !== 'function') { console.warn('[vat] no DecompressionStream - using procedural'); break; }
+      new Response(new Blob([vatB64(E.z)]).stream().pipeThrough(new DecompressionStream('deflate-raw')))
+        .arrayBuffer().then(b => vatBuildSet(name, E.manifest, b))
+        .catch(err => console.warn('[vat] embedded asset failed for', name, '- using procedural', err));
     } else if (typeof fetch === 'function') {
       const base = new URL('../assets/vat/', import.meta.url);
       Promise.all([
@@ -208,9 +214,12 @@ function vatEnsureMesh(S, need) {
   S.mesh = mesh; S.attr = attr; S.cap = cap;
 }
 
-/* Walk/run thresholds in world units per second, with hysteresis so an animal
-   hovering near the boundary does not flicker between gaits. */
-const VAT_WALK_AT = 0.6, VAT_RUN_UP = 5.5, VAT_RUN_DOWN = 4.5;
+/* Gait thresholds as FRACTIONS of the unit's own top speed, with hysteresis so
+   an animal hovering near the boundary does not flicker between gaits. They
+   were absolute (5.5 / 4.5 u/s) while only the wolf was baked; with the whole
+   roster that would leave a beaver (top speed 5.4) walking forever and a bear
+   ambling into a charge. */
+const VAT_WALK_AT = 0.10, VAT_RUN_UP = 0.62, VAT_RUN_DOWN = 0.52;
 
 function vatPick(S, e, a, dt) {
   const clips = S.clips;
@@ -232,10 +241,11 @@ function vatPick(S, e, a, dt) {
   a.px = e.pos.x; a.pz = e.pos.z;
   a.spd += (inst - a.spd) * Math.min(1, dt * 10);
   const s = a.spd;
+  const top = Math.max(1, (e.def && e.def.speed) || 8);
   let want;
-  if (s < VAT_WALK_AT) want = 'idle';
-  else if (a.clip === 'run') want = s < VAT_RUN_DOWN ? 'walk' : 'run';
-  else want = s > VAT_RUN_UP ? 'run' : 'walk';
+  if (s < VAT_WALK_AT * top) want = 'idle';
+  else if (a.clip === 'run') want = s < VAT_RUN_DOWN * top ? 'walk' : 'run';
+  else want = s > VAT_RUN_UP * top ? 'run' : 'walk';
   const c = clips[want];
   /* Locomotion plays at the rate that keeps the feet planted: the bake measured
      each gait's natural ground speed, so the playback rate is simply speed over
@@ -265,6 +275,17 @@ function vatRows(c, t) {
   return [c.row + i, c.row + i + 1, f - i];
 }
 
+/* Which baked set draws an entity. An evolved form wears its species' body
+   (an Alpha is `type: 'wolf'`, see applyForm), so the entity was built with the
+   wolf's proxy -- but once the Alpha has a baked model of its own, that is the
+   one to draw. Falls back to the species set when the form has none. */
+function vatSetOf(e) {
+  const a = e.anim;
+  if (!a || a.kind !== 'vat') return null;
+  if (e.formType && vatSets[e.formType]) return e.formType;
+  return a.species;
+}
+
 /* Per frame, after every entity has moved and before anything renders. */
 export function updateVat(dt) {
   if (!G.scene) return;
@@ -272,8 +293,7 @@ export function updateVat(dt) {
     const S = vatSets[name];
     let n = 0;
     for (const e of G.entities) {
-      const a = e.anim;
-      if (!a || a.kind !== 'vat' || a.species !== name) continue;
+      if (vatSetOf(e) !== name) continue;
       if (!e.mesh.parent || !e.mesh.visible) continue;
       n++;
     }
@@ -282,14 +302,17 @@ export function updateVat(dt) {
     const arr = S.attr.array;
     let k = 0;
     for (const e of G.entities) {
+      if (vatSetOf(e) !== name) continue;
       const a = e.anim;
-      if (!a || a.kind !== 'vat' || a.species !== name) continue;
       const g = e.mesh;
       if (!g.parent || !g.visible) continue;
       g.updateWorldMatrix(false, false);
       S.mesh.setMatrixAt(k, g.matrixWorld);
+      /* The stand-in tint only applies while a form is borrowing its species'
+         model. A form with its own bake is already dressed; tinting it again
+         would only muddy the colours the model was painted with. */
       const tint = e.def && e.def.formTint;
-      if (tint !== undefined) S.mesh.setColorAt(k, _vatTint.setHex(tint));
+      if (tint !== undefined && name !== e.formType) S.mesh.setColorAt(k, _vatTint.setHex(tint));
       else S.mesh.setColorAt(k, _vatTint.setRGB(1, 1, 1));
       const [clip, t] = vatPick(S, e, a, dt);
       /* `a.clip` is the GAIT memory (walk/run/idle) and deliberately survives a

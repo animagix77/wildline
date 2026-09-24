@@ -1,8 +1,8 @@
 {
  "version": 2,
- "species": "wolf",
- "vertexCount": 1627,
- "indexCount": 7002,
+ "species": "beaver",
+ "vertexCount": 1479,
+ "indexCount": 6126,
  "rows": 52,
  "clips": [
   {
@@ -16,23 +16,23 @@
    "name": "walk",
    "row": 10,
    "count": 12,
-   "seconds": 1.0,
+   "seconds": 0.8,
    "loop": true,
-   "groundSpeed": 1.902
+   "groundSpeed": 1.36
   },
   {
    "name": "run",
    "row": 22,
    "count": 10,
-   "seconds": 0.52,
+   "seconds": 0.4,
    "loop": true,
-   "groundSpeed": 8.871
+   "groundSpeed": 6.019
   },
   {
    "name": "bite",
    "row": 32,
    "count": 10,
-   "seconds": 0.38,
+   "seconds": 0.4,
    "loop": false
   },
   {
@@ -45,31 +45,31 @@
  ],
  "offsets": {
   "indices": 0,
-  "colors": 14004,
-  "rest": 20512,
-  "vat": 40036
+  "colors": 12252,
+  "rest": 18168,
+  "vat": 35916
  },
- "bytes": 378452,
+ "bytes": 343548,
  "positionFormat": "rgba8-delta",
  "range": [
-  0.225867,
-  1.177873,
-  1.367898
+  0.139642,
+  1.03043,
+  0.813163
  ],
  "bounds": {
   "min": [
-   -0.5094,
-   -0.1282,
-   -2.426
+   -0.5404,
+   -0.1424,
+   -1.8359
   ],
   "max": [
-   0.5256,
-   2.6337,
-   2.0789
+   0.5394,
+   1.9731,
+   1.7391
   ]
  },
- "hit": 0.3421,
- "source": "assets/src/wolf.blend",
+ "hit": 0.4,
+ "source": "assets/src/beaver.blend",
  "axes": "blender(x,y,z) -> game(x,z,-y); head on game +Z",
  "colorSpace": "srgb"
 }

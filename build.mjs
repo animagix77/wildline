@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -313,7 +314,9 @@ const sources = MODULES.map(file => {
         const species = name.slice(0, -5);
         return [species, {
           manifest: JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')),
-          bin: fs.readFileSync(path.join(dir, species + '.bin')).toString('base64'),
+          /* raw deflate: 8-bit frame offsets squeeze ~2.6x, taking the page from
+             ~9 MB to ~6 MB; vat.js inflates with the browser's DecompressionStream */
+          z: zlib.deflateRawSync(fs.readFileSync(path.join(dir, species + '.bin')), { level: 9 }).toString('base64'),
         }];
       })) : {};
     src = src.replace('export const EMBEDDED_VAT = null;', 'export const EMBEDDED_VAT = ' + JSON.stringify(embedded) + ';');

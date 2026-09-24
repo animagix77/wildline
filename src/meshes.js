@@ -1838,8 +1838,8 @@ export const BUILDERS = {
   // repeatedly spawned: built once, cloned thereafter
   /* baked Blender model when its VAT asset is loaded (see vat.js), procedural otherwise */
   wolf:   () => vatProxy('wolf') || cached('wolf', buildWolf),
-  boar:   () => cached('boar', buildBoar),
-  bear:   () => cached('bear', buildBear),
+  boar:   () => vatProxy('boar') || cached('boar', buildBoar),
+  bear:   () => vatProxy('bear') || cached('bear', buildBear),
   raven:  () => cached('raven', buildRaven),
   guard:  () => cached('guard', buildGuard),
   tech:   () => cached('tech', buildTech),
@@ -1851,8 +1851,8 @@ export const BUILDERS = {
   // one-offs, or (grove) needing genuinely per-instance materials
   depot: buildDepot, coolant: buildCoolant, core: buildCore, pump: buildPump,
   generator: buildGenerator, well: buildWell,
-  porcupine: () => cached('porcupine', buildPorcupine),
-  beaver: () => cached('beaver', buildBeaver),
-  capybara: () => cached('capybara', buildCapybara),
+  porcupine: () => vatProxy('porcupine') || cached('porcupine', buildPorcupine),
+  beaver: () => vatProxy('beaver') || cached('beaver', buildBeaver),
+  capybara: () => vatProxy('capybara') || cached('capybara', buildCapybara),
   wall: buildWall, hearttree: buildHeartTree, grove: buildGrove,
 };

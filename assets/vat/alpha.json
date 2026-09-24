@@ -1,8 +1,8 @@
 {
  "version": 2,
- "species": "wolf",
- "vertexCount": 1627,
- "indexCount": 7002,
+ "species": "alpha",
+ "vertexCount": 1819,
+ "indexCount": 7839,
  "rows": 52,
  "clips": [
   {
@@ -18,7 +18,7 @@
    "count": 12,
    "seconds": 1.0,
    "loop": true,
-   "groundSpeed": 1.902
+   "groundSpeed": 1.913
   },
   {
    "name": "run",
@@ -26,7 +26,7 @@
    "count": 10,
    "seconds": 0.52,
    "loop": true,
-   "groundSpeed": 8.871
+   "groundSpeed": 8.955
   },
   {
    "name": "bite",
@@ -45,31 +45,31 @@
  ],
  "offsets": {
   "indices": 0,
-  "colors": 14004,
-  "rest": 20512,
-  "vat": 40036
+  "colors": 15680,
+  "rest": 22956,
+  "vat": 44784
  },
- "bytes": 378452,
+ "bytes": 423136,
  "positionFormat": "rgba8-delta",
  "range": [
-  0.225867,
-  1.177873,
-  1.367898
+  0.238392,
+  1.193336,
+  1.380037
  ],
  "bounds": {
   "min": [
-   -0.5094,
-   -0.1282,
-   -2.426
+   -0.5431,
+   -0.1278,
+   -2.482
   ],
   "max": [
-   0.5256,
-   2.6337,
-   2.0789
+   0.5574,
+   2.7235,
+   2.0946
   ]
  },
  "hit": 0.3421,
- "source": "assets/src/wolf.blend",
+ "source": "assets/src/alpha.blend",
  "axes": "blender(x,y,z) -> game(x,z,-y); head on game +Z",
  "colorSpace": "srgb"
 }
