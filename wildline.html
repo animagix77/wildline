@@ -2234,11 +2234,26 @@ const DEFS = {
     armor: 3, vision: 27, cost: 20, build: 2.6, pop: 1, death: 'topple',
     blurb: 'Grey-backed and heavier. Three wolves running with an Alpha hit 12% harder, and an Alpha is the reason three wolves stay together.'
   },
+  /* POP 3 -> 2, COST 36 -> 32. At pop 3 the Ironhide was a strict DOWNGRADE
+     per pop slot: 55 hp and 5.9 dps per pop against the plain boar's 62 and
+     8.8, bought for 500 biomass. The Alpha, by contrast, is a straight upgrade
+     at the same pop 1. So the tier-III choice was an upgrade vs a sidegrade.
+     Measured, tuning seeds 1001-1008 x both maps, Warren/Den/Ironhide with a
+     boar-heavy army (the mirror of the wolf-heavy one the Alpha paths use),
+     old stages: pop 3  9/16, pop 2  11/16, pop 2 + dmg 26  13/16,
+     pop 2 + cost 30  15/16. On the new stages (see RULES.stages), pop 2
+     alone 9/16 and pop 2 + cost 32  13/16; 32 is the shipped compromise.
+     Tried and backed out: siege 2.2 (14/16 early, but a boar army that waited
+     for Hyperscale then won 14/16 -- the clad towers are exactly what siege
+     multiplies). The armour is the identity, not the siege. Also tried
+     armour 7 -> 6 as the brake on the 5:00 strike (seeds 1001-1012, both
+     maps): commit-5:00 went 23/24 -> 22/24, i.e. nothing, so the brake went
+     on the garrison's rifles instead (stage guardDmg: 23/24 -> 19/24). */
   ironhide: {
     name: 'Ironhide Boar', team: TEAM.WILD, icon: '🐗', key: 'X', form: 'boar', evolve: 'ironhide',
     formScale: 1.18, formTint: 0x8a6a58,
     hp: 165, dmg: 22, rate: 1.25, range: 2.9, speed: 7.4, radius: 1.4,
-    armor: 7, vision: 25, cost: 36, build: 4.2, pop: 3, siege: 1.4, death: 'topple',
+    armor: 7, vision: 25, cost: 32, build: 4.2, pop: 2, siege: 1.4, death: 'topple',
     blurb: 'Hide like a riveted plate. A rifle round does three damage. A turret does rather more.'
   },
 
@@ -2756,6 +2771,8 @@ const RULES = {
                    means the plant must be wrecked deeper before it warms
        turretDmg / turretSplash   multiples of the gun's (difficulty) damage
                    and splash radius -- splash is what punishes a massed blob
+       guardDmg    multiple of the guard's (difficulty) rifle damage -- armour
+                   is subtractive, so this is what reaches an armoured army
 
      Maps that carry a `construction` block (groundbreak, pourhouse) are
      authored AS a Stage I site: their own layout is the groundbreak state
@@ -2798,20 +2815,83 @@ const RULES = {
        swarm that waited to 8:00 with 110 animals still won 5/8. Doubling the
        towers' health, splash x1.8 (a massed blob is what it punishes) and a
        stage-local meltdownCool of 0.5 is what made waiting lose. */
+  /* --- Round 3: reward the EARLIEST strike ---------------------------------
+     WHAT WAS ACTUALLY BEATING THE EARLY STRIKE was the stage clock, not the
+     compound. In the re-measured suite every Mycelium/Thornwall/Alpha early
+     strike that LOST had committed at 3:44 or later (224-263s) and fought
+     straight through the 4:00 transition: Operational's coolHp poured ~270hp
+     into every standing tower mid-hold and the heat stalled at 0.53-0.82.
+     The wins had mostly committed by ~3:30. Meanwhile a 5:00 strike walked
+     into a finished Operational site with half again the army (96 vs 70
+     units) and won 30/32. So "wait" beat "go" by construction.
+
+     Four changes, each against a measurement (tuning seeds 1001-1008, both
+     maps, path-native armies -- see the Evolve note):
+       Operational 4:00 -> 4:30. The early strike now finishes before the
+         stage lands. Alone (hold rule on, see below): early 12/16 -> 15/16.
+         Tried 4:45 too: early unchanged, commit-5:00 13/16 vs 10/16 at 4:30.
+       ...and a HEAVIER Operational, because a 5:00 strike now meets it fresh:
+         garrison 1.4 -> 1.8, coolHp 1.6 -> 2.0, turretDmg 1.15 -> 1.3.
+         Commit-5:00 14/16 -> 9/16 with the early strike untouched (15/16)
+         (measured with the since-removed hold rule on; it cannot reach a
+         strike that commits after the stage has landed).
+         guardDmg 1.25 (new field: the garrison is issued real rifles) is
+         the brake on the ARMOURED 5:00 strike: a Warren/Den/Ironhide army
+         shrugged off the Operational garrison (rifle 10 - armour 7 = 3) and
+         won commit-5:00 23/24 (seeds 1001-1012); at 1.25 it wins 19/24.
+       Groundbreak turretDmg 1.2 (new). The later Operational softened the
+         opening for everyone, including the no-Evolve rush: n-early 9/16 ->
+         7/16 with the three Evolve paths measured still 14-15/16.
+       Hyperscale guardDmg 2.2 (new). Same armour problem, worse: the boar
+         army that waited to 8:00 won 5/24 tuning (1001-1012) at 1.6 -- and
+         12/32 on held-out seeds, which is what sent this back to tuning;
+         at 2.2 (with Operational 1.25) it wins 1/24 tuning.
+
+     Tried and backed out:
+       "No commissioning while the plant is failing": the stage clock froze
+         while cooling was below 0.9, up to 90s. It did help the early strike
+         (12/16 vs 10/16), but a Forward Den army skirmishing near the fence
+         chipped the towers pre-commit and froze Operational for up to 90s,
+         so Hyperscale never landed and Den/Ironhide won commit-8:00 14/16.
+         Keyed off Core HEAT instead of tower damage it bought one seed in
+         sixteen (10/16 vs 9/16) -- not worth a rule. Removed.
+       Groundbreak garrison 1.4: Mycelium/Thornwall/Alpha early 15 -> 10/16
+         and the no-Evolve rush 7 -> 10/16 -- backwards on both goals.
+       Groundbreak turrets 1.0 (no pads): every Evolve path 12-14/16 and
+         no-Evolve 3/16, a fine table, but it deletes the pads that tell the
+         player to strike before they pour. Kept 0.83.
+
+     AS SHIPPED, round 3. 48 seeds per row that were never tuned on: held-out
+     3001-3008, fresh 5001-5008 and never-before-run 7001-7008, both maps
+     (tuning 1001-1008 in brackets, /16):
+                                         verdant   mirefen   all         was
+       Myc/Thornwall/Alpha  commit ~3:40  18/24     20/24    38/48 [15]  23/32
+                            commit 5:00   14/24      2/24    16/48  [7]  30/32
+                            commit 8:00    0/24      0/24     0/48  [0]   0/32
+       Warren/Den/Ironhide  commit ~3:40  20/24     24/24    44/48 [14]  15/32
+                            commit 5:00   18/24     19/24    37/48 [12]     --
+                            commit 8:00    2/24      0/24     2/48  [0]   5/32
+       G1 true passive: 0/64 wins, dies 6:47-6:50 on every seed (was 6:50-6:53).
+       G2 all-in, nobody home: 0/64 wins, dies 3:57-5:28, peak heat 0.27.
+     Early now beats 5:00 on both branches, and 8:00 still loses. The 5:00
+     line is map-lopsided on the Alpha branch (mirefen 2/24 vs verdant
+     14/24); why mirefen punishes a waiting wolf army that hard is NOT
+     measured yet. ("was" = the previous build, 32 seeds tuning + held-out,
+     the Warren/Den/Ironhide rows on the old standard army.) */
   stageNotice:    30,       // seconds of warning before a stage completes
   stages: [
     { id: 'groundbreak', name: 'Groundbreak',
-      turrets: 0.83, garrison: 1.25, popCap: 1.0, spawnEvery: 1.0 },
-    { id: 'operational', name: 'Operational', at: 240,
-      turrets: 1.0, garrison: 1.4, popCap: 1.3, spawnEvery: 0.85, works: ['pump', 'turret'],
-      coolArmor: 1, coolHp: 1.6, turretDmg: 1.15,
+      turrets: 0.83, garrison: 1.25, popCap: 1.0, spawnEvery: 1.0, turretDmg: 1.2 },
+    { id: 'operational', name: 'Operational', at: 270,
+      turrets: 1.0, garrison: 1.8, popCap: 1.3, spawnEvery: 0.85, works: ['pump', 'turret'],
+      coolArmor: 1, coolHp: 2.0, turretDmg: 1.3, guardDmg: 1.25,
       notice: 'SITE NOTICE — the campus goes OPERATIONAL: the scaffolded guns pour, the garrison fills out and the coolant towers are reinforced',
-      done:   'THE SITE IS OPERATIONAL — every gun is live, a new one faces the valley, the towers are reinforced and a second intake is drawing' },
+      done:   'THE SITE IS OPERATIONAL — every gun is live, a new one faces the valley, the guards are re-armed, the towers are reinforced and a second intake is drawing' },
     { id: 'hyperscale', name: 'Hyperscale', at: 450,
       turrets: 1.0, garrison: 2.0, popCap: 2.0, spawnEvery: 0.6, works: ['turret', 'turret', 'turret'],
-      coolArmor: 3, coolHp: 2.5, meltdownCool: 0.5, turretSplash: 1.8, turretDmg: 1.4,
+      coolArmor: 3, coolHp: 2.5, meltdownCool: 0.5, turretSplash: 1.8, turretDmg: 1.4, guardDmg: 2.2,
       notice: 'SITE NOTICE — HYPERSCALE expansion: three new guns, a bigger garrison, and armoured, redundant coolant towers',
-      done:   'HYPERSCALE — the towers are clad and doubled, three more guns face the valley, and the Core now needs deeper wrecking' },
+      done:   'HYPERSCALE — the towers are clad and doubled, three more guns face the valley, the guards carry armour-piercing rounds, and the Core now needs deeper wrecking' },
   ],
   /* Aggression buys time. Every structure the swarm levels pushes the NEXT
      stage back by this many seconds, capped per stage so that no amount of
@@ -2926,6 +3006,48 @@ const RULES = {
      bodies per pop. That
      is the first thing to look at next round, on FRESH seeds.
 
+     ROUND 3 -- IT WAS MOSTLY THE ARMY, and then the Ironhide itself.
+     The harness gave every Alpha path a wolf-heavy army and every other path
+     the standard boar/bear one, and committed at 90 fielded POP -- so an
+     Alpha path arrived with ~70 bodies and an Ironhide path with ~43. Split
+     apart on tuning seeds 1001-1008, both maps (x/16):
+       Warren/Thornwall/Alpha   wolf army 14   standard army  8
+       Warren/Den/Alpha         wolf army 10
+       Warren/Den/Ironhide      wolf army 10   standard army  8   boar army 8-9
+       Warren/Thornwall/Ironh.                 standard army  7
+       no Evolve                wolf army  5   standard army  9   boar army 2
+     With the army held fixed the tier-III pick barely mattered (Alpha 10 vs
+     Ironhide 10 on the same wolf army), because the standard army fields 3
+     boars in 12 and the Ironhide was pop 3 -- worse per pop slot than the
+     boar it replaced (see DEFS.ironhide). Two fixes, no nerf to the Alpha:
+       Ironhide pop 3 -> 2, cost 36 -> 32 (DEFS.ironhide).
+       Forward Den hatches 20% faster (denBuild 0.8): the den is dug nearer
+         the fight, so the litters come quicker as well as closer. Warren/Den
+         9/16 -> 12/16 on its own.
+     And the harness now plays each branch the way a player would: an Ironhide
+     path fields the MIRROR of the wolf army (a boar in every wolf slot).
+     With a boar army Den beats Thornwall (11 vs 8 on the tuning seeds) and
+     with a wolf army Thornwall beats Den (14 vs 10), so the branch is a real
+     pairing, not a trap: Den + Ironhide is the heavy siege that keeps coming,
+     Thornwall + Alpha the fast pack with a valley that holds while it is out.
+
+     AS SHIPPED, round 3, early strike at 90 pop, 48 seeds per path never
+     tuned on (held-out 3001-3008, fresh 5001-5008, never-run 7001-7008),
+     tuning 1001-1008 in brackets (/16), previous build's all-32 alongside:
+                                    verdant  mirefen  all          was
+       Warren / Den / Ironhide       20/24    24/24   44/48 [14]   15/32
+       Mycelium / Thornwall / Alpha  18/24    20/24   38/48 [15]   23/32
+       Mycelium / Den / Ironhide     21/24    23/24   44/48 [11]   15/32
+       Warren / Thornwall / Alpha    20/24    23/24   43/48 [15]   29/32
+       no Evolve at all               9/24     6/24   15/48  [7]   17/32
+     All four paths inside 13 points of each other (79-92%), every one of
+     them 48+ points clear of skipping Evolve. The Den/Ironhide path on the
+     OLD standard army (the previous harness) is now 24/32 on held-out +
+     never-run seeds (last round: 15/32 on tuning + held-out) -- so the fix
+     is not only the harness.
+     The early rate is higher than last round's 67%: the compound got easier
+     to rush and harder to wait out, on purpose (see RULES.stages, round 3).
+
      Deepen the Roots stays separate: it is capacity, this is character. */
   evolve: [
     { id: 'warren',    tier: 1, name: 'Warren',      cost: 200, key: '1',
@@ -2933,7 +3055,7 @@ const RULES = {
     { id: 'mycelium',  tier: 1, name: 'Mycelium',    cost: 200, key: '2',
       desc: 'Every animal that dies returns 35% of its cost to the Heart Tree' },
     { id: 'den',       tier: 2, name: 'Forward Den', cost: 350, key: '3',
-      desc: 'New animals hatch at your bloomed grove nearest the compound' },
+      desc: 'New animals hatch 20% faster, at your bloomed grove nearest the compound' },
     { id: 'thornwall', tier: 2, name: 'Thornwall',   cost: 350, key: '4',
       desc: 'Bloomed groves fling thorns at machines and take two-thirds longer to trample' },
     { id: 'alpha',     tier: 3, name: 'Alpha',       cost: 500, key: '5',
@@ -2952,7 +3074,7 @@ const RULES = {
   packRange:      10,       // Alpha: wolves within this of each other...
   packSize:       3,        // ...this many together (Alphas or not)...
   packDmg:        1.12,     // ...hit this much harder
-  denBuild:       1.0,      // Forward Den build-time multiplier (tried 1.2-1.3: see the Evolve note)
+  denBuild:       0.8,      // Forward Den build-time multiplier (tried 1.2-1.3 as a nerf; 0.8 now: see the Evolve note)
 
   spellCost:      40,
   spellCooldown:  26,
@@ -15276,7 +15398,7 @@ function worksFace(p) {
 
    G.stage.clock is SITE PROGRESS, not match time: it runs at one second per
    second and every structure the swarm levels takes RULES.stageDelay off it,
-   so "the next stage lands at 4:00" becomes "4:00 plus whatever you knock
+   so "the next stage lands at 4:30" becomes "4:30 plus whatever you knock
    down first". The HUD shows the live estimate.
 
    Legible in the world, not just in a toast: pads with scaffolding stand
@@ -15312,6 +15434,7 @@ function initStages() {
       popCap: RULES.machinePopCap, spawnEvery: DEFS.depot.spawnEvery,
       coolArmor: DEFS.coolant.armor, meltdownCool: RULES.meltdownCool,
       turretDmg: DEFS.turret.dmg, turretSplash: DEFS.turret.splash,
+      guardDmg: DEFS.guard.dmg,
     },
     hiredG: 0, hiredD: 0,
     /* A construction map authors its own Stage II: the timer and the guns. */
@@ -15343,6 +15466,7 @@ function applyStage(k) {
   RULES.meltdownCool = s.meltdownCool ?? b.meltdownCool;
   DEFS.turret.dmg = Math.round(b.turretDmg * (s.turretDmg ?? 1));
   DEFS.turret.splash = b.turretSplash * (s.turretSplash ?? 1);
+  DEFS.guard.dmg = Math.round(b.guardDmg * (s.guardDmg ?? 1));
   if (G.stage.crane) G.stage.crane.lamp.material = GLOW(STAGE_TINT[k] ?? 0xffffff);
 }
 

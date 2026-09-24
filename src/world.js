@@ -1089,7 +1089,7 @@ function worksFace(p) {
 
    G.stage.clock is SITE PROGRESS, not match time: it runs at one second per
    second and every structure the swarm levels takes RULES.stageDelay off it,
-   so "the next stage lands at 4:00" becomes "4:00 plus whatever you knock
+   so "the next stage lands at 4:30" becomes "4:30 plus whatever you knock
    down first". The HUD shows the live estimate.
 
    Legible in the world, not just in a toast: pads with scaffolding stand
@@ -1125,6 +1125,7 @@ function initStages() {
       popCap: RULES.machinePopCap, spawnEvery: DEFS.depot.spawnEvery,
       coolArmor: DEFS.coolant.armor, meltdownCool: RULES.meltdownCool,
       turretDmg: DEFS.turret.dmg, turretSplash: DEFS.turret.splash,
+      guardDmg: DEFS.guard.dmg,
     },
     hiredG: 0, hiredD: 0,
     /* A construction map authors its own Stage II: the timer and the guns. */
@@ -1156,6 +1157,7 @@ function applyStage(k) {
   RULES.meltdownCool = s.meltdownCool ?? b.meltdownCool;
   DEFS.turret.dmg = Math.round(b.turretDmg * (s.turretDmg ?? 1));
   DEFS.turret.splash = b.turretSplash * (s.turretSplash ?? 1);
+  DEFS.guard.dmg = Math.round(b.guardDmg * (s.guardDmg ?? 1));
   if (G.stage.crane) G.stage.crane.lamp.material = GLOW(STAGE_TINT[k] ?? 0xffffff);
 }
 
