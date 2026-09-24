@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { TEAM, DEFS, RULES, BUILDABLE } from './config.js';
-import { queueUnit, cancelQueue, resetRallySpiral, deepenRoots, rootsPrice, rootsMaxed } from './world.js';
+import { queueUnit, cancelQueue, resetRallySpiral, deepenRoots, rootsPrice, rootsMaxed, evolve, evolveStatus, rosterType, unitCost } from './world.js';
 import { makeFormation } from './tactics.js';
 import { terrainHeight } from './utils.js';
 import { castOvergrowth, overgrowthTargets } from './ai.js';
@@ -46,6 +46,7 @@ export function initInput(canvasEl, rtsCam) {
 
   initMinimap();
   initCards();
+  initEvolvePanel();
   initCommandPreview();
   document.querySelectorAll('[data-animal-preview]').forEach(button => {
     button.addEventListener('click', async () => {
@@ -410,6 +411,7 @@ function onKey(e) {
     if (pausedByPlayer) return setPaused(false);
     if (!document.getElementById('help').classList.contains('hidden')) return toggleHelp();
     if (G.mode !== 'normal') return setMode('normal');
+    if (!document.getElementById('evolve')?.hidden) return toggleEvolve(false);
     /* Escape cancels whatever is outstanding; with nothing left to cancel it
        means "get me out", which in a game is pause. */
     if (G.selection.length) return setSelection([]);
@@ -443,6 +445,7 @@ function onKey(e) {
     case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
     case 'KeyT': deepenRoots(); return;
+    case 'KeyU': toggleEvolve(); return;
   }
 
   const m = /^Digit([1-5])$/.exec(e.code);
@@ -562,37 +565,115 @@ function initMinimap() {
 }
 
 /* ------------------------------------------------------- command cards -- */
+/* A card shows whatever its slot currently BUILDS: after a tier III evolution
+   the Wolf slot builds Alpha Wolves, and the card has to say so. `type` is the
+   slot (the dock never grows); rosterType() is what it produces. */
+function paintCard(el, type) {
+  const form = rosterType(type);
+  const d = DEFS[form];
+  el.dataset.form = form;
+  const cost = unitCost(form);
+  el.dataset.cost = String(cost);
+  /* Population is the constraint that decides the late game — a Bear is four
+     Wolves you are not fielding — and it appeared nowhere in the UI.
+
+     Neither did the siege multiplier, which is the single biggest hidden
+     decision in the game: the win condition is a pile of armoured buildings,
+     and only three of the eight buildables hit them harder than they hit
+     flesh. A player could field a perfectly good army that was quietly bad at
+     the only thing that ends the match. Both numbers now sit on the card. */
+  const siege = d.siege || 1;
+  el.classList.toggle('evolved', form !== type);
+  el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${unitPortrait(type, d.icon)}</span>
+    <span class="nm">${d.name}</span>
+    <span class="unit-role">${d.role || UNIT_ROLES[type]}</span>
+    <span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${cost}<i class="pop">${d.pop || 1} pop</i>`
+    + (siege > 1 ? `<i class="siege" title="damage vs structures">×${siege}</i>` : '')
+    + `</span>`;
+  /* Structure DPS against the Server Core (armour 8) — the number that
+     actually decides whether a composition can finish the game. Flat armour is
+     why the multiplier alone understates the gap: it is the difference
+     between "slow" and "you will be here all night". */
+  const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
+  el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.armor} armour · ${d.pop || 1} pop · ${d.build}s`
+    + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
+  el.setAttribute('aria-label', `${d.name}, ${cost} biomass, ${d.pop || 1} population. ${d.blurb}`);
+}
+
+/* --------------------------------------------------------- evolve panel --
+   Opened with U or the Evolve button in the order strip, so the one-row dock
+   stays one row. Three tiers, two choices each; a bought choice closes its
+   twin for the match. Painted from evolveStatus() so the panel, the hotkeys
+   and the harness can never disagree about what is available. */
+function initEvolvePanel() {
+  const body = document.getElementById('evolvebody');
+  if (!body) return;
+  body.innerHTML = '';
+  for (const tier of [1, 2, 3]) {
+    const row = document.createElement('div');
+    row.className = 'evo-tier';
+    row.innerHTML = `<span class="evo-tn">${['I', 'II', 'III'][tier - 1]}</span>`;
+    for (const o of RULES.evolve.filter(x => x.tier === tier)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'evo-opt';
+      b.dataset.evo = o.id;
+      b.innerHTML = `<span class="evo-nm">${o.name}</span><span class="evo-cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${o.cost}</span><span class="evo-desc">${o.desc}</span>`;
+      b.addEventListener('click', () => {
+        if (G.phase !== 'playing' || G.paused || G.over) return;
+        if (evolve(o.id)) refreshEvolve();
+      });
+      row.appendChild(b);
+    }
+    body.appendChild(row);
+  }
+  refreshEvolve();
+}
+
+export function toggleEvolve(force) {
+  const p = document.getElementById('evolve');
+  if (!p) return;
+  const open = force !== undefined ? force : p.hidden;
+  p.hidden = !open;
+  const btn = document.getElementById('evolvebtn');
+  if (btn) btn.classList.toggle('active', open);
+  if (open) refreshEvolve();
+}
+
+/* Called from the HUD tick: availability moves with biomass. */
+export function refreshEvolve() {
+  let anyOpen = false;
+  for (const b of document.querySelectorAll('#evolvebody .evo-opt')) {
+    const o = RULES.evolve.find(x => x.id === b.dataset.evo);
+    const st = evolveStatus(o.id);
+    const afford = st === 'open' && G.biomass >= o.cost && G.heart && G.heart.alive;
+    if (afford) anyOpen = true;
+    b.dataset.state = st;
+    b.classList.toggle('afford', afford);
+    b.setAttribute('aria-disabled', String(!afford));
+    b.title = st === 'owned' ? `${o.name} — evolved` : st === 'closed' ? `${o.name} — the valley chose the other path`
+            : st === 'tier' ? `${o.name} — needs a tier ${o.tier - 1} evolution first` : `${o.name} — ${o.cost} biomass`;
+  }
+  /* The button glows when something can be bought, so the panel does not
+     need to be open to know it is worth opening. */
+  const btn = document.getElementById('evolvebtn');
+  if (btn) btn.classList.toggle('ready', anyOpen);
+  /* A tier III form changes what a dock slot builds; repaint that card. */
+  for (const c of document.querySelectorAll('#cards .card[data-type]')) {
+    const f = rosterType(c.dataset.type);
+    if (c.dataset.form !== f || c.dataset.cost !== String(unitCost(f))) paintCard(c, c.dataset.type);
+  }
+}
+
 function initCards() {
   const host = document.getElementById('cards');
   host.innerHTML = '';
   for (const type of BUILDABLE) {
-    const d = DEFS[type];
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'card';
     el.dataset.type = type;
-    /* Population is the constraint that decides the late game — a Bear is four
-       Wolves you are not fielding — and it appeared nowhere in the UI.
-
-       Neither did the siege multiplier, which is the single biggest hidden
-       decision in the game: the win condition is a pile of armoured buildings,
-       and only three of the eight buildables hit them harder than they hit
-       flesh. A player could field a perfectly good army that was quietly bad at
-       the only thing that ends the match. Both numbers now sit on the card. */
-    const siege = d.siege || 1;
-    el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${unitPortrait(type, d.icon)}</span>
-      <span class="nm">${d.name}</span>
-      <span class="unit-role">${UNIT_ROLES[type]}</span>
-      <span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${d.cost}<i class="pop">${d.pop || 1} pop</i>`
-      + (siege > 1 ? `<i class="siege" title="damage vs structures">×${siege}</i>` : '')
-      + `</span>`;
-    /* Structure DPS against the Server Core (armour 8) — the number that
-       actually decides whether a composition can finish the game. Flat armour is
-       why the multiplier alone understates the gap: it is the difference
-       between "slow" and "you will be here all night". */
-    const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`
-      + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
+    paintCard(el, type);
     /* Shift-click queues five. Filling a 96-pop army one press at a time is
        not a decision, it is typing. */
     el.addEventListener('click', ev => {
@@ -600,7 +681,6 @@ function initCards() {
       const n = ev.shiftKey ? 5 : 1;
       for (let i = 0; i < n; i++) if (!queueUnit(type)) break;
     });
-    el.setAttribute('aria-label', `${d.name}, ${d.cost} biomass, ${d.pop || 1} population. ${d.blurb}`);
     host.appendChild(el);
   }
   /* Deepen the Roots — the late game's second thing to buy. Sits at the end of
@@ -699,6 +779,7 @@ function initCommandPreview() {
     else if (cmd === 'attack') { if (commandable().length) setMode('attack'); }
     else if (cmd === 'water') sendToWater();
     else if (cmd === 'spell') enterSpellMode();
+    else if (cmd === 'evolve') toggleEvolve();
     else stanceOrder(cmd);
   });
 }
@@ -717,7 +798,7 @@ export function updateCommandPreview() {
   const hasUnits = commandable().length > 0;
   for (const btn of commandButtons) {
     const cmd = btn.dataset.command;
-    btn.disabled = !hasUnits && !['all', 'spell'].includes(cmd);
+    btn.disabled = !hasUnits && !['all', 'spell', 'evolve'].includes(cmd);
     btn.classList.toggle('active', (cmd === 'spell' && spell) || (cmd === 'attack' && attack));
   }
   if (!spell && !attack) return;

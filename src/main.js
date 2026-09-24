@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from './state.js';
-import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice, updateFinale } from './world.js';
+import { queueUnit, buildScene, populate, updateWorld, reapDead, deepenRoots, rootsPrice, updateFinale, evolve, evolveStatus, stageInfo } from './world.js';
 import { RTSCamera } from './camera.js';
 import { initGroundFX, updateGroundFX } from './ground-fx.js';
 import { initTacticalFX, updateTacticalFX, tacticalStats } from './tactical-fx.js';
@@ -208,7 +208,13 @@ function schedule() {
 
 if (HEADLESS) {
   // synchronous stepping so automated checks can fast-forward the simulation
-  window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) frame(last + ms, true); };
+  /* `last` starts at whatever performance.now() read at page load, and
+     (last + 33) - last is not exactly 33 in floating point -- the rounding
+     depends on the magnitude of `last`. So two runs of one seed stepped
+     different dt and drifted apart by the second minute (measured: seed 1001
+     ended 2:15 / 2:16 / 2:20 across four identical runs). Snapping `last` to
+     a whole millisecond makes every synthetic step exactly `ms`. */
+  window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) { last = Math.round(last); frame(last + ms, true); } };
   /* deterministic by default; opt back into real time to watch a run */
   window.__auto = (on = true) => { autoDrive = !!on; if (on) schedule(); return autoDrive; };
   window.__isPinned = () => !autoDrive;
@@ -236,7 +242,7 @@ if (HEADLESS) {
       G.spellReady = G.time + RULES.spellCooldown;
       return castOvergrowth({ x, z });
     },
-    deepenRoots, rootsPrice,
+    deepenRoots, rootsPrice, evolve, evolveStatus, stageInfo,
     /* The live tuning tables. Balance work needs an A/B on the SAME build —
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */
