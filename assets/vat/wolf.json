@@ -1,0 +1,68 @@
+{
+ "version": 1,
+ "species": "wolf",
+ "vertexCount": 1616,
+ "indexCount": 6858,
+ "rows": 70,
+ "clips": [
+  {
+   "name": "idle",
+   "row": 0,
+   "count": 16,
+   "seconds": 2.0,
+   "loop": true
+  },
+  {
+   "name": "walk",
+   "row": 16,
+   "count": 16,
+   "seconds": 1.0,
+   "loop": true,
+   "groundSpeed": 1.903
+  },
+  {
+   "name": "run",
+   "row": 32,
+   "count": 12,
+   "seconds": 0.52,
+   "loop": true,
+   "groundSpeed": 8.857
+  },
+  {
+   "name": "bite",
+   "row": 44,
+   "count": 12,
+   "seconds": 0.38,
+   "loop": false
+  },
+  {
+   "name": "death",
+   "row": 56,
+   "count": 14,
+   "seconds": 0.9,
+   "loop": false
+  }
+ ],
+ "offsets": {
+  "indices": 0,
+  "colors": 13716,
+  "vat": 20180
+ },
+ "bytes": 925140,
+ "bounds": {
+  "min": [
+   -0.5056,
+   -0.1258,
+   -2.427
+  ],
+  "max": [
+   0.5254,
+   2.4499,
+   2.0732
+  ]
+ },
+ "source": "assets/src/wolf.blend",
+ "axes": "blender(x,y,z) -> game(x,z,-y); head on game +Z",
+ "colorSpace": "srgb",
+ "positionFormat": "rgba16f, w=1"
+}

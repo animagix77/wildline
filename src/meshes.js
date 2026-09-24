@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { rand } from './utils.js';
 import { makeWaterMaterial } from './shaders.js';
+import { vatProxy } from './vat.js';
 
 /* =========================================================================
    Procedural low-poly meshes. No external assets — everything is boxes,
@@ -1835,7 +1836,8 @@ function cached(key, factory) {
 /* ------------------------------------------------------------------------ */
 export const BUILDERS = {
   // repeatedly spawned: built once, cloned thereafter
-  wolf:   () => cached('wolf', buildWolf),
+  /* baked Blender model when its VAT asset is loaded (see vat.js), procedural otherwise */
+  wolf:   () => vatProxy('wolf') || cached('wolf', buildWolf),
   boar:   () => cached('boar', buildBoar),
   bear:   () => cached('bear', buildBear),
   raven:  () => cached('raven', buildRaven),

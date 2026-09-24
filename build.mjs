@@ -43,6 +43,7 @@ const MODULES = [
   'src/ui.js',
   'src/score.js',
   'src/animal-samples.js',
+  'src/vat.js',
   'src/audio.js',
   'src/music.js',
   'src/shaders.js',
@@ -139,6 +140,25 @@ function aliasGuard() {
    import. Exported names are distinctive enough that this is precise in
    practice, and it is deliberately conservative — comments, strings, property
    accesses (`x.TEAM`) and object keys (`TEAM:`) are all stripped first. */
+/* The flat build keeps only files listed in MODULES and deletes every import
+   line. So `import { vatProxy } from './vat.js'` in a bundled file, with vat.js
+   NOT in MODULES, passed every other check -- the import exists, so the name is
+   not "missing" -- and shipped a ReferenceError the first time a wolf spawned.
+   Caught while wiring vat.js in. Every relative import must name a module that
+   is actually in the bundle. */
+function unbundledImportGuard() {
+  const listed = new Set(MODULES.map(f => path.normalize(f)));
+  const bad = [];
+  for (const f of MODULES) {
+    if (!exists(f)) continue;
+    for (const m of read(f).matchAll(/^\s*import\s[^;]*?from\s+['"](\.[^'"]+)['"]/gm)) {
+      const target = path.normalize(path.join(path.dirname(f), m[1]));
+      if (!listed.has(target)) bad.push(`  ${f}: imports ${m[1]} -> ${target}, which is not in MODULES`);
+    }
+  }
+  if (bad.length) throw new Error('imports from files the flat build does not include:\n' + bad.join('\n'));
+}
+
 function missingImportGuard() {
   const exportsOf = new Map();          // name -> module that exports it
   const bodies = new Map();
@@ -284,9 +304,24 @@ const sources = MODULES.map(file => {
         'data:audio/mpeg;base64,' + fs.readFileSync(path.join(ROOT, 'sounds', name)).toString('base64')]));
     src = src.replace('const EMBEDDED_ANIMAL_AUDIO = null;', 'const EMBEDDED_ANIMAL_AUDIO = ' + JSON.stringify(embedded) + ';');
   }
+  if (file === 'src/vat.js') {
+    /* Baked Blender animation (see vat.js). Inlined exactly like the recorded
+       audio above so wildline.html stays one self-contained file. */
+    const dir = path.join(ROOT, 'assets', 'vat');
+    const embedded = fs.existsSync(dir) ? Object.fromEntries(fs.readdirSync(dir)
+      .filter(name => name.endsWith('.json')).map(name => {
+        const species = name.slice(0, -5);
+        return [species, {
+          manifest: JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')),
+          bin: fs.readFileSync(path.join(dir, species + '.bin')).toString('base64'),
+        }];
+      })) : {};
+    src = src.replace('export const EMBEDDED_VAT = null;', 'export const EMBEDDED_VAT = ' + JSON.stringify(embedded) + ';');
+  }
   return { file, src: stripModuleSyntax(src, file) };
 });
 aliasGuard();
+unbundledImportGuard();
 missingImportGuard();
 const bindings = collisionGuard(sources);
 

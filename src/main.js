@@ -36,6 +36,7 @@ import { initPerf, perfFrame } from './perf.js';
    "updateMusic is not defined" on EVERY FRAME. Same class as the three earlier
    missing-import bugs in this project; the flattened bundle is not a check. */
 import { musicPlay, musicState, updateMusic, trackForMap } from './music.js';
+import { updateVat, vatStats } from './vat.js';
 
 const gameCanvas = document.getElementById('scene');
 window.G = G;                       // handy for tinkering from the console
@@ -242,7 +243,7 @@ if (HEADLESS) {
     RULES, spawn, DEFS,
     /* Art checks need to SEE the map: fog-of-war reads as a black screen in a
        screenshot, which has burned more than one visual verification. */
-    fogRevealAll, igniteNear,
+    fogRevealAll, igniteNear, vatStats,
   };
 }
 
@@ -329,6 +330,11 @@ function frame(now, manual) {
     if (hudAccum > 0.08) { hudAccum = 0; updateHUD(); }
   }
   perfFrame(dt);
+
+  /* Baked-animation units: copy every entity's transform into its species'
+     instance buffer and pick its frame. After all movement, before the water
+     mirror, so the reflection and the shadow pass see the same pose. */
+  updateVat(simDt);
 
   if ((framesPresented & 1) === 0) renderer.shadowMap.needsUpdate = true;
   renderWaterReflection(renderer, scene, camera);
