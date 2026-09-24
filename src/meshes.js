@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rand } from './utils.js';
+import { vrand } from './utils.js';
 import { makeWaterMaterial } from './shaders.js';
 import { vatProxy } from './vat.js';
 
@@ -340,7 +340,7 @@ export const buildRaven = () => {
     wings.push({ w, s: sx });
   }
 
-  g.userData.anim = { kind: 'bird', wings, body, hover: rand(0, 6.28) };
+  g.userData.anim = { kind: 'bird', wings, body, hover: vrand(0, 6.28) };
   return g;
 };
 
@@ -386,7 +386,7 @@ export const buildDrone = () => {
     body.add(r); rotors.push(r);
   }
 
-  g.userData.anim = { kind: 'drone', rotors, body, hover: rand(0, 6.28), muzzle: new THREE.Vector3(0, -0.34, 0.85) };
+  g.userData.anim = { kind: 'drone', rotors, body, hover: vrand(0, 6.28), muzzle: new THREE.Vector3(0, -0.34, 0.85) };
   return g;
 };
 
@@ -1120,12 +1120,12 @@ export const buildHeartTree = () => {
   /* mossy ring of standing stones, plus their wisps — two buffers, not twenty */
   const stones = [], wisps = [];
   for (let i = 0; i < 10; i++) {
-    const a = i * Math.PI * 2 / 10 + rand(-0.15, 0.15);
-    const h = rand(1.6, 3.2);
+    const a = i * Math.PI * 2 / 10 + vrand(-0.15, 0.15);
+    const h = vrand(1.6, 3.2);
     const x = Math.cos(a) * 10.5, z = Math.sin(a) * 10.5;
-    stones.push(part(boxGeo, 0x6f7468, rand(0.8, 1.4), h, rand(0.7, 1.2),
-      x, h / 2, z, 0, a + rand(-0.3, 0.3), rand(-0.12, 0.12)));
-    stones.push(pSphLo(MOSS, rand(0.5, 0.8), x, h, z, 0.25));       // moss cap
+    stones.push(part(boxGeo, 0x6f7468, vrand(0.8, 1.4), h, vrand(0.7, 1.2),
+      x, h / 2, z, 0, a + vrand(-0.3, 0.3), vrand(-0.12, 0.12)));
+    stones.push(pSphLo(MOSS, vrand(0.5, 0.8), x, h, z, 0.25));       // moss cap
     wisps.push(pSph(SPIRIT, 0.16, x, h + 0.3, z));
   }
   const stoneRing = mergeParts(stones, VC_MAT);
@@ -1171,11 +1171,11 @@ export const buildHeartTree = () => {
      tree is the player's base and should look lived-in and lit from below */
   const vineParts = [], lanternParts = [];
   for (let i = 0; i < 9; i++) {
-    const a = i * 0.7 + rand(-0.2, 0.2), d = rand(5.5, 8.5);
+    const a = i * 0.7 + vrand(-0.2, 0.2), d = vrand(5.5, 8.5);
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
-    const top = 16 + rand(-1, 1.5), len = rand(4, 7.5);
+    const top = 16 + vrand(-1, 1.5), len = vrand(4, 7.5);
     vineParts.push(pTaper(VINE, 0.06, 0.11, len, x, top - len / 2, z, 0, 0, 0, 5));
-    vineParts.push(pSphLo(LEAF_B, rand(0.4, 0.6), x + 0.2, top - len * 0.55, z, 0.35));
+    vineParts.push(pSphLo(LEAF_B, vrand(0.4, 0.6), x + 0.2, top - len * 0.55, z, 0.35));
     vineParts.push(pBox(BARK_D, 0.34, 0.16, 0.34, x, top - len + 0.1, z));
     lanternParts.push(pSphLo(LANTERN, 0.32, x, top - len - 0.25, z));
   }
@@ -1209,23 +1209,23 @@ export const buildHeartTree = () => {
   /* spirit-light points on the canopy skin, a child so they sway with it */
   const sparkParts = [];
   for (let i = 0; i < 14; i++) {
-    const a = rand(0, 6.28), e = rand(-0.3, 0.9), r = 9.6;
-    sparkParts.push(pSphLo(SPIRIT, rand(0.2, 0.34),
+    const a = vrand(0, 6.28), e = vrand(-0.3, 0.9), r = 9.6;
+    sparkParts.push(pSphLo(SPIRIT, vrand(0.2, 0.34),
       Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r + 1.5, Math.sin(a) * Math.cos(e) * r));
   }
   canopy.add(mergeParts(sparkParts, VC_GLOW));
 
   const moteParts = [];
   for (let i = 0; i < 12; i++) {
-    const a = rand(0, 6.28), d = rand(7, 13);
-    moteParts.push(pSph(MOTE, rand(0.14, 0.3), Math.cos(a) * d, rand(-4, 9), Math.sin(a) * d));
+    const a = vrand(0, 6.28), d = vrand(7, 13);
+    moteParts.push(pSph(MOTE, vrand(0.14, 0.3), Math.cos(a) * d, vrand(-4, 9), Math.sin(a) * d));
   }
   const motes = mergeParts(moteParts, VC_GLOW);
   motes.position.y = 18;
   g.add(motes);
 
   g.userData.anim = {
-    kind: 'tree', canopy, heart, motes, phase: rand(0, 6.28),
+    kind: 'tree', canopy, heart, motes, phase: vrand(0, 6.28),
     muzzle: new THREE.Vector3(0, 9, 0),
   };
   return g;
@@ -1240,17 +1240,17 @@ export const buildGrove = () => {
      from across the valley is the menhirs, everything else is texture. */
   const stones = [];
   for (let i = 0; i < 9; i++) {
-    const a = i * Math.PI * 2 / 9 + rand(-0.2, 0.2);
-    const sz = rand(0.5, 0.95);
+    const a = i * Math.PI * 2 / 9 + vrand(-0.2, 0.2);
+    const sz = vrand(0.5, 0.95);
     const x = Math.cos(a) * 3.4, z = Math.sin(a) * 3.4;
-    stones.push(part(sphGeo, STONE, sz, sz, sz, x, sz * 0.4, z, rand(0, 3), rand(0, 3), rand(0, 3)));
+    stones.push(part(sphGeo, STONE, sz, sz, sz, x, sz * 0.4, z, vrand(0, 3), vrand(0, 3), vrand(0, 3)));
     stones.push(pSphLo(MOSS, sz * 0.7, x, sz * 0.8, z, sz * 0.3));
   }
   const runes = [];
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2 + 0.4, h = 2.4 + (i % 2) * 0.6;
     const x = Math.cos(a) * 4.6, z = Math.sin(a) * 4.6;
-    stones.push(pRadial(STONE_D, 0.9, h, 0.55, 4.6, a, h / 2, rand(-0.08, 0.08)));
+    stones.push(pRadial(STONE_D, 0.9, h, 0.55, 4.6, a, h / 2, vrand(-0.08, 0.08)));
     stones.push(pRadial(STONE, 1.0, 0.3, 0.65, 4.6, a, h + 0.1));
     stones.push(pSphLo(MOSS, 0.7, x, 0.1, z, 0.2));
     /* three carved marks on the inward face, lit the grove's green */
@@ -1258,11 +1258,11 @@ export const buildGrove = () => {
       runes.push(pRadial(0x8bffa0, 0.22, 0.2, 0.06, 4.29, a, h * 0.3 + k * 0.5));
   }
   for (let i = 0; i < 6; i++) {
-    const a = rand(0, 6.28), d = rand(3.6, 4.8);
-    stones.push(pSphLo(MOSS, rand(0.6, 1.1), Math.cos(a) * d, 0.08, Math.sin(a) * d, 0.16));
+    const a = vrand(0, 6.28), d = vrand(3.6, 4.8);
+    stones.push(pSphLo(MOSS, vrand(0.6, 1.1), Math.cos(a) * d, 0.08, Math.sin(a) * d, 0.16));
   }
   for (let i = 0; i < 6; i++) {
-    const a = i * 1.05 + 0.3, d = rand(3.2, 4.2), h = rand(0.8, 1.3);
+    const a = i * 1.05 + 0.3, d = vrand(3.2, 4.2), h = vrand(0.8, 1.3);
     const x = Math.cos(a) * d, z = Math.sin(a) * d;
     stones.push(pTaper(STEM, 0.04, 0.06, h, x, h / 2, z, 0, 0, 0, 5));
     stones.push(pSphLo(i % 2 ? 0xe58ad0 : 0xf2d27a, 0.2, x, h + 0.1, z));
@@ -1282,9 +1282,9 @@ export const buildGrove = () => {
   bloom.visible = false;
   const stems = [], buds = [];
   for (let i = 0; i < 14; i++) {
-    const a = rand(0, 6.28), d = rand(1.0, 4.6), h = rand(1.2, 2.6), y = rand(0.6, 1.3);
+    const a = vrand(0, 6.28), d = vrand(1.0, 4.6), h = vrand(1.2, 2.6), y = vrand(0.6, 1.3);
     stems.push(pCyl(0x4f8f3a, 0.09, h, Math.cos(a) * d, y, Math.sin(a) * d));
-    buds.push(pSph(rand(0, 1) > 0.5 ? 0xffe27a : 0xd06ad0, 0.24,
+    buds.push(pSph(vrand(0, 1) > 0.5 ? 0xffe27a : 0xd06ad0, 0.24,
       Math.cos(a) * d, y + h * 0.5, Math.sin(a) * d));
   }
   bloom.add(mergeParts(stems, VC_MAT));
@@ -1354,7 +1354,7 @@ export const buildGrove = () => {
   beaconRing.renderOrder = 6;
   g.add(beaconRing);
 
-  g.userData.anim = { kind: 'grove', water, bloom, pillar, beaconRing, phase: rand(0, 6.28) };
+  g.userData.anim = { kind: 'grove', water, bloom, pillar, beaconRing, phase: vrand(0, 6.28) };
   return g;
 };
 
@@ -1454,23 +1454,23 @@ function treeGeometry(kind) {
 const TREE_SPECIES = {
   pine: {
     leaf: 0x2f5f2c, bark: 0x40331f, scale: [0.62, 1.15], canopyY: 6.7, trunkY: 2.2,
-    hsl: h => [h + rand(-0.05, 0.05), rand(0.3, 0.5), rand(0.16, 0.30)],
-    barkK: () => rand(0.82, 1.12),
+    hsl: h => [h + vrand(-0.05, 0.05), vrand(0.3, 0.5), vrand(0.16, 0.30)],
+    barkK: () => vrand(0.82, 1.12),
   },
   fir: {
     leaf: 0x27522f, bark: 0x3a2c22, scale: [0.7, 1.2], canopyY: 7.8, trunkY: 3.0,
-    hsl: h => [h + rand(-0.02, 0.06), rand(0.3, 0.45), rand(0.14, 0.24)],
-    barkK: () => rand(0.78, 1.05),
+    hsl: h => [h + vrand(-0.02, 0.06), vrand(0.3, 0.45), vrand(0.14, 0.24)],
+    barkK: () => vrand(0.78, 1.05),
   },
   broadleaf: {
     leaf: 0x3f6f34, bark: 0x5a4632, scale: [0.72, 1.12], canopyY: 5.8, trunkY: 2.0,
-    hsl: h => [h + rand(-0.06, 0.04), rand(0.38, 0.58), rand(0.2, 0.34)],
-    barkK: () => rand(0.9, 1.2),
+    hsl: h => [h + vrand(-0.06, 0.04), vrand(0.38, 0.58), vrand(0.2, 0.34)],
+    barkK: () => vrand(0.9, 1.2),
   },
   snag: {
     leaf: 0x6a6258, bark: 0x6a6258, scale: [0.8, 1.3], canopyY: 4.8, trunkY: 3.1,
-    hsl: () => [0.09, 0.08, rand(0.28, 0.4)],
-    barkK: () => rand(0.9, 1.25),
+    hsl: () => [0.09, 0.08, vrand(0.28, 0.4)],
+    barkK: () => vrand(0.9, 1.25),
   },
 };
 
@@ -1501,9 +1501,9 @@ function makeForestPair(kind, count, placeFn) {
     const p = placeFn();
     if (!p) continue;
     dummy.position.set(p.x, p.y, p.z);
-    dummy.rotation.y = rand(0, 6.28);
-    const s = rand(sp.scale[0], sp.scale[1]);
-    dummy.scale.set(s, s * rand(0.85, 1.3), s);
+    dummy.rotation.y = vrand(0, 6.28);
+    const s = vrand(sp.scale[0], sp.scale[1]);
+    dummy.scale.set(s, s * vrand(0.85, 1.3), s);
     dummy.updateMatrix();
     trunks.setMatrixAt(n, dummy.matrix);
     leaves.setMatrixAt(n, dummy.matrix);
@@ -1678,10 +1678,10 @@ export function makeScatter(geo, material, count, placeFn, scaleRange = [0.6, 1.
     const p = placeFn();
     if (!p) continue;
     d.position.set(p.x, p.y - (opts.sink || 0), p.z);
-    if (opts.upright) d.rotation.set(rand(-tilt, tilt), rand(0, 6.28), rand(-tilt, tilt));
-    else d.rotation.set(rand(0, 3), rand(0, 6.28), rand(0, 3));
-    const s = rand(scaleRange[0], scaleRange[1]);
-    d.scale.set(s, s * (opts.upright ? rand(0.85, 1.2) : rand(0.7, 1.2)), s);
+    if (opts.upright) d.rotation.set(vrand(-tilt, tilt), vrand(0, 6.28), vrand(-tilt, tilt));
+    else d.rotation.set(vrand(0, 3), vrand(0, 6.28), vrand(0, 3));
+    const s = vrand(scaleRange[0], scaleRange[1]);
+    d.scale.set(s, s * (opts.upright ? vrand(0.85, 1.2) : vrand(0.7, 1.2)), s);
     d.updateMatrix();
     im.setMatrixAt(n, d.matrix);
     if (opts.colorFn) im.setColorAt(n, opts.colorFn(n));
@@ -1814,8 +1814,8 @@ function remapAnim(tpl, clone, anim) {
     } else out[k] = v;
   }
   // per-instance phase, or every clone flaps and bobs in lockstep
-  if ('hover' in anim) out.hover = rand(0, 6.28);
-  if ('phase' in anim) out.phase = rand(0, 6.28);
+  if ('hover' in anim) out.hover = vrand(0, 6.28);
+  if ('phase' in anim) out.phase = vrand(0, 6.28);
   return out;
 }
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { GLOW } from './meshes.js';
-import { rand, terrainHeight, dist2D } from './utils.js';
+import { vrand, terrainHeight, dist2D } from './utils.js';
 import { SFX } from './audio.js';
 import { TEAM, RULES } from './config.js';
 import { addScore } from './score.js';
@@ -30,11 +30,11 @@ export function burst(pos, color, n = 8, power = 9, life = 0.55, size = 1) {
   for (let i = 0; i < n; i++) {
     const m = grab(color);
     m.position.copy(pos);
-    const s = size * rand(0.4, 1.1);
+    const s = size * vrand(0.4, 1.1);
     m.scale.setScalar(s);
     live.push({
-      m, life, t: life, grav: -22, spin: rand(-9, 9),
-      v: new THREE.Vector3(rand(-1, 1), rand(0.3, 1.4), rand(-1, 1)).normalize().multiplyScalar(power * rand(0.4, 1.2)),
+      m, life, t: life, grav: -22, spin: vrand(-9, 9),
+      v: new THREE.Vector3(vrand(-1, 1), vrand(0.3, 1.4), vrand(-1, 1)).normalize().multiplyScalar(power * vrand(0.4, 1.2)),
     });
   }
 }

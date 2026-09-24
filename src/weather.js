@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD } from './config.js';
-import { rand, terrainHeight } from './utils.js';
+import { vrand, terrainHeight } from './utils.js';
 import { toast } from './ui.js';
 
 /* =========================================================================
@@ -46,9 +46,9 @@ function buildWeather(scene, name = 'clear') {
     const pos = new Float32Array(n * 3);
     const seed = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      pos[i * 3] = rand(-BOX / 2, BOX / 2);
-      pos[i * 3 + 1] = rand(0, TOP);
-      pos[i * 3 + 2] = rand(-BOX / 2, BOX / 2);
+      pos[i * 3] = vrand(-BOX / 2, BOX / 2);
+      pos[i * 3 + 1] = vrand(0, TOP);
+      pos[i * 3 + 2] = vrand(-BOX / 2, BOX / 2);
       seed[i] = Math.random();
     }
     const geo = new THREE.BufferGeometry();
@@ -222,9 +222,9 @@ function buildMotes(scene, map) {
   const pos = new Float32Array(n * 3);
   const seed = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    pos[i * 3] = rand(-MOTE_BOX / 2, MOTE_BOX / 2);
-    pos[i * 3 + 1] = rand(0, MOTE_TOP);
-    pos[i * 3 + 2] = rand(-MOTE_BOX / 2, MOTE_BOX / 2);
+    pos[i * 3] = vrand(-MOTE_BOX / 2, MOTE_BOX / 2);
+    pos[i * 3 + 1] = vrand(0, MOTE_TOP);
+    pos[i * 3 + 2] = vrand(-MOTE_BOX / 2, MOTE_BOX / 2);
     seed[i] = Math.random();
   }
   const geo = new THREE.BufferGeometry();
@@ -358,10 +358,10 @@ function buildMist(scene, strength) {
   mist = new THREE.Group();
   for (let i = 0; i < 14; i++) {
     const m = new THREE.Mesh(geo, mat);
-    const x = rand(-WORLD / 2, WORLD / 2), z = rand(-WORLD / 2, WORLD / 2);
-    m.position.set(x, terrainHeight(x, z) + rand(2, 7), z);
+    const x = vrand(-WORLD / 2, WORLD / 2), z = vrand(-WORLD / 2, WORLD / 2);
+    m.position.set(x, terrainHeight(x, z) + vrand(2, 7), z);
     m.rotation.x = -Math.PI / 2.2;
-    m.scale.setScalar(rand(45, 90));
+    m.scale.setScalar(vrand(45, 90));
     m.renderOrder = 6;
     m.raycast = () => {};
     mist.add(m);

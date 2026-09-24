@@ -7,9 +7,43 @@ export const vh = () => Math.max(1, window.innerHeight || document.documentEleme
 
 export const clamp  = (v, a, b) => v < a ? a : v > b ? b : v;
 export const lerp   = (a, b, t) => a + (b - a) * t;
-export const rand   = (a, b) => a + Math.random() * (b - a);
+/* TWO RANDOM STREAMS, and which one you call matters.
+
+   `rand` / `randInt` / `pick` are the GAMEPLAY stream: spawn scatter, AI
+   rolls, patrol points, hatch angles -- anything that can change what happens
+   in a match. It is a private seeded generator that nothing else touches.
+
+   `vrand` / `vrandInt` / `vpick` are the VISUAL stream (Math.random): particles,
+   debris, blood, corpse physics, tree and prop placement, model builders.
+
+   Why it has to be split: three.js stamps a UUID on every object it creates, and
+   generateUUID() calls Math.random four times. So while gameplay shared
+   Math.random, every visual decision leaked into balance. MEASURED: spawning one
+   baked (VAT) wolf consumed 45 draws and one procedural boar 277, so swapping
+   the wolf's model for a better-looking one flipped a held-out seed set from 6/8
+   wins to 2/8 -- same rules, same seeds, a different stream. Bit-identical once
+   the swap was reverted (?vat=0). Every visual change in this project, the
+   modelling pass included, had been silently reshuffling every seeded match.
+
+   The gameplay stream is seeded from ?rseed= when present (harness runs) and
+   from Math.random otherwise (normal play is still random). */
+const _rseedQ = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('rseed') : null;
+let _simA = _rseedQ !== null ? ((+_rseedQ ^ 0x9E3779B9) >>> 0) : ((Math.random() * 4294967296) >>> 0);
+export function simRandom() {                          // mulberry32
+  _simA |= 0; _simA = (_simA + 0x6D2B79F5) | 0;
+  let t = Math.imul(_simA ^ (_simA >>> 15), 1 | _simA);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+export function seedSim(seed) { _simA = ((+seed ^ 0x9E3779B9) >>> 0); }
+
+export const rand   = (a, b) => a + simRandom() * (b - a);
 export const randInt= (a, b) => Math.floor(rand(a, b + 1));
-export const pick   = arr => arr[Math.floor(Math.random() * arr.length)];
+export const pick   = arr => arr[Math.floor(simRandom() * arr.length)];
+
+export const vrand   = (a, b) => a + Math.random() * (b - a);
+export const vrandInt= (a, b) => Math.floor(vrand(a, b + 1));
+export const vpick   = arr => arr[Math.floor(Math.random() * arr.length)];
 export const dist2D = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export function smoothstep(e0, e1, x) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD, HALF, BASE, COMPOUND, DEFS, RULES, TEAM } from './config.js';
-import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fbm, Grid } from './utils.js';
+import { terrainHeight, blight, insideCompound, rand, vrand, vrandInt, dist2D, clamp, fbm, Grid } from './utils.js';
 import { enableCanopyFade, M, GLOW, VC_MAT, makeForest, makeScatter, buildWall, buildGateGantry, box, cyl, sph, propBushGeo, propLogGeo, propStumpGeo, propMushroomGeo, propFlowerGeo, propLitterGeo } from './meshes.js';
 import { applyFogMask } from './fog.js';
 import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial, setAtmosphere, enableCanopySway } from './shaders.js';
@@ -146,9 +146,9 @@ function buildTerrain(scene) {
   // a dense band of trees ringing the map, purely scenic
   const [borderTrunks, borderLeaves] = makeForest(700, () => {
     for (let i = 0; i < 12; i++) {
-      const a = rand(0, 6.2832), d = rand(HALF + 3, HALF + 62);
+      const a = vrand(0, 6.2832), d = vrand(HALF + 3, HALF + 62);
       const x = Math.cos(a) * d, z = Math.sin(a) * d;
-      return { x, y: -6 + rand(0, 2), z };
+      return { x, y: -6 + vrand(0, 2), z };
     }
     return null;
   });
@@ -183,7 +183,7 @@ function buildTerrain(scene) {
 
 function freeSpot(minDistCompound = 6) {
   for (let tries = 0; tries < 30; tries++) {
-    const x = rand(-HALF + 6, HALF - 6), z = rand(-HALF + 6, HALF - 6);
+    const x = vrand(-HALF + 6, HALF - 6), z = vrand(-HALF + 6, HALF - 6);
     if (insideCompound(x, z, minDistCompound)) continue;
     if (Math.hypot(x - BASE.x, z - BASE.z) < 28) continue;
     let ok = true;
@@ -214,7 +214,7 @@ function buildProps(scene) {
      poisoned the soil. Snags and dead sticks live here and nothing green does. */
   const blightSpot = (minC = 3) => {
     for (let i = 0; i < 20; i++) {
-      const a = rand(0, 6.28), d = rand(COMPOUND.hw, COMPOUND.hw + 30);
+      const a = vrand(0, 6.28), d = vrand(COMPOUND.hw, COMPOUND.hw + 30);
       const x = COMPOUND.x + Math.cos(a) * d, z = COMPOUND.z + Math.sin(a) * d * 0.8;
       if (Math.abs(x) > HALF - 6 || Math.abs(z) > HALF - 6) continue;
       if (insideCompound(x, z, minC)) continue;
@@ -264,14 +264,14 @@ function buildProps(scene) {
     scene.add(makeScatter(
       new THREE.DodecahedronGeometry(1, 0), scenic(M(0x63645c, { rough: 1 })), 90,
       () => {
-        const i = Math.floor(rand(0, pts.length - 1));
+        const i = Math.floor(vrand(0, pts.length - 1));
         const a = pts[i], b = pts[i + 1];
-        const t = rand(0, 1);
+        const t = vrand(0, 1);
         const x0 = a.x + (b.x - a.x) * t, z0 = a.z + (b.z - a.z) * t;
         let nx = -(b.z - a.z), nz = (b.x - a.x);
         const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
-        const side = rand(0, 1) > 0.5 ? 1 : -1;
-        const d = 6.4 + rand(0.2, 2.6);          // just past the widest bank
+        const side = vrand(0, 1) > 0.5 ? 1 : -1;
+        const d = 6.4 + vrand(0.2, 2.6);          // just past the widest bank
         const x = x0 + nx * d * side, z = z0 + nz * d * side;
         if (insideCompound(x, z, 4)) return null;
         return { x, y: terrainHeight(x, z) - 0.25, z };
@@ -299,7 +299,7 @@ function buildProps(scene) {
      ones whose colour is the map's (bushes, litter, petals). Small things
      skip the shadow pass: a mushroom's shadow is a pixel nobody sees. */
   const vc = () => scenic(VC_MAT);
-  const green = (l0, l1) => () => new THREE.Color().setHSL(hue + rand(-0.04, 0.04), rand(0.35, 0.55), rand(l0, l1));
+  const green = (l0, l1) => () => new THREE.Color().setHSL(hue + vrand(-0.04, 0.04), vrand(0.35, 0.55), vrand(l0, l1));
   scene.add(makeScatter(propBushGeo(), vc(), winter ? 120 : 260, () => freeSpot(5),
     [0.7, 1.5], { upright: true, colorFn: green(0.18, 0.32) }));
   scene.add(makeScatter(propLogGeo(), vc(), 70, () => freeSpot(6), [0.8, 1.4],
@@ -313,24 +313,24 @@ function buildProps(scene) {
   if (spring || /summer/.test(season)) {
     const petals = spring ? [0xf2f2f2, 0xf5c7e0, 0xffe27a, 0xb9a6ff] : [0xffe27a, 0xf2a25a, 0xf2f2f2];
     scene.add(makeScatter(propFlowerGeo(), vc(), spring ? 260 : 140, () => freeSpot(5), [0.7, 1.3],
-      { upright: true, tilt: 0.1, shadow: false, colorFn: () => new THREE.Color(petals[randInt(0, petals.length - 1)]) }));
+      { upright: true, tilt: 0.1, shadow: false, colorFn: () => new THREE.Color(petals[vrandInt(0, petals.length - 1)]) }));
   }
   if (autumn) {
     scene.add(makeScatter(propLitterGeo(), vc(), 200, () => freeSpot(4), [1.0, 2.2], {
       upright: true, tilt: 0.02, shadow: false,
-      colorFn: () => new THREE.Color().setHSL(hue + rand(-0.03, 0.05), rand(0.5, 0.7), rand(0.22, 0.34)),
+      colorFn: () => new THREE.Color().setHSL(hue + vrand(-0.03, 0.05), vrand(0.5, 0.7), vrand(0.22, 0.34)),
     }));
   }
 
   // yard clutter inside the compound: containers + pipe runs
   const yard = new THREE.Group();
   for (let i = 0; i < 16; i++) {
-    const x = COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8);
-    const z = COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8);
+    const x = COMPOUND.x + vrand(-COMPOUND.hw + 8, COMPOUND.hw - 8);
+    const z = COMPOUND.z + vrand(-COMPOUND.hd + 8, COMPOUND.hd - 8);
     if (Math.hypot(x - 58, z + 50) < 20) continue;
-    const b = box(scenic(M([0x394048, 0x4a4038, 0x2f3a42][randInt(0, 2)], { metal: 0.4, rough: 0.6 })),
-      rand(5, 9), 2.8, 2.6, x, terrainHeight(x, z) + 1.4, z);
-    b.rotation.y = rand(0, 6.28);
+    const b = box(scenic(M([0x394048, 0x4a4038, 0x2f3a42][vrandInt(0, 2)], { metal: 0.4, rough: 0.6 })),
+      vrand(5, 9), 2.8, 2.6, x, terrainHeight(x, z) + 1.4, z);
+    b.rotation.y = vrand(0, 6.28);
     yard.add(b);
   }
   for (let i = 0; i < 5; i++) {

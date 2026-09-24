@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G, addEntity } from './state.js';
 import { DEFS, TEAM, RULES } from './config.js';
 import { BUILDERS, GLOW } from './meshes.js';
-import { terrainHeight, clamp, dist2D, rand } from './utils.js';
+import { terrainHeight, clamp, dist2D, vrand } from './utils.js';
 import { fireProjectile, applyDamage, burst, bringOnline } from './combat.js';
 import { lakeAt } from './water.js';
 import { muzzleFlash, burnTick, dustPuff, deathTrail, explode, ripple, bloodDrip, threatMark } from './vfx.js';
@@ -113,7 +113,7 @@ export class Entity {
     this.lastPos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
     this.selected = false;
-    this.animT = rand(0, 100);
+    this.animT = vrand(0, 100);
     this.gaitPhase = this.animT;
     this.lastHitAt = -99;
 
@@ -892,11 +892,11 @@ export class Entity {
   bleed(dt) {
     if (this.isBuilding || this.def.mech || !this.alive) return;
     if (this.hp > this.maxHp * 0.34) return;
-    this._dripT = (this._dripT || rand(0, 0.6)) - dt;
+    this._dripT = (this._dripT || vrand(0, 0.6)) - dt;
     if (this._dripT > 0) return;
-    this._dripT = rand(0.35, 0.9);
+    this._dripT = vrand(0.35, 0.9);
     _v1.copy(this.pos); _v1.y += this.radius * 0.55;
-    _v1.x += rand(-0.3, 0.3); _v1.z += rand(-0.3, 0.3);
+    _v1.x += vrand(-0.3, 0.3); _v1.z += vrand(-0.3, 0.3);
     bloodDrip(_v1);
   }
 
@@ -1349,19 +1349,19 @@ export class Entity {
       side: Math.random() < 0.5 ? 1 : -1,
       rollVel: 0, pitchVel: 0, vy: 0,
       trail: 0,
-      hold: this.isBuilding ? 1.6 : rand(2.6, 3.6),
+      hold: this.isBuilding ? 1.6 : vrand(2.6, 3.6),
     };
     const c = this.corpse;
     if (style === 'topple') {
       // a nudge to break the balance; heavier things start slower
-      c.rollVel = c.side * rand(0.5, 1.1) / (0.5 + this.def.radius);
+      c.rollVel = c.side * vrand(0.5, 1.1) / (0.5 + this.def.radius);
       // a body already moving carries that momentum into the fall
       c.pitch = 0;
       c.leadVel = { x: this.vel.x * 0.35, z: this.vel.z * 0.35 };
     } else if (style === 'fall') {
-      c.vy = rand(0, 2);                       // a small kick before gravity wins
-      c.rollVel = rand(-4, 4);
-      c.pitchVel = rand(-3.5, 3.5);
+      c.vy = vrand(0, 2);                       // a small kick before gravity wins
+      c.rollVel = vrand(-4, 4);
+      c.pitchVel = vrand(-3.5, 3.5);
       c.leadVel = { x: this.vel.x * 0.55, z: this.vel.z * 0.55 };
     }
   }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { rainfall } from './weather.js';
-import { rand, terrainHeight, clamp } from './utils.js';
+import { vrand, terrainHeight, clamp } from './utils.js';
 import { postPunch } from './post.js';
 
 /* =========================================================================
@@ -134,7 +134,7 @@ function groundGlow(pos, r, color = 0xffb45a) {
   const m = alloc('glow', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
   m.material.color.set(color).multiplyScalar(2.4);
   m.material.opacity = 0.7;
-  m.rotation.set(-Math.PI / 2, 0, rand(0, 6.28));
+  m.rotation.set(-Math.PI / 2, 0, vrand(0, 6.28));
   m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.3, pos.z);
   m.scale.setScalar(r * 0.4);
   push({ kind: 'glow', m, life: 0.3, r });
@@ -155,10 +155,10 @@ function firePuff(pos, speed, size, nature) {
   const m = alloc('fire', puffGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
   m.material.opacity = 0.9;
   m.position.copy(pos);
-  m.scale.setScalar(size * rand(0.5, 0.8));
+  m.scale.setScalar(size * vrand(0.5, 0.8));
   push({
-    kind: 'fire', m, life: rand(0.45, 0.8), size, nature,
-    vel: new THREE.Vector3(rand(-1, 1), rand(0.5, 1.6), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.35, 1)),
+    kind: 'fire', m, life: vrand(0.45, 0.8), size, nature,
+    vel: new THREE.Vector3(vrand(-1, 1), vrand(0.5, 1.6), vrand(-1, 1)).normalize().multiplyScalar(speed * vrand(0.35, 1)),
   });
 }
 
@@ -166,38 +166,38 @@ function ember(pos, power, nature) {
   const m = alloc('ember', quadGeo, { blending: THREE.AdditiveBlending, toneMapped: false });
   m.material.color.setHex(nature ? 0x9dff6a : 0xffb050).multiplyScalar(2.6);
   m.material.opacity = 1;
-  m.position.copy(pos).add(new THREE.Vector3(rand(-1.5, 1.5), rand(0, 2), rand(-1.5, 1.5)));
-  m.scale.setScalar(rand(0.10, 0.24));
+  m.position.copy(pos).add(new THREE.Vector3(vrand(-1.5, 1.5), vrand(0, 2), vrand(-1.5, 1.5)));
+  m.scale.setScalar(vrand(0.10, 0.24));
   push({
-    kind: 'ember', m, life: rand(1.4, 2.8) + power * 0.4, phase: rand(0, 6.28),
-    vel: new THREE.Vector3(rand(-2.5, 2.5), rand(2, 5.5) * (0.5 + power * 0.3), rand(-2.5, 2.5)),
+    kind: 'ember', m, life: vrand(1.4, 2.8) + power * 0.4, phase: vrand(0, 6.28),
+    vel: new THREE.Vector3(vrand(-2.5, 2.5), vrand(2, 5.5) * (0.5 + power * 0.3), vrand(-2.5, 2.5)),
   });
 }
 
-function smokePuff(pos, size, delay = 0, life = rand(1.4, 2.4)) {
+function smokePuff(pos, size, delay = 0, life = vrand(1.4, 2.4)) {
   if (delay > 0) { scheduled.push({ at: vt + delay, fn: () => smokePuff(pos, size, 0, life) }); return; }
   const m = alloc('smoke', puffGeo, {});
-  m.material.color.setHex(0x17181b).offsetHSL(0, 0, rand(0, 0.05));
+  m.material.color.setHex(0x17181b).offsetHSL(0, 0, vrand(0, 0.05));
   m.material.opacity = 0.34;
-  m.position.copy(pos).add(new THREE.Vector3(rand(-1, 1), rand(0, 1.4), rand(-1, 1)));
-  m.scale.setScalar(size * rand(0.4, 0.7));
+  m.position.copy(pos).add(new THREE.Vector3(vrand(-1, 1), vrand(0, 1.4), vrand(-1, 1)));
+  m.scale.setScalar(size * vrand(0.4, 0.7));
   push({
     kind: 'smoke', m, life, size,
-    vel: new THREE.Vector3(rand(-0.7, 0.7), rand(1.6, 3.2), rand(-0.7, 0.7)),
+    vel: new THREE.Vector3(vrand(-0.7, 0.7), vrand(1.6, 3.2), vrand(-0.7, 0.7)),
   });
 }
 
 function debris(pos, n, power, color = 0x2c2f34) {
   for (let i = 0; i < n; i++) {
     const m = alloc('chunk', chunkGeo, { transparent: false });
-    m.material.color.set(color).offsetHSL(0, 0, rand(-0.05, 0.06));
+    m.material.color.set(color).offsetHSL(0, 0, vrand(-0.05, 0.06));
     m.position.copy(pos);
-    m.scale.setScalar(rand(0.16, 0.5) * (0.7 + power * 0.3));
+    m.scale.setScalar(vrand(0.16, 0.5) * (0.7 + power * 0.3));
     push({
-      kind: 'chunk', m, life: rand(0.9, 1.7),
-      vel: new THREE.Vector3(rand(-1, 1), rand(0.6, 1.8), rand(-1, 1)).normalize()
-        .multiplyScalar((7 + power * 5) * rand(0.4, 1.1)),
-      spin: rand(-11, 11),
+      kind: 'chunk', m, life: vrand(0.9, 1.7),
+      vel: new THREE.Vector3(vrand(-1, 1), vrand(0.6, 1.8), vrand(-1, 1)).normalize()
+        .multiplyScalar((7 + power * 5) * vrand(0.4, 1.1)),
+      spin: vrand(-11, 11),
     });
   }
 }
@@ -209,7 +209,7 @@ function fireJet(pos, h, r, nature) {
   m.position.set(pos.x, terrainHeight(pos.x, pos.z), pos.z);
   m.rotation.x = Math.PI;                       // cone opens downward → flame points up
   m.scale.set(r, 0.1, r);
-  push({ kind: 'jet', m, life: rand(0.7, 1.0), h, r });
+  push({ kind: 'jet', m, life: vrand(0.7, 1.0), h, r });
 }
 
 function scorch(pos, r) {
@@ -218,7 +218,7 @@ function scorch(pos, r) {
   m.material.opacity = 0.5;
   m.rotation.x = -Math.PI / 2;
   // tiny per-instance lift so overlapping scorches don't z-fight each other
-  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.2 + rand(0, 0.04), pos.z);
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.2 + vrand(0, 0.04), pos.z);
   m.scale.setScalar(r);
   push({ kind: 'scorch', m, life: 16 });
 }
@@ -229,18 +229,18 @@ export function dustPuff(pos, size = 1, n = 5) {
     const m = alloc('smoke', puffGeo, {});
     m.material.color.setHex(0x6b6355);
     m.material.opacity = 0.3;
-    m.position.set(pos.x + rand(-size, size), pos.y + rand(0, 0.4), pos.z + rand(-size, size));
-    m.scale.setScalar(size * rand(0.3, 0.6));
+    m.position.set(pos.x + vrand(-size, size), pos.y + vrand(0, 0.4), pos.z + vrand(-size, size));
+    m.scale.setScalar(size * vrand(0.3, 0.6));
     push({
-      kind: 'smoke', m, life: rand(0.5, 0.95), size: size * 0.9,
-      vel: new THREE.Vector3(rand(-1.4, 1.4), rand(0.5, 1.4), rand(-1.4, 1.4)),
+      kind: 'smoke', m, life: vrand(0.5, 0.95), size: size * 0.9,
+      vel: new THREE.Vector3(vrand(-1.4, 1.4), vrand(0.5, 1.4), vrand(-1.4, 1.4)),
     });
   }
 }
 
 /* Smoke bleeding off a machine that is on its way down. */
 export function deathTrail(pos, size = 0.8) {
-  smokePuff(pos, size, 0, rand(0.6, 1.1));
+  smokePuff(pos, size, 0, vrand(0.6, 1.1));
 }
 
 /* A wild creature's death releases a spirit mote instead of shrapnel. */
@@ -250,7 +250,7 @@ export function spiritWisp(pos) {
   m.material.opacity = 0.8;
   m.position.copy(pos);
   m.scale.setScalar(0.32);
-  push({ kind: 'wisp', m, life: 1.6, phase: rand(0, 6.28) });
+  push({ kind: 'wisp', m, life: 1.6, phase: vrand(0, 6.28) });
 }
 
 /* Expanding water ring — a drink, or anything that disturbs a surface. */
@@ -282,18 +282,18 @@ export function bloodSpray(pos, dirX = 0, dirZ = 0, amount = 1) {
     m.material.color.setHex(BLOOD[(Math.random() * BLOOD.length) | 0]);
     m.material.opacity = 0.95;
     m.position.copy(pos);
-    const sz = rand(0.10, 0.26) * (0.7 + amount * 0.4);
+    const sz = vrand(0.10, 0.26) * (0.7 + amount * 0.4);
     m.scale.set(sz, sz, sz);
     /* thrown along the blow, with spread — the direction the hit came FROM is
        already tracked on the victim for knockback, so the spray agrees with it */
     const spread = 1.5;
     push({
-      kind: 'blood', m, life: rand(0.5, 1.1), settled: false,
+      kind: 'blood', m, life: vrand(0.5, 1.1), settled: false,
       vel: new THREE.Vector3(
-        dirX * rand(2, 6) + rand(-spread, spread),
-        rand(2.5, 6),
-        dirZ * rand(2, 6) + rand(-spread, spread)),
-      spin: rand(-9, 9),
+        dirX * vrand(2, 6) + vrand(-spread, spread),
+        vrand(2.5, 6),
+        dirZ * vrand(2, 6) + vrand(-spread, spread)),
+      spin: vrand(-9, 9),
     });
   }
 }
@@ -304,7 +304,7 @@ export function bloodPool(pos, r = 1.4) {
   m.material.color.setHex(0x5e0d13);
   m.material.opacity = 0;
   m.rotation.x = -Math.PI / 2;
-  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.16 + rand(0, 0.04), pos.z);
+  m.position.set(pos.x, terrainHeight(pos.x, pos.z) + 0.16 + vrand(0, 0.04), pos.z);
   m.scale.setScalar(r * 0.35);
   push({ kind: 'blood-pool', m, life: 22, r });
 }
@@ -315,11 +315,11 @@ export function bloodDrip(pos) {
   m.material.color.setHex(BLOOD[0]);
   m.material.opacity = 0.9;
   m.position.copy(pos);
-  const sz = rand(0.08, 0.15);
+  const sz = vrand(0.08, 0.15);
   m.scale.set(sz, sz, sz);
-  push({ kind: 'blood', m, life: rand(0.7, 1.3), settled: false,
-    vel: new THREE.Vector3(rand(-0.5, 0.5), rand(0.4, 1.4), rand(-0.5, 0.5)),
-    spin: rand(-4, 4) });
+  push({ kind: 'blood', m, life: vrand(0.7, 1.3), settled: false,
+    vel: new THREE.Vector3(vrand(-0.5, 0.5), vrand(0.4, 1.4), vrand(-0.5, 0.5)),
+    spin: vrand(-4, 4) });
 }
 
 /* ------------------------------------------------------------ headline --- */
@@ -345,7 +345,7 @@ export function explode(pos, power = 1, { nature = false, fire = true } = {}) {
     if (p >= 1.6) fireJet(pos, 8 + p * 5, 1.2 + p * 0.8, nature);
   }
   const nS = Math.round(3 + p * 3);
-  for (let i = 0; i < nS; i++) smokePuff(pos, 1.2 + p * 1.1, rand(0.05, 0.45));
+  for (let i = 0; i < nS; i++) smokePuff(pos, 1.2 + p * 1.1, vrand(0.05, 0.45));
   const nE = Math.round(3 + p * 6);
   for (let i = 0; i < nE; i++) ember(pos, p, nature);
   debris(pos, Math.round(4 + p * 5), p, nature ? 0x3a4a2c : 0x2c2f34);
@@ -357,10 +357,10 @@ export function explode(pos, power = 1, { nature = false, fire = true } = {}) {
 /* The Server Core doesn't just pop — it cooks off. */
 export function chainExplosion(pos, radius, count, power, opts) {
   for (let i = 0; i < count; i++) {
-    const a = rand(0, 6.28), d = rand(0.2, 1) * radius;
+    const a = vrand(0, 6.28), d = vrand(0.2, 1) * radius;
     const p = pos.clone();
-    p.x += Math.cos(a) * d; p.z += Math.sin(a) * d; p.y += rand(0, 4);
-    scheduled.push({ at: vt + 0.18 + i * rand(0.16, 0.34), fn: () => explode(p, power * rand(0.6, 1), opts) });
+    p.x += Math.cos(a) * d; p.z += Math.sin(a) * d; p.y += vrand(0, 4);
+    scheduled.push({ at: vt + 0.18 + i * vrand(0.16, 0.34), fn: () => explode(p, power * vrand(0.6, 1), opts) });
   }
 }
 
@@ -381,8 +381,8 @@ export function muzzleFlash(pos, color = 0xffc85c) {
     m.material.color.set(color);
     m.material.opacity = 0.9;
     m.position.copy(pos);
-    m.rotation.set(rand(0, 3.14), rand(0, 3.14), rand(0, 3.14));
-    m.scale.set(rand(0.9, 1.5), rand(0.22, 0.38), 1);
+    m.rotation.set(vrand(0, 3.14), vrand(0, 3.14), vrand(0, 3.14));
+    m.scale.set(vrand(0.9, 1.5), vrand(0.22, 0.38), 1);
     push({ kind: 'muzzle', m, life: 0.12 });
   }
 }
@@ -410,11 +410,11 @@ export function burnTick(e, dt) {
   e._burnT = (e._burnT || 0) - dt;
   if (e._burnT > 0) return;
   const severity = 1 - f / 0.55;
-  e._burnT = rand(0.5, 1.0) / (0.5 + severity);
+  e._burnT = vrand(0.5, 1.0) / (0.5 + severity);
   const p = e.pos.clone();
   const r = e.def.radius * 0.7;
-  p.x += rand(-r, r); p.z += rand(-r, r); p.y += rand(1, e.def.radius);
-  smokePuff(p, 0.9 + severity * 1.4, 0, rand(1.8, 3));
+  p.x += vrand(-r, r); p.z += vrand(-r, r); p.y += vrand(1, e.def.radius);
+  smokePuff(p, 0.9 + severity * 1.4, 0, vrand(1.8, 3));
   if (f < 0.3) {
     firePuff(p, 1.2, 0.8 + severity, e.team === 'wild');
     if (Math.random() < 0.4) groundGlow(e.pos, e.def.radius * 1.2, 0xff8a3d);
@@ -481,8 +481,8 @@ function startFire(leaves, idx) {
     leaves, idx,
     x: P[idx * 3], y: P[idx * 3 + 1], z: P[idx * 3 + 2],
     canopyY, spread: 0.9 + _fs.x * 0.9,
-    life: rand(13, 21), t: 0,
-    puffT: 0, smokeT: 0, lightT: 0, spreadT: rand(2.5, 5),
+    life: vrand(13, 21), t: 0,
+    puffT: 0, smokeT: 0, lightT: 0, spreadT: vrand(2.5, 5),
     /* the canopy's own colour, so it can be tinted toward ember then char */
     c0: new THREE.Color().fromBufferAttribute(leaves.instanceColor, idx),
   });
@@ -498,7 +498,7 @@ function finishFire(f) {
   if (twin && twin.instanceColor) { twin.setColorAt(f.idx, CHAR_BARK); twin.instanceColor.needsUpdate = true; }
   /* one last collapse of smoke as the crown gives out */
   _fp.set(f.x, f.y + f.canopyY * 0.8, f.z);
-  for (let i = 0; i < 3; i++) smokePuff(_fp, 1.6, rand(0, 0.5), rand(2.5, 4));
+  for (let i = 0; i < 3; i++) smokePuff(_fp, 1.6, vrand(0, 0.5), vrand(2.5, 4));
 }
 
 function updateFires(dt) {
@@ -525,21 +525,21 @@ function updateFires(dt) {
     const cx = f.x, cz = f.z, cy = f.y + f.canopyY;
     f.puffT -= dt;
     if (f.puffT <= 0) {
-      f.puffT = rand(0.08, 0.2) / Math.max(0.2, heat);
-      _fp.set(cx + rand(-1.6, 1.6) * f.spread, cy + rand(-1.5, 1.2), cz + rand(-1.6, 1.6) * f.spread);
+      f.puffT = vrand(0.08, 0.2) / Math.max(0.2, heat);
+      _fp.set(cx + vrand(-1.6, 1.6) * f.spread, cy + vrand(-1.5, 1.2), cz + vrand(-1.6, 1.6) * f.spread);
       firePuff(_fp, 2.2 + heat * 2.5, 0.9 + heat * 1.3, false);
       if (Math.random() < 0.35 * heat) ember(_fp, 0.7 + heat, false);
     }
     f.smokeT -= dt;
     if (f.smokeT <= 0) {
-      f.smokeT = rand(0.25, 0.5);
-      _fp.set(cx + rand(-1, 1), cy + 1.5, cz + rand(-1, 1));
-      smokePuff(_fp, 1.1 + heat * 1.3, 0, rand(2, 3.4));
+      f.smokeT = vrand(0.25, 0.5);
+      _fp.set(cx + vrand(-1, 1), cy + 1.5, cz + vrand(-1, 1));
+      smokePuff(_fp, 1.1 + heat * 1.3, 0, vrand(2, 3.4));
     }
     /* flicker: short repeated borrows from the explosion light pool */
     f.lightT -= dt;
     if (f.lightT <= 0) {
-      f.lightT = rand(0.1, 0.18);
+      f.lightT = vrand(0.1, 0.18);
       _fp.set(cx, cy - 1, cz);
       flashLight(_fp, 0xff8c3a, (5 + Math.random() * 6) * heat, 0.22, 24 + heat * 10);
       if (Math.random() < 0.3) groundGlow(_fp.set(cx, f.y, cz), 3 + heat * 2.5, 0xff8a3d);
@@ -547,7 +547,7 @@ function updateFires(dt) {
     /* spread, rarely, and only while blazing */
     f.spreadT -= dt;
     if (f.spreadT <= 0) {
-      f.spreadT = rand(3, 6);
+      f.spreadT = vrand(3, 6);
       if (heat > 0.6 && fires.length < MAX_FIRES) igniteNear(_fp.set(cx, f.y, cz), 9, 0.35 * (1 - wet));
     }
   }
@@ -643,7 +643,7 @@ export function updateVFX(dt) {
           if (m.position.y <= gy) {
             /* it lands and becomes a splat: flat, still, and slightly wider */
             m.position.y = gy;
-            m.rotation.set(-Math.PI / 2, 0, rand(0, 6.28));
+            m.rotation.set(-Math.PI / 2, 0, vrand(0, 6.28));
             m.scale.x *= 1.7; m.scale.y *= 1.7;
             it.settled = true;
           }

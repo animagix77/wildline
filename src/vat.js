@@ -40,9 +40,7 @@ const VAT_SPECIES = ['wolf'];
 const VAT_ENABLED = !/[?&]vat=0\b/.test(typeof location !== 'undefined' ? location.search : '');
 
 const vatSets = {};              // species -> { manifest, geo, mat, depth, tex, mesh, attr, cap }
-const vatPending = {};           // species -> manifest+buffer waiting for a scene
-
-const _vatM = new THREE.Matrix4();
+const _vatTint = new THREE.Color();
 
 function vatB64(b64) {
   const s = atob(b64);
@@ -196,6 +194,16 @@ function vatEnsureMesh(S, need) {
   mesh.raycast = () => {};                     // picking goes through the proxies
   mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  /* Per-instance tint, created UP FRONT and white. Evolved forms (Alpha Wolf,
+     Ironhide Boar -- see applyForm in world.js) are dressed by multiplying a
+     tint into the unit's materials; a baked animal HAS no materials of its own
+     (its body is this shared buffer), so that tint would land on the invisible
+     pick proxy and nowhere else. The standard material multiplies instanceColor
+     into the vertex colour, which is the same product applyForm computes, so a
+     tinted Alpha reads identically on either renderer. Created now rather than
+     on first use so the shader compiles once, with instancing colour on. */
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3);
+  mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
   G.scene.add(mesh);
   S.mesh = mesh; S.attr = attr; S.cap = cap;
 }
@@ -280,6 +288,9 @@ export function updateVat(dt) {
       if (!g.parent || !g.visible) continue;
       g.updateWorldMatrix(false, false);
       S.mesh.setMatrixAt(k, g.matrixWorld);
+      const tint = e.def && e.def.formTint;
+      if (tint !== undefined) S.mesh.setColorAt(k, _vatTint.setHex(tint));
+      else S.mesh.setColorAt(k, _vatTint.setRGB(1, 1, 1));
       const [clip, t] = vatPick(S, e, a, dt);
       /* `a.clip` is the GAIT memory (walk/run/idle) and deliberately survives a
          bite, so the animal resumes mid-stride afterwards. What is actually on
@@ -291,6 +302,7 @@ export function updateVat(dt) {
     }
     S.mesh.count = k;
     S.mesh.instanceMatrix.needsUpdate = true;
+    S.mesh.instanceColor.needsUpdate = true;
     S.attr.needsUpdate = true;
   }
 }
