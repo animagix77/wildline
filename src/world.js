@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { WORLD, HALF, BASE, COMPOUND, DEFS, RULES, TEAM } from './config.js';
 import { terrainHeight, blight, insideCompound, rand, randInt, dist2D, clamp, fbm, Grid } from './utils.js';
-import { enableCanopyFade, M, GLOW, VC_MAT, makeForest, makeScatter, buildWall, buildGateGantry, box, cyl, propBushGeo, propLogGeo, propStumpGeo, propMushroomGeo, propFlowerGeo, propLitterGeo } from './meshes.js';
+import { enableCanopyFade, M, GLOW, VC_MAT, makeForest, makeScatter, buildWall, buildGateGantry, box, cyl, sph, propBushGeo, propLogGeo, propStumpGeo, propMushroomGeo, propFlowerGeo, propLitterGeo } from './meshes.js';
 import { applyFogMask } from './fog.js';
 import { makeTerrainMaterial, makeSkyDome, makeShieldMaterial, setAtmosphere, enableCanopySway } from './shaders.js';
 import { setPostGrade } from './post.js';
@@ -16,7 +16,7 @@ import { commsEvent } from './comms.js';
 import { recordResult, setPending, campState, bankSurvivors } from './campaign.js';
 import { SFX, animalVoice } from './audio.js';
 import { musicStop, musicStinger } from './music.js';
-import { ring, burst, kill } from './combat.js';
+import { ring, burst, kill, fireProjectile } from './combat.js';
 import { explode, chainExplosion, igniteNear } from './vfx.js';
 
 /* =========================================================================
@@ -472,7 +472,10 @@ export function populate() {
     return d;
   });
 
-  for (const [x, z] of TURRETS) {
+  /* Only the guns Stage I has finished stand at 0:00; the rest are pads that
+     pour when the campus goes operational. See RULES.stages. */
+  const standing = stageOpeningTurrets(TURRETS);
+  for (const [x, z] of standing) {
     const t = spawn('turret', x, z);
     G.obstacles.push(t);
   }
@@ -526,26 +529,29 @@ export function populate() {
     return w;
   });
 
-  /* A site caught mid-build finishes on a clock if you let it. */
-  const con = layout().construction;
-  if (con) {
-    G.construction = { time: con.time, left: con.time, def: con, done: false, warned: {} };
-  } else {
-    G.construction = null;
-  }
+  /* The site's stage clock, its pads, crane and the opening garrison. The
+     groundbreak maps' old `construction` timer and the old siteWorks list are
+     both folded into this one schedule -- see RULES.stages. The garrison is
+     sized by difficulty AND by the opening stage: a Groundbreak site has not
+     hired everybody yet. */
+  initStages();
+  const s0 = RULES.stages[0];
+  garrisonTo(s0.garrison);
+}
 
-  /* SITE WORKS. See RULES.siteWorks for the measurement that made these
-     necessary. A map that already carries a construction timer is already a
-     race against a building site, so it does not get a second one. */
-  G.works = con ? [] : (RULES.siteWorks || []).map(w => ({ def: w, noticed: false, built: false }));
-
-  // starting garrison — sized by difficulty, not hard-coded
-  for (let i = 0; i < RULES.garrisonGuards; i++) {
+/* Top the standing garrison up to `mult` x the difficulty's own numbers.
+   Counts what was already hired by previous stages rather than what is alive,
+   so killing guards is never "refunded" by a stage transition. */
+function garrisonTo(mult, extraGuards = 0) {
+  const st = G.stage;
+  const wantG = Math.round(st.base.guards * mult) + extraGuards;
+  const wantD = Math.round(st.base.drones * mult);
+  for (; st.hiredG < wantG; st.hiredG++) {
     const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(g);
   }
-  for (let i = 0; i < RULES.garrisonDrones; i++) {
+  for (; st.hiredD < wantD; st.hiredD++) {
     const d = spawn('drone', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
@@ -798,6 +804,7 @@ export function updateWorld(dt) {
     if (wild > 0 && machine === 0) dir = 1;
     else if (machine > 0 && wild === 0) {
       dir = -Math.min(1, RULES.decapBase + RULES.decapPerExtra * (machine - 1));
+      if (G.evo && G.evo.thornwall) dir *= RULES.thornDecap;      // Thornwall: the briars hold
     }
     if (dir > 0 && !g.owned && G.time < (g.dormantUntil || 0)) dir = 0;
     /* Being pushed off a grove is expensive and used to happen in near-silence.
@@ -956,32 +963,9 @@ export function updateWorld(dt) {
   G.powered = !G.generators || !G.generators.length
     || G.generators.some(g => g.alive);
 
-  /* --- construction clock --- */
-  if (G.construction && !G.construction.done) {
-    const c = G.construction;
-    c.left -= dt;
-    for (const mark of [0.5, 0.25]) {
-      if (c.left / c.time <= mark && !c.warned[mark]) {
-        c.warned[mark] = true;
-        toast(`Construction ${Math.round((1 - mark) * 100)}% complete`, 'warn');
-        commsEvent('build', 1);
-      }
-    }
-    if (c.left <= 0) {
-      c.done = true;
-      for (const [x, z] of (c.def.addTurrets || [])) G.obstacles.push(spawn('turret', x, z));
-      for (let i = 0; i < (c.def.addGarrison || 0); i++) {
-        const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
-                                 COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
-        assignPatrol(g);
-      }
-      SFX.alarm();
-      commsEvent('built', 1);
-      toast('THE SITE IS OPERATIONAL — defences online', 'warn');
-    }
-  }
-
-  updateSiteWorks();
+  /* --- the site's stage clock (see RULES.stages) --- */
+  updateStages(dt);
+  updateEvolve(dt);
 
   /* --- population --- */
   let pop = 0, mpop = 0;
@@ -997,7 +981,10 @@ export function updateWorld(dt) {
   function laneCount() {
     const fromGroves = 1 + Math.floor((G.bloomed || 0) / 2);
     const surge = (RULES.surgeLaneAt || []).filter(t => G.biomass >= t).length;
-    return Math.min(RULES.maxLanes || 3, Math.max(fromGroves, 1 + surge));
+    /* Warren lifts the ceiling AND the floor: one grove still builds two at a
+       time, which is the rebuild a broken economy could never afford. */
+    const w = evo().warren ? RULES.warrenLanes : 0;
+    return Math.min((RULES.maxLanes || 3) + w, Math.max(fromGroves + w, 1 + surge));
   }
 
   /* --- production queue -----------------------------------------------------
@@ -1021,7 +1008,12 @@ export function updateWorld(dt) {
       G.queue.splice(i, 1);
       if (!G.queue.length) rallyN = 0;      // batch finished; start the next one centred
       const a = rand(0, 6.28);
-      const e = spawn(item.type, BASE.x + Math.cos(a) * 11, BASE.z + Math.sin(a) * 11);
+      /* Evolved forms wear their species' body (see applyForm); Forward Den
+         moves the hatchery up to the front grove (see hatchPoint). */
+      const idef = DEFS[item.type];
+      const hp = hatchPoint();
+      const e = spawn(idef.form || item.type, hp.x + Math.cos(a) * hp.r, hp.z + Math.sin(a) * hp.r);
+      if (idef.form) applyForm(e, item.type);
       if (G.rally) e.setOrder('attackmove', rallySlot());
       if (!animalVoice(e, 'deploy')) SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
@@ -1091,27 +1083,161 @@ function worksFace(p) {
   return (ns + (ns && ew ? '-' : '') + ew) || 'central';
 }
 
-function updateSiteWorks() {
-  if (!G.works || !G.works.length || G.over || !G.core || !G.core.alive) return;
-  for (const w of G.works) {
-    if (w.built) continue;
-    const at = w.def.at;
-    if (!w.noticed && G.time >= at - RULES.worksNotice) {
-      w.noticed = true;
-      /* Pick the spot at NOTICE time and hold it, so the warning names the same
-         place the concrete lands. */
-      w.spot = worksSpot(w.def.kind);
-      if (!w.spot) { w.built = true; continue; }   // campus full: skip it quietly
-      const secs = Math.max(1, Math.round(at - G.time));
-      toast(`${w.def.notice} (${worksFace(w.spot)} quarter, ${secs}s)`, 'machine');
-      commsEvent('works', 1);
+/* =========================================================================
+   SITE STAGES — the campus grows on an announced clock, and the swarm can
+   slow it down. See RULES.stages for the measurement behind every field.
+
+   G.stage.clock is SITE PROGRESS, not match time: it runs at one second per
+   second and every structure the swarm levels takes RULES.stageDelay off it,
+   so "the next stage lands at 4:00" becomes "4:00 plus whatever you knock
+   down first". The HUD shows the live estimate.
+
+   Legible in the world, not just in a toast: pads with scaffolding stand
+   where the Stage II guns will pour, a tower crane over the Core carries a
+   beacon in the current stage's colour, and Hyperscale clads the coolant
+   towers in visible armour bands.
+   ========================================================================= */
+const STAGE_TINT = [0xffb648, 0x39d7ea, 0xff4b3a];   // amber, cyan, red
+const STAGE_KIND = ['depot', 'generator', 'pump', 'well', 'turret'];
+
+/* Which authored turrets stand at 0:00. The ones nearest the Heart Tree are
+   the approach face, and those are what a Groundbreak site has not finished:
+   a swarm that comes early meets a gun line with its front half on pads. A
+   map authored as a construction site already IS its groundbreak state. */
+function stageOpeningTurrets(list) {
+  const con = layout().construction;
+  const share = con ? 1 : (RULES.stages[0].turrets ?? 1);
+  const byReach = list.map(p => ({ p, d: Math.hypot(p[0] - BASE.x, p[1] - BASE.z) }))
+                      .sort((a, b) => b.d - a.d);          // farthest first
+  const keep = Math.max(1, Math.round(list.length * share));
+  G._stagePads = byReach.slice(keep).map(o => o.p);
+  return byReach.slice(0, keep).map(o => o.p);
+}
+
+function initStages() {
+  const con = layout().construction;
+  const S = RULES.stages;
+  const st = G.stage = {
+    i: 0, clock: 0, noticed: false, pushed: 0,
+    /* the difficulty's own numbers, captured once: a stage is a multiple */
+    base: {
+      guards: RULES.garrisonGuards, drones: RULES.garrisonDrones,
+      popCap: RULES.machinePopCap, spawnEvery: DEFS.depot.spawnEvery,
+      coolArmor: DEFS.coolant.armor, meltdownCool: RULES.meltdownCool,
+      turretDmg: DEFS.turret.dmg, turretSplash: DEFS.turret.splash,
+    },
+    hiredG: 0, hiredD: 0,
+    /* A construction map authors its own Stage II: the timer and the guns. */
+    at: S.map((s, k) => (k === 1 && con && con.time) ? con.time : (s.at || 0)),
+    extraGuards: (con && con.addGarrison) || 0,
+    pads: [], counts: stageCounts(),
+  };
+  const padSpots = (G._stagePads || []).concat(con ? (con.addTurrets || []) : []);
+  for (const [x, z] of padSpots) st.pads.push(makePad(x, z));
+  G._stagePads = null;
+  st.crane = makeCrane();
+  applyStage(0);
+}
+
+function stageCounts() {
+  const c = {};
+  for (const k of STAGE_KIND) c[k] = 0;
+  for (const o of G.entities) if (o.alive && o.team === TEAM.MACHINE && c[o.type] !== undefined) c[o.type]++;
+  return c;
+}
+
+/* The multipliers that are pure numbers. Garrison top-ups and new concrete
+   happen in advanceStage, once, because they spawn things. */
+function applyStage(k) {
+  const s = RULES.stages[k], b = G.stage.base;
+  RULES.machinePopCap = Math.max(4, Math.round(b.popCap * (s.popCap ?? 1)));
+  DEFS.depot.spawnEvery = b.spawnEvery * (s.spawnEvery ?? 1);
+  DEFS.coolant.armor = b.coolArmor + (s.coolArmor || 0);
+  RULES.meltdownCool = s.meltdownCool ?? b.meltdownCool;
+  DEFS.turret.dmg = Math.round(b.turretDmg * (s.turretDmg ?? 1));
+  DEFS.turret.splash = b.turretSplash * (s.turretSplash ?? 1);
+  if (G.stage.crane) G.stage.crane.lamp.material = GLOW(STAGE_TINT[k] ?? 0xffffff);
+}
+
+/* How long until the next stage, in seconds of site progress. */
+export function stageInfo() {
+  const st = G.stage;
+  if (!st) return null;
+  const S = RULES.stages;
+  const next = st.i + 1 < S.length ? S[st.i + 1] : null;
+  return { i: st.i, name: S[st.i].name, next: next ? next.name : null,
+           left: next ? Math.max(0, st.at[st.i + 1] - st.clock) : 0, pushed: st.pushed };
+}
+
+function updateStages(dt) {
+  const st = G.stage;
+  if (!st || G.over || !G.core || !G.core.alive) return;
+  const S = RULES.stages;
+
+  /* Setbacks: anything the swarm has levelled since last frame. Counted, not
+     hooked into onDeath, so every way a structure can die is caught once. */
+  const now = stageCounts();
+  for (const k of STAGE_KIND) {
+    const lost = st.counts[k] - now[k];
+    if (lost > 0 && st.i + 1 < S.length) {
+      const room = Math.max(0, RULES.stageDelayMax - st.pushed);
+      const d = Math.min(room, lost * ((RULES.stageDelay || {})[k] || 0));
+      if (d > 0) {
+        st.clock -= d; st.pushed += d;
+        toast(`Site delayed — ${S[st.i + 1].name} pushed back ${Math.round(d)}s`
+              + (room - d <= 0 ? ' (the contractor has no slack left)' : ''), 'machine');
+      }
     }
-    if (G.time < at) continue;
-    w.built = true;
-    if (!w.spot) continue;
-    const e = spawn(w.def.kind, w.spot.x, w.spot.z);
+  }
+  st.counts = now;
+
+  /* The crane keeps working while there is a next stage to build. */
+  if (st.crane) st.crane.jib.rotation.y += dt * 0.12;
+  for (const p of st.pads) p.ring.material.opacity = 0.35 + 0.25 * Math.sin(G.time * 3);
+
+  if (st.i + 1 >= S.length) return;
+  st.clock += dt;
+  const at = st.at[st.i + 1];
+  const next = S[st.i + 1];
+  if (!st.noticed && st.clock >= at - RULES.stageNotice) {
+    st.noticed = true;
+    const secs = Math.max(1, Math.round(at - st.clock));
+    toast(`${next.notice} (${secs}s — level a depot, generator or pump to delay it)`, 'machine');
+    commsEvent('works', 1);
+    SFX.alarm();
+  }
+  /* A setback can drag a noticed stage back out of its notice window; say it
+     again when it comes back round rather than going quiet. */
+  if (st.noticed && st.clock < at - RULES.stageNotice - 5) st.noticed = false;
+  if (st.clock >= at) advanceStage();
+}
+
+function advanceStage() {
+  const st = G.stage;
+  const S = RULES.stages;
+  const prev = S[st.i];
+  st.i++; st.noticed = false; st.pushed = 0;
+  const s = S[st.i];
+  applyStage(st.i);
+
+  /* Pads pour when a stage raises the turret share to full. */
+  if ((s.turrets ?? 1) > (prev.turrets ?? 1) || (st.i === 1 && st.pads.length)) {
+    for (const p of st.pads) {
+      G.scene.remove(p.group);
+      const t = spawn('turret', p.x, p.z);
+      G.obstacles.push(t);
+      ring(t.pos, STAGE_TINT[st.i], 14, 1.2);
+    }
+    st.pads.length = 0;
+  }
+  garrisonTo(s.garrison ?? 1, st.i >= 1 ? st.extraGuards : 0);
+
+  for (const kind of (s.works || [])) {
+    const spot = worksSpot(kind);
+    if (!spot) continue;                         // campus full: skip it quietly
+    const e = spawn(kind, spot.x, spot.z);
     G.obstacles.push(e);
-    if (w.def.kind === 'pump') {
+    if (kind === 'pump') {
       G.pumps.push(e);
       e.onDeath = () => {
         const left = G.pumps.filter(q => q.alive).length;
@@ -1120,11 +1246,111 @@ function updateSiteWorks() {
                    : 'The last pump is dead. The water is coming back.');
       };
     }
-    ring(e.pos, 0xffb648, 16, 1.2);
-    SFX.alarm();
-    commsEvent('built', 1);
-    toast(`${w.def.done}`, 'warn');
+    ring(e.pos, STAGE_TINT[st.i], 16, 1.2);
   }
+  if (s.coolArmor) for (const c of G.coolants) cladTower(c, st.i);
+  /* Cladding is also bulk: every tower's ceiling rises by the same absolute
+     amount, and a standing tower gets it as health (an offline one has to be
+     welded up to the new line like any other). */
+  if ((s.coolHp ?? 1) > (prev.coolHp ?? 1)) {
+    for (const c of G.coolants) {
+      const add = (c.baseHp || c.def.hp) * ((s.coolHp ?? 1) - (prev.coolHp ?? 1));
+      c.maxHp += add;
+      if (!c.downed && c.alive) c.hp += add;
+    }
+  }
+  st.counts = stageCounts();          // new concrete is not a setback
+
+  if (st.i + 1 >= RULES.stages.length && st.crane) {
+    /* The site is finished: the crane comes down. */
+    G.scene.remove(st.crane.group);
+    st.crane = null;
+  }
+  SFX.alarm();
+  commsEvent('built', 1);
+  toast(s.done, 'warn');
+}
+
+/* A foundation pad: concrete, four scaffold posts and a pulsing ring, so the
+   player can SEE where the Stage II guns will stand before they do. */
+function makePad(x, z) {
+  const g = new THREE.Group();
+  const y = terrainHeight(x, z);
+  g.position.set(x, y, z);
+  const sm = siteMats();
+  g.add(cyl(sm.concrete, 2.6, 0.5, 0, 0.25, 0));
+  const steel = sm.padSteel;
+  for (const [ox, oz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) g.add(box(steel, 0.22, 4.2, 0.22, ox, 2.3, oz));
+  g.add(box(steel, 3.6, 0.2, 0.2, 0, 4.3, -1.6));
+  g.add(box(steel, 3.6, 0.2, 0.2, 0, 4.3, 1.6));
+  g.add(box(steel, 0.2, 0.2, 3.6, -1.6, 4.3, 0));
+  g.add(box(steel, 0.2, 0.2, 3.6, 1.6, 4.3, 0));
+  const rg = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.8, 32), sm.ring);
+  rg.rotation.x = -Math.PI / 2; rg.position.y = 0.35;
+  g.add(rg);
+  G.scene.add(g);
+  return { x, z, group: g, ring: rg };
+}
+
+/* Site dressing is scenery, so it goes dark under unexplored fog exactly like
+   the props do (applyFogMask) -- cloned once, because M() materials are shared
+   with the rest of the compound. The crane's beacon is deliberately NOT masked:
+   it is the one thing about the site you can read from across the valley. */
+let _siteMats = null;
+function siteMats() {
+  if (_siteMats) return _siteMats;
+  const fm = m => applyFogMask(m.clone());
+  return (_siteMats = {
+    concrete: fm(M(0x8a8780)),
+    padSteel: fm(M(0xd08a2a, { metal: 0.4, rough: 0.6 })),
+    craneSteel: fm(M(0xe0a830, { metal: 0.3, rough: 0.6 })),
+    weight: fm(M(0x55524c)),
+    ring: applyFogMask(new THREE.MeshBasicMaterial({ color: STAGE_TINT[0], transparent: true, opacity: 0.5,
+                                                     side: THREE.DoubleSide, depthWrite: false })),
+  });
+}
+
+/* A tower crane beside the Core. The beacon on its jib is the stage, in
+   colour, from anywhere the compound can be seen. */
+function makeCrane() {
+  const cp = G.core.pos;
+  const x = cp.x + 12, z = cp.z + 10;
+  const g = new THREE.Group();
+  g.position.set(x, terrainHeight(x, z), z);
+  const sm = siteMats();
+  const steel = sm.craneSteel;
+  g.add(box(sm.concrete, 3.2, 1, 3.2, 0, 0.5, 0));
+  g.add(box(steel, 1.1, 30, 1.1, 0, 15.5, 0));
+  const jib = new THREE.Group();
+  jib.position.y = 30.5;
+  jib.add(box(steel, 26, 0.9, 0.9, 7, 0, 0));
+  jib.add(box(sm.weight, 3, 2, 2, -6.5, -0.6, 0));          // counterweight
+  jib.add(box(steel, 0.12, 9, 0.12, 16, -4.5, 0));          // hook line
+  const lamp = sph(GLOW(STAGE_TINT[0]), 0.9, 19.5, 0.9, 0);
+  jib.add(lamp);
+  g.add(jib);
+  G.scene.add(g);
+  return { group: g, jib, lamp };
+}
+
+/* Hyperscale cladding: armour bands round every coolant tower. The armour is
+   real (DEFS.coolant.armor), so the tell has to be too. */
+function cladTower(c, stage) {
+  /* Parented to the tower's own mesh so it shares the tower's fog, fate and
+     finale; the mesh is scaled by vScale, so the bands are drawn in its space.
+     One band per stage that armours the plant, lit in that stage's colour, so
+     "how armoured is that tower" reads off the tower itself. */
+  if (!c._clad) {
+    c._clad = new THREE.Group();
+    c._clad.scale.setScalar(1 / (c.vScale || 1));
+    c.mesh.add(c._clad);
+  }
+  const g = c._clad;
+  const n = g.children.length / 2;                 // bands already fitted
+  const plate = M(0x3a3d44, { metal: 0.6, rough: 0.4 });
+  const h = 2.2 + n * 2.6;
+  g.add(cyl(plate, c.radius + 0.35 + n * 0.08, 1.1, 0, h, 0));
+  g.add(cyl(GLOW(STAGE_TINT[stage] ?? STAGE_TINT[2]), c.radius + 0.45 + n * 0.08, 0.18, 0, h + 0.7, 0));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -1183,7 +1409,165 @@ export function deepenRoots() {
   return true;
 }
 
+/* ------------------------------------------------------------- Evolve ----
+   The swarm's tech path. See RULES.evolve for the measured problem each tier
+   answers. Three tiers, two options each, one pick per tier for the match. */
+const evo = () => (G.evo || (G.evo = {}));
+export function evolveOwned(id) { return !!evo()[id]; }
+
+/* 'owned' | 'open' | 'closed' (its twin was bought) | 'tier' (earlier tier
+   not bought yet). One place, so the panel, the hotkeys and the harness agree. */
+export function evolveStatus(id) {
+  const opt = RULES.evolve.find(o => o.id === id);
+  if (!opt) return 'closed';
+  if (evo()[id]) return 'owned';
+  if (RULES.evolve.some(o => o.tier === opt.tier && o.id !== id && evo()[o.id])) return 'closed';
+  if (opt.tier > 1 && !RULES.evolve.some(o => o.tier === opt.tier - 1 && evo()[o.id])) return 'tier';
+  return 'open';
+}
+
+export function evolve(id) {
+  const opt = RULES.evolve.find(o => o.id === id);
+  if (!opt || !G.heart.alive || G.over) return false;
+  const s = evolveStatus(id);
+  if (s !== 'open') {
+    if (s === 'tier') toast(`${opt.name} needs a tier ${opt.tier - 1} evolution first`, 'warn');
+    else if (s === 'closed') toast(`The valley already chose the other path at tier ${opt.tier}`, 'warn');
+    SFX.deny(); return false;
+  }
+  if (G.biomass < opt.cost) { toast(`Not enough biomass to evolve ${opt.name} (${opt.cost})`, 'warn'); SFX.deny(); return false; }
+  G.biomass -= opt.cost;
+  evo()[id] = G.time || 0.001;
+  ring(G.heart.pos, 0xc9ff7a, 26, 1.4);
+  burst(G.heart.pos.clone().setY(G.heart.pos.y + 8), 0xc9ff7a, 26, 12, 1.2, 1);
+  SFX.bloom();
+  toast(`The valley evolves — ${opt.name}: ${opt.desc}`);
+  return true;
+}
+
+/* Tier III forms replace a species on the roster: the Wolf card, the Z key
+   and every queue call all produce the evolved form once it is bought. */
+export function rosterType(type) {
+  if (type === 'wolf' && evo().alpha) return 'alpha';
+  if (type === 'boar' && evo().ironhide) return 'ironhide';
+  return type;
+}
+
+/* What a unit costs right now. Warren makes the litter cheaper; everything
+   that shows or charges a price reads it from here. */
+export function unitCost(type) {
+  const c = DEFS[type].cost;
+  return evo().warren ? Math.round(c * RULES.warrenCost) : c;
+}
+
+/* Put an evolved form on a freshly spawned body of its base species. The mesh,
+   gait, voice and portrait stay the species'; stats, size and colour change. */
+const _tint = new THREE.Color();
+function applyForm(e, formType) {
+  const d = DEFS[formType];
+  e.def = d;
+  e.formType = formType;
+  e.baseHp = e.hp = e.maxHp = d.hp;
+  e.radius = d.radius;
+  e.vScale *= d.formScale || 1;
+  e.mesh.scale.setScalar(e.vScale);
+  if (d.formTint !== undefined) {
+    _tint.setHex(d.formTint);
+    const skip = new Set();
+    if (e.hb) e.hb.g.traverse(o => skip.add(o));
+    if (e.ring) skip.add(e.ring);
+    e.mesh.traverse(o => {
+      if (!o.isMesh || skip.has(o) || !o.material || Array.isArray(o.material)) return;
+      const src = o.material;
+      if (!src.color) return;
+      const m = src.clone();
+      /* Material.copy drops these, and a shader patch lost silently is how
+         this codebase has been bitten before (see meshes.js). */
+      if (src.onBeforeCompile) m.onBeforeCompile = src.onBeforeCompile;
+      if (src.customProgramCacheKey) m.customProgramCacheKey = src.customProgramCacheKey;
+      m.color.multiply(_tint);
+      o.material = m;
+    });
+  }
+}
+
+/* Where a new animal hatches: the Heart Tree, or with Forward Den the bloomed
+   grove nearest the compound that is not being trampled right now. */
+function hatchPoint() {
+  if (evo().den) {
+    let best = null, bd = 1e9;
+    for (const g of G.groves) {
+      if (!g.owned || g.losing) continue;
+      const d = Math.hypot(g.pos.x - COMPOUND.x, g.pos.z - COMPOUND.z);
+      if (d < bd) { bd = d; best = g; }
+    }
+    if (best) return { x: best.pos.x, z: best.pos.z, r: 6 };
+  }
+  return { x: BASE.x, z: BASE.z, r: 11 };
+}
+
+const _thornNear = [];
+const THORN_SHOT = { color: 0x9bff6a, speed: 55, size: 0.2 };
+let packT = 0;
+function updateEvolve(dt) {
+  const E = G.evo;
+  if (!E || G.over) return;
+
+  /* Mycelium: the dead feed the tree. Read off corpses the frame they fall,
+     so every way an animal can die is caught once. */
+  if (E.mycelium) {
+    for (const e of G.entities) {
+      if (e.alive || e._myc || e.team !== TEAM.WILD || e.isBuilding) continue;
+      e._myc = true;
+      if (G.wallTime - (e.deadAt || 0) > 1) continue;      // died before the rite
+      G.biomass += (e.def.cost || 0) * RULES.myceliumRefund;
+      burst(e.pos.clone().setY(e.pos.y + 0.6), 0xc9ff7a, 6, 3, 0.9, 0.5);
+    }
+  }
+
+  /* Thornwall: every bloomed grove is a small, patient gun. */
+  if (E.thornwall) {
+    for (const g of G.groves) {
+      if (!g.owned) continue;
+      g._thornT = (g._thornT || 0) - dt;
+      if (g._thornT > 0) continue;
+      const list = G.grid.near(g.pos.x, g.pos.z, RULES.thornRange + 2, _thornNear);
+      let best = null, bd = 1e9;
+      for (const o of list) {
+        if (!o.alive || o.team !== TEAM.MACHINE || o.isBuilding) continue;
+        const d = dist2D(o.pos, g.pos) - o.radius;
+        if (d <= RULES.thornRange && d < bd) { bd = d; best = o; }
+      }
+      if (!best) { g._thornT = 0.25; continue; }
+      g._thornT = RULES.thornRate;
+      fireProjectile(new THREE.Vector3(g.pos.x, g.pos.y + 3, g.pos.z), best, RULES.thornDmg, THORN_SHOT, null);
+    }
+  }
+
+  /* Alpha: a wolf running with an Alpha and at least packSize-1 others hits
+     harder. Re-derived four times a second on top of veterancy's multiplier. */
+  if (E.alpha) {
+    packT -= dt;
+    if (packT <= 0) {
+      packT = 0.25;
+      const wolves = G.entities.filter(e => e.alive && e.type === 'wolf' && e.team === TEAM.WILD);
+      const packed = new Set();
+      const r2 = RULES.packRange * RULES.packRange;
+      for (const a of wolves) {
+        if (a.formType !== 'alpha') continue;
+        const near = wolves.filter(w => (w.pos.x - a.pos.x) ** 2 + (w.pos.z - a.pos.z) ** 2 <= r2);
+        if (near.length >= RULES.packSize) for (const w of near) packed.add(w);
+      }
+      for (const w of wolves) {
+        const vet = 1 + 0.12 * (w.vet || 0);
+        w.dmgMult = vet * (packed.has(w) ? RULES.packDmg : 1);
+      }
+    }
+  }
+}
+
 export function queueUnit(type) {
+  type = rosterType(type);
   const def = DEFS[type];
   if (!G.heart.alive) return false;
   if (G.lockedUnits && G.lockedUnits.includes(type)) {
@@ -1191,16 +1575,18 @@ export function queueUnit(type) {
     SFX.deny(); return false;
   }
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
-  if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
+  const cost = unitCost(type);
+  if (G.biomass < cost) { toast(`Not enough biomass for ${def.name} (${cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 24) { SFX.deny(); return false; }
-  G.biomass -= def.cost;
+  G.biomass -= cost;
   /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
      the lanes are the real lever, and stacking both at the old 7% made a maxed
      economy produce faster than the pop cap could absorb. */
   const haste = 1 - 0.04 * (G.bloomed || 0);
-  const build = def.build * Math.max(0.55, haste);
-  G.queue.push({ type, remaining: build, total: build });
+  const build = def.build * Math.max(0.55, haste) * (evo().warren ? RULES.warrenBuild : 1)
+              * (evo().den ? RULES.denBuild : 1);
+  G.queue.push({ type, remaining: build, total: build, paid: cost });
   return true;
 }
 
@@ -1211,7 +1597,7 @@ export function queuedPop() {
 export function cancelQueue(i) {
   const item = G.queue[i];
   if (!item) return;
-  G.biomass += DEFS[item.type].cost;
+  G.biomass += item.paid ?? DEFS[item.type].cost;
   G.queue.splice(i, 1);
 }
 

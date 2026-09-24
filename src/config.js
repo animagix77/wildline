@@ -103,6 +103,28 @@ export const DEFS = {
     blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
+  /* ---- EVOLVED FORMS (RULES.evolve tier III) ----
+     Not on the dock: once the tier is bought, queueing a Wolf (or a Boar)
+     queues the form instead -- see rosterType() in world.js. `form` is the
+     species whose mesh, animation, voice and portrait the unit wears until the
+     modelling track ships its own; `formScale` and `formTint` are the stand-in
+     read. Everything else is a full def, because the entity reads its stats
+     from whatever def it carries. */
+  alpha: {
+    name: 'Alpha Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z', form: 'wolf', evolve: 'alpha',
+    formScale: 1.25, formTint: 0x9aa4b4,
+    hp: 80, dmg: 12, rate: 0.70, range: 2.7, speed: 11.0, radius: 1.15,
+    armor: 3, vision: 27, cost: 20, build: 2.6, pop: 1, death: 'topple',
+    blurb: 'Grey-backed and heavier. Three wolves running with an Alpha hit 12% harder, and an Alpha is the reason three wolves stay together.'
+  },
+  ironhide: {
+    name: 'Ironhide Boar', team: TEAM.WILD, icon: '🐗', key: 'X', form: 'boar', evolve: 'ironhide',
+    formScale: 1.18, formTint: 0x8a6a58,
+    hp: 165, dmg: 22, rate: 1.25, range: 2.9, speed: 7.4, radius: 1.4,
+    armor: 7, vision: 25, cost: 36, build: 4.2, pop: 3, siege: 1.4, death: 'topple',
+    blurb: 'Hide like a riveted plate. A rifle round does three damage. A turret does rather more.'
+  },
+
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
@@ -568,15 +590,118 @@ export const RULES = {
      valley — so the death clock does not see this list at all. Maps that carry
      their own `construction` timer (the groundbreak sites) skip it: they are
      already a race against a building site and do not need two. */
-  worksNotice:    30,       // seconds of warning before a work is raised
-  siteWorks: [
-    { at: 210, kind: 'pump',
-      notice: 'SITE NOTICE — a second Intake Pump is scheduled inside the fence',
-      done:   'A second Intake Pump is online — every intake you break is now a smaller share' },
-    { at: 300, kind: 'turret',
-      notice: 'SITE NOTICE — a Sentry Turret is scheduled on the approach face',
-      done:   'A new Sentry Turret is live on the approach face' },
+  /* FOLDED INTO RULES.stages, below. The two works above (a second pump, a
+     gun on the approach face) are now what Stage II and Stage III pour, and the
+     groundbreak maps' `construction` timer is now simply their Stage II clock.
+     One schedule, one notice pattern, one thing for the player to read. */
+
+  /* --- Site stages: the campus GROWS, and aggression slows it --------------
+     THE MEASUREMENT THIS ANSWERS. The intended line -- take groves, keep a
+     garrison, commit, hold two towers -- won 0 of 6 held-out seeds in the
+     previous round, and on this build it lost 8 of 8 tuning seeds (1001-1008,
+     verdant-hollow) between 3:23 and 5:05 without ever warming the Core (peak
+     heat 0.00 on every seed). The compound was FLAT-HARD: the gun line, the
+     garrison and the depots were at full strength at 0:00 and stayed there,
+     so striking at 1:40 bought nothing that striking at 6:00 did not, and the
+     only reason to go early was that the sweeps would not let you wait.
+
+     Two proto-stage systems already existed and pulled in different
+     directions: siteWorks (a pump at 3:30, a turret at 5:00, every map except
+     the groundbreak ones) and the groundbreak maps' `construction` timer
+     (turrets + garrison at 5:00/6:00, only those two maps). Neither made the
+     OPENING weaker, so neither could make "strike early" a strategy.
+
+     One schedule now. The compound opens UNFINISHED -- a share of its authored
+     gun line is still scaffolding on a pad, the standing garrison is short and
+     the depots are slow -- and it finishes itself on an announced clock:
+
+       I   Groundbreak   0:00   part of the gun line, thin garrison, slow depots
+       II  Operational   `at`   every authored gun, full garrison, 2nd intake
+       III Hyperscale    `at`   more guns, a larger garrison, fast depots, and
+                                CLAD coolant towers (flat armour)
+
+     Each field is read against the difficulty's own numbers, captured when the
+     match starts, so a stage is a SHAPE and difficulty stays the only dial for
+     overall size:
+       turrets     share of the map's authored turrets standing (the rest are
+                   pads that pour at the next stage that raises the share)
+       garrison    multiple of garrisonGuards / garrisonDrones kept standing;
+                   a rise tops the garrison up at the transition
+       popCap      multiple of machinePopCap -- depot trickle AND the sweep
+                   surge ceiling both read it
+       spawnEvery  multiple of the depot's reinforcement period
+       works       structures raised at the transition (derived placement,
+                   facing the valley -- see worksSpot in world.js)
+       coolArmor   flat armour added to every coolant tower
+       coolHp      multiple of a coolant tower's base health (raised at the
+                   transition; a standing tower gets the difference as hp)
+       meltdownCool  the stage's own RULES.meltdownCool -- redundant cooling
+                   means the plant must be wrecked deeper before it warms
+       turretDmg / turretSplash   multiples of the gun's (difficulty) damage
+                   and splash radius -- splash is what punishes a massed blob
+
+     Maps that carry a `construction` block (groundbreak, pourhouse) are
+     authored AS a Stage I site: their own layout is the groundbreak state
+     (turrets share 1), `construction.time` replaces Stage II's `at`, and its
+     turrets and garrison are Stage II's pads and top-up.
+
+     MEASURED, paired seeds, pinned clock, harness bot = the __diag good line
+     committing at 90 fielded pop and buying a full Evolve path first:
+       flat compound (every stage = today's)      early 0/8 at 40 units,
+                                                  1/8 at 90 pop; late 0/8
+       stages, Stage I at 0.5 guns / 0.6 guards   early 5/8, wins at ~2:15 --
+                                                  a rush before the first
+                                                  sweep lands; far too soft
+       as shipped, held-out seeds 3001-3008,
+         verdant-hollow + mirefen, 4 Evolve paths:
+           commit ~3:30 (early)                   45/64  (70%)
+           commit 5:00 (into Operational)         14/16
+           commit 8:00 (into Hyperscale)           2/32
+     So the cliff is Hyperscale, not Operational: striking any time before
+     ~7:30 is live, waiting past it is not. Passive (G1) still dies at
+     6:51-6:52 on every seed and the all-in with nobody home (G2) at
+     3:56-5:33 -- nothing here walks to the valley, so neither moved.
+
+     Things tried and backed out, so nobody re-derives them:
+       Stage I at x0.85 depot cap / x1.15 slower depots: the no-Evolve rush
+       at 90 pop won 7/8 on verdant-hollow, so the depots now open at full
+       rate and the thin part of the opening is the gun line alone.
+       Operational as a pure top-up (x1.0 garrison, no tower hp): a strike at
+       5:00 with twice the army out-won the early one 8/8 vs 5/8, so
+       Operational now pours a gun, hires 40% more guards and reinforces the
+       towers (coolHp 1.6).
+       Hyperscale at x1.3 garrison / +3 armour only: a Warren+Den+Ironhide
+       swarm that waited to 8:00 with 110 animals still won 5/8. Doubling the
+       towers' health, splash x1.8 (a massed blob is what it punishes) and a
+       stage-local meltdownCool of 0.5 is what made waiting lose. */
+  stageNotice:    30,       // seconds of warning before a stage completes
+  stages: [
+    { id: 'groundbreak', name: 'Groundbreak',
+      turrets: 0.83, garrison: 1.25, popCap: 1.0, spawnEvery: 1.0 },
+    { id: 'operational', name: 'Operational', at: 240,
+      turrets: 1.0, garrison: 1.4, popCap: 1.3, spawnEvery: 0.85, works: ['pump', 'turret'],
+      coolArmor: 1, coolHp: 1.6, turretDmg: 1.15,
+      notice: 'SITE NOTICE — the campus goes OPERATIONAL: the scaffolded guns pour, the garrison fills out and the coolant towers are reinforced',
+      done:   'THE SITE IS OPERATIONAL — every gun is live, a new one faces the valley, the towers are reinforced and a second intake is drawing' },
+    { id: 'hyperscale', name: 'Hyperscale', at: 450,
+      turrets: 1.0, garrison: 2.0, popCap: 2.0, spawnEvery: 0.6, works: ['turret', 'turret', 'turret'],
+      coolArmor: 3, coolHp: 2.5, meltdownCool: 0.5, turretSplash: 1.8, turretDmg: 1.4,
+      notice: 'SITE NOTICE — HYPERSCALE expansion: three new guns, a bigger garrison, and armoured, redundant coolant towers',
+      done:   'HYPERSCALE — the towers are clad and doubled, three more guns face the valley, and the Core now needs deeper wrecking' },
   ],
+  /* Aggression buys time. Every structure the swarm levels pushes the NEXT
+     stage back by this many seconds, capped per stage so that no amount of
+     demolition freezes the campus forever. Priced by what the structure is to
+     the site: a depot is its workforce, a generator its power, a pump or well
+     its water, a turret merely a gun.
+
+     HALVED from 35/30/20/15/10 with a 120s cap. At those numbers a swarm that
+     never committed at all -- a Forward Den hatching next to the fence and
+     skirmishing by accident -- held Hyperscale off past 8:00 on 3 seeds of 8,
+     and "waiting" stopped being waiting. The cap is per stage, so the most a
+     whole match can buy is two minutes. */
+  stageDelay:     { depot: 25, generator: 20, pump: 12, well: 10, turret: 6 },
+  stageDelayMax:  60,       // most any one stage can be pushed back
 
   /* --- Turret spin-up ------------------------------------------------------
      A Sentry Turret opens at its shipped damage and winds up the longer it is
@@ -616,6 +741,87 @@ export const RULES = {
   rootsGrowth:    1.55,     // each one costs this much more than the last
   rootsStep:      6,        // popCap gained per purchase
   rootsMax:       5,        // ...and how many the valley will bear
+
+  /* --- Evolve: the swarm's tech path, bought at the Heart Tree -------------
+     THE MEASURED PROBLEM IT IS BUILT AGAINST, not a stat ladder. On this build
+     the intended line fielded ONE army per match: it peaked at 40 units, lost
+     groves 6 -> 2 while massing, committed, and was at single digits inside
+     thirty seconds with income at 3-6/s and nothing left to rebuild with.
+     Guards dealt 63% of all damage the swarm took (1198 hits on seed 1001),
+     drones 20%, turrets 17%.
+
+     So each tier answers one link of that chain, and each tier is a CHOICE of
+     two -- buying one locks the other out for the match:
+
+       I   REBUILD   Warren    -- a cheaper, faster litter: build the army
+                                  sooner (rewards striking early)
+                     Mycelium  -- the dead return part of their cost: an army
+                                  that trades pays for its replacement
+       II  GROUND    Forward Den -- reinforcements hatch at the grove nearest
+                                    the compound, not at the Heart Tree
+                     Thornwall -- bloomed groves fire thorns and hold longer,
+                                  so income survives the army being away
+       III FORM      Alpha     -- the Wolf card becomes the Alpha Wolf (pack)
+                     Ironhide  -- the Boar card becomes the Ironhide Boar
+                                  (armour 6 vs a 10-damage rifle: the answer
+                                  to the 63% of damage guards deal)
+
+     A tier opens once the tier before it is bought. Nothing is free: every
+     evolution is biomass not spent on bodies, so buying the tree delays the
+     strike, and the strike is racing the site's own stages (RULES.stages).
+
+     TUNED AGAINST PAIRED SEEDS, not by feel. First pass (Warren = +lane and
+     -20% build only, Mycelium 40%, Den free, Ironhide armour 7, Alpha x1.25,
+     tiers 110/170/230) measured, verdant-hollow, early strike, seeds 1001-1008:
+       mycelium+den+ironhide 8/8, warren+thornwall+alpha 0-1/8.
+     Warren was a lane nobody could fill (income, not lanes, binds while the
+     groves are held), and Mycelium + Den + Ironhide was simply the best of
+     everything. Then at 130/200/260 a bot that actually SAVED for its tier
+     bought the whole tree by 1:30 and won 60 of 64 -- the tree was a free
+     rush, not a plan. Prices are now 200/350/500 (the full path is ~1050
+     biomass, roughly a 45-animal army), so buying it pushes the strike from
+     ~1:50 to ~3:30, into the Operational window, which is the trade.
+
+     AS SHIPPED, held-out seeds 3001-3008, early strike at 90 pop:
+                                          verdant   mirefen
+       Warren / Den / Ironhide             4/8       5/8
+       Mycelium / Thornwall / Alpha        6/8       7/8
+       Mycelium / Den / Ironhide           5/8       4/8
+       Warren / Thornwall / Alpha          7/8       7/8
+       no Evolve at all                    1/8       2/8
+     Tuning seeds 1001-1008 landed within a seed or two of every cell, so this
+     is not overfit. The Thornwall + Alpha paths are the strongest on both
+     maps (and they field wolf-heavy armies: part of that edge is simply more
+     bodies per pop); Den + Ironhide is the weaker but still live pair. That
+     is the first thing to look at next round, on FRESH seeds.
+
+     Deepen the Roots stays separate: it is capacity, this is character. */
+  evolve: [
+    { id: 'warren',    tier: 1, name: 'Warren',      cost: 200, key: '1',
+      desc: 'Animals cost 20% less and build 25% faster; +1 production lane, never fewer than two' },
+    { id: 'mycelium',  tier: 1, name: 'Mycelium',    cost: 200, key: '2',
+      desc: 'Every animal that dies returns 35% of its cost to the Heart Tree' },
+    { id: 'den',       tier: 2, name: 'Forward Den', cost: 350, key: '3',
+      desc: 'New animals hatch at your bloomed grove nearest the compound' },
+    { id: 'thornwall', tier: 2, name: 'Thornwall',   cost: 350, key: '4',
+      desc: 'Bloomed groves fling thorns at machines and take two-thirds longer to trample' },
+    { id: 'alpha',     tier: 3, name: 'Alpha',       cost: 500, key: '5',
+      desc: 'Wolves are born Alphas: bigger, and a pack of three hits 12% harder' },
+    { id: 'ironhide',  tier: 3, name: 'Ironhide',    cost: 500, key: '6',
+      desc: 'Boars are born Ironhide: armour 7, shrugs off rifle fire' },
+  ],
+  warrenLanes:    1,        // extra production lanes (cap and floor both rise)
+  warrenBuild:    0.75,     // build-time multiplier
+  warrenCost:     0.80,     // unit price multiplier
+  myceliumRefund: 0.35,     // share of a dead animal's cost returned
+  thornDmg:       12,       // per thorn, from each bloomed grove
+  thornRate:      1.2,      // seconds between thorns
+  thornRange:     16,
+  thornDecap:     0.6,      // trample-rate multiplier on a thorned grove
+  packRange:      10,       // Alpha: wolves within this of each other...
+  packSize:       3,        // ...this many together (Alphas or not)...
+  packDmg:        1.12,     // ...hit this much harder
+  denBuild:       1.0,      // Forward Den build-time multiplier (tried 1.2-1.3: see the Evolve note)
 
   spellCost:      40,
   spellCooldown:  26,

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { DEFS, RULES, TEAM, WORLD, HALF, COMPOUND, BUILDABLE } from './config.js';
-import { fmt, queuedPop, rootsPrice, rootsMaxed, coolantsOnline } from './world.js';
+import { fmt, queuedPop, rootsPrice, rootsMaxed, coolantsOnline, rosterType, stageInfo, unitCost } from './world.js';
 import { waterLevel, lakeCount } from './water.js';
 import { isPouring, nextFront, precipWord } from './weather.js';
-import { setSelection, syncHoverTip, refreshRootsCard } from './input.js';
+import { setSelection, syncHoverTip, refreshRootsCard, refreshEvolve } from './input.js';
 import { unitPortrait, UNIT_ROLES } from './unit-portraits.js';
 import { voiceFor } from './audio.js';
 import { isExplored, isVisible, isRemembered, drawFogOverlay } from './fog.js';
@@ -69,6 +69,19 @@ export function updateHUD() {
     el('sweepsub').textContent = `sweep ${(G.waveNum || 0) + 1} · ${G.machinePop || 0} out`;   // machines standing, so the countdown has a size next to it
     sw.classList.toggle('low', left < 30);
     sw.classList.toggle('dry', left < 10);
+  }
+
+  /* The site's stage, and how long until the next one. The countdown is SITE
+     progress, so it jumps back when the swarm levels a depot, a generator or a
+     pump -- which is the point: the player watches aggression buy time. */
+  const sr = el('stageres'), si = stageInfo();
+  if (sr && si) {
+    sr.dataset.stage = String(si.i);
+    el('stagename').textContent = ['I', 'II', 'III'][si.i] || String(si.i + 1);
+    const lab = sr.querySelector('.res-label');
+    if (lab && lab.textContent !== si.name) lab.textContent = si.name;
+    el('stagesub').textContent = si.next ? `${si.next.toLowerCase()} in ${fmt(si.left)}` : 'fully built';
+    sr.classList.toggle('low', !!si.next && si.left < 30);
   }
 
   /* Water. The pumps have always drained the lakes and quietly cut grove yield;
@@ -136,9 +149,9 @@ export function updateHUD() {
 
   /* cards */
   for (const c of cards) {
-    const d = DEFS[c.dataset.type];
+    const d = DEFS[rosterType(c.dataset.type)];      // what the slot builds now (tier III forms)
     const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
-    const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const afford = !gated && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
     c.setAttribute('aria-disabled', String(!afford));
@@ -151,6 +164,7 @@ export function updateHUD() {
     rootsCard.classList.toggle('locked', unavailable);
     rootsCard.setAttribute('aria-disabled', String(unavailable));
   }
+  refreshEvolve();          // what can be evolved moves with biomass
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
   spellCard.setAttribute('aria-disabled', String(rem > 0 || G.biomass < RULES.spellCost));

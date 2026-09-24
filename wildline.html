@@ -1419,6 +1419,44 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
   #cardpanel{padding:8px}
 }
 
+/* Site stage readout: roman numeral in the stage's own colour, the next stage
+   and its live countdown underneath. Amber / cyan / red match the crane beacon
+   and the pad rings in the world, so the HUD and the compound say one thing. */
+#topbar #stageres .glyph{stroke:#e0b35a}
+#stageres[data-stage="1"] #stagename{color:#8fdde4}#stageres[data-stage="1"] .glyph{stroke:#8fdde4}
+#stageres[data-stage="2"] #stagename{color:#f08a74}#stageres[data-stage="2"] .glyph{stroke:#f08a74}
+#stageres.low #stagesub{color:#ebc982}
+@media(max-width:760px){#topbar>#stageres{display:none}}
+
+/* Evolve: a panel over the dock, opened by U or the order strip, so the dock
+   itself stays a single row of ten. */
+#commands button.ready{border-color:#c9ff7a66;color:#e6f5c9;box-shadow:inset 0 0 0 1px #c9ff7a22}
+/* fixed, not absolute: the card panel clips its overflow */
+#evolve{position:fixed;left:50%;transform:translateX(-50%);width:min(720px,calc(100vw - 24px));
+  bottom:calc(var(--dock-height) + 8px);z-index:30;padding:10px 12px 12px;
+  border:1px solid var(--edge);border-radius:10px;background:linear-gradient(145deg,rgba(24,37,30,.985),rgba(13,24,20,.985));
+  box-shadow:0 12px 34px #0007}
+#evolve[hidden]{display:none}
+#evolvebody{display:grid;gap:6px}
+.evo-tier{display:grid;grid-template-columns:22px 1fr 1fr;gap:6px;align-items:stretch}
+.evo-tn{align-self:center;text-align:center;font-size:11px;font-weight:650;color:#91a18e;letter-spacing:.5px}
+.evo-opt{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:8px;row-gap:2px;
+  text-align:left;padding:6px 9px;border:1px solid #bed0ab22;border-radius:6px;background:#c4dcb406;color:var(--bone);cursor:pointer}
+.evo-nm{font-size:12px;font-weight:650}
+.evo-cost{display:flex;align-items:center;gap:3px;font-size:11px;color:#d9e6c6}
+.evo-cost .cost-glyph{width:11px;height:11px;fill:none;stroke:var(--leaf);stroke-width:1.6}
+.evo-desc{grid-column:1/-1;font-size:9.5px;line-height:1.35;color:var(--dim)}
+.evo-opt.afford{border-color:#c9ff7a55;background:#b4d8870f}
+.evo-opt.afford:hover{background:#b4d8871f;border-color:#c9ff7a88}
+.evo-opt[data-state="owned"]{border-color:#c9ff7a;background:#b4d8872a;cursor:default}
+.evo-opt[data-state="owned"] .evo-cost{visibility:hidden}
+.evo-opt[data-state="owned"] .evo-nm::after{content:" \2713";color:var(--leaf)}
+.evo-opt[data-state="closed"]{opacity:.32;cursor:default}
+.evo-opt[data-state="tier"]{opacity:.55}
+.evo-opt:not(.afford):not([data-state="owned"]) .evo-cost{color:#9aa596}
+#cards .card.evolved{border-color:#c9ff7a44}
+@media(max-width:760px){.evo-tier{grid-template-columns:1fr}.evo-tn{display:none}.evo-desc{font-size:9px}}
+
 </style>
 </head>
 <body>
@@ -1433,6 +1471,7 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
     <symbol id="i-grove" viewBox="0 0 24 24"><path d="m12 2-7 9h4l-6 7h18l-6-7h4L12 2ZM12 18v4"/></symbol>
     <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 2S4 11 4 15a8 8 0 0 0 16 0c0-4-8-13-8-13Z"/><path d="M8 15a4 4 0 0 0 4 4"/></symbol>
     <symbol id="i-threat" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z M12 9v5 M12 17v1"/></symbol>
+    <symbol id="i-site" viewBox="0 0 24 24"><path d="M5 21V4h1.5M5 5h15l-3 3M11 5v6M9 11h4M3 21h18"/></symbol>
   </defs></svg>
   <div id="topbar">
     <div class="res" title="Biomass · spend to grow wildlife">
@@ -1454,6 +1493,10 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
     <div class="res" id="sweepres" title="Time until the next security sweep">
       <svg class="glyph" aria-hidden="true"><use href="#i-threat"/></svg><span id="sweeptime">--</span>
       <span class="res-label">Next sweep</span><span class="sub" id="sweepsub">next sweep</span>
+    </div>
+    <div class="res" id="stageres" title="TerraByte site stage · level depots, generators and pumps to push the next stage back">
+      <svg class="glyph" aria-hidden="true"><use href="#i-site"/></svg><span id="stagename">I</span>
+      <span class="res-label">Site stage</span><span class="sub" id="stagesub">groundbreak</span>
     </div>
     <div id="objective">
       <div class="obj-title" id="mapname">FIELD OBJECTIVE</div>
@@ -1491,6 +1534,11 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
     <button data-command="stop" title="Clear current orders"><kbd>S</kbd> Stop</button>
     <button data-command="water" title="Send selected wildlife to drink"><kbd>W</kbd> Drink</button>
     <button data-command="spell" title="Preview Overgrowth before casting"><kbd>F</kbd> Overgrowth</button>
+    <button data-command="evolve" id="evolvebtn" title="Evolve the swarm at the Heart Tree (U)"><kbd>U</kbd> Evolve</button>
+  </div>
+  <div id="evolve" hidden role="dialog" aria-label="Evolve the swarm">
+    <div class="panel-title">EVOLVE <span>one path per tier · U to close</span></div>
+    <div id="evolvebody"></div>
   </div>
       <div id="cards"></div>
       <div id="queue"></div>
@@ -2172,6 +2220,28 @@ const DEFS = {
     blurb: 'Engineer. Gnaws through machine structures and rebuilds your own — the Heart Tree included — when it is not fighting.'
   },
 
+  /* ---- EVOLVED FORMS (RULES.evolve tier III) ----
+     Not on the dock: once the tier is bought, queueing a Wolf (or a Boar)
+     queues the form instead -- see rosterType() in world.js. `form` is the
+     species whose mesh, animation, voice and portrait the unit wears until the
+     modelling track ships its own; `formScale` and `formTint` are the stand-in
+     read. Everything else is a full def, because the entity reads its stats
+     from whatever def it carries. */
+  alpha: {
+    name: 'Alpha Wolf', team: TEAM.WILD, icon: '🐺', key: 'Z', form: 'wolf', evolve: 'alpha',
+    formScale: 1.25, formTint: 0x9aa4b4,
+    hp: 80, dmg: 12, rate: 0.70, range: 2.7, speed: 11.0, radius: 1.15,
+    armor: 3, vision: 27, cost: 20, build: 2.6, pop: 1, death: 'topple',
+    blurb: 'Grey-backed and heavier. Three wolves running with an Alpha hit 12% harder, and an Alpha is the reason three wolves stay together.'
+  },
+  ironhide: {
+    name: 'Ironhide Boar', team: TEAM.WILD, icon: '🐗', key: 'X', form: 'boar', evolve: 'ironhide',
+    formScale: 1.18, formTint: 0x8a6a58,
+    hp: 165, dmg: 22, rate: 1.25, range: 2.9, speed: 7.4, radius: 1.4,
+    armor: 7, vision: 25, cost: 36, build: 4.2, pop: 3, siege: 1.4, death: 'topple',
+    blurb: 'Hide like a riveted plate. A rifle round does three damage. A turret does rather more.'
+  },
+
   /* ---- MACHINE (enemy) ---- */
   guard: {
     name: 'Security Guard', team: TEAM.MACHINE, icon: '🔫',
@@ -2637,15 +2707,118 @@ const RULES = {
      valley — so the death clock does not see this list at all. Maps that carry
      their own `construction` timer (the groundbreak sites) skip it: they are
      already a race against a building site and do not need two. */
-  worksNotice:    30,       // seconds of warning before a work is raised
-  siteWorks: [
-    { at: 210, kind: 'pump',
-      notice: 'SITE NOTICE — a second Intake Pump is scheduled inside the fence',
-      done:   'A second Intake Pump is online — every intake you break is now a smaller share' },
-    { at: 300, kind: 'turret',
-      notice: 'SITE NOTICE — a Sentry Turret is scheduled on the approach face',
-      done:   'A new Sentry Turret is live on the approach face' },
+  /* FOLDED INTO RULES.stages, below. The two works above (a second pump, a
+     gun on the approach face) are now what Stage II and Stage III pour, and the
+     groundbreak maps' `construction` timer is now simply their Stage II clock.
+     One schedule, one notice pattern, one thing for the player to read. */
+
+  /* --- Site stages: the campus GROWS, and aggression slows it --------------
+     THE MEASUREMENT THIS ANSWERS. The intended line -- take groves, keep a
+     garrison, commit, hold two towers -- won 0 of 6 held-out seeds in the
+     previous round, and on this build it lost 8 of 8 tuning seeds (1001-1008,
+     verdant-hollow) between 3:23 and 5:05 without ever warming the Core (peak
+     heat 0.00 on every seed). The compound was FLAT-HARD: the gun line, the
+     garrison and the depots were at full strength at 0:00 and stayed there,
+     so striking at 1:40 bought nothing that striking at 6:00 did not, and the
+     only reason to go early was that the sweeps would not let you wait.
+
+     Two proto-stage systems already existed and pulled in different
+     directions: siteWorks (a pump at 3:30, a turret at 5:00, every map except
+     the groundbreak ones) and the groundbreak maps' `construction` timer
+     (turrets + garrison at 5:00/6:00, only those two maps). Neither made the
+     OPENING weaker, so neither could make "strike early" a strategy.
+
+     One schedule now. The compound opens UNFINISHED -- a share of its authored
+     gun line is still scaffolding on a pad, the standing garrison is short and
+     the depots are slow -- and it finishes itself on an announced clock:
+
+       I   Groundbreak   0:00   part of the gun line, thin garrison, slow depots
+       II  Operational   `at`   every authored gun, full garrison, 2nd intake
+       III Hyperscale    `at`   more guns, a larger garrison, fast depots, and
+                                CLAD coolant towers (flat armour)
+
+     Each field is read against the difficulty's own numbers, captured when the
+     match starts, so a stage is a SHAPE and difficulty stays the only dial for
+     overall size:
+       turrets     share of the map's authored turrets standing (the rest are
+                   pads that pour at the next stage that raises the share)
+       garrison    multiple of garrisonGuards / garrisonDrones kept standing;
+                   a rise tops the garrison up at the transition
+       popCap      multiple of machinePopCap -- depot trickle AND the sweep
+                   surge ceiling both read it
+       spawnEvery  multiple of the depot's reinforcement period
+       works       structures raised at the transition (derived placement,
+                   facing the valley -- see worksSpot in world.js)
+       coolArmor   flat armour added to every coolant tower
+       coolHp      multiple of a coolant tower's base health (raised at the
+                   transition; a standing tower gets the difference as hp)
+       meltdownCool  the stage's own RULES.meltdownCool -- redundant cooling
+                   means the plant must be wrecked deeper before it warms
+       turretDmg / turretSplash   multiples of the gun's (difficulty) damage
+                   and splash radius -- splash is what punishes a massed blob
+
+     Maps that carry a `construction` block (groundbreak, pourhouse) are
+     authored AS a Stage I site: their own layout is the groundbreak state
+     (turrets share 1), `construction.time` replaces Stage II's `at`, and its
+     turrets and garrison are Stage II's pads and top-up.
+
+     MEASURED, paired seeds, pinned clock, harness bot = the __diag good line
+     committing at 90 fielded pop and buying a full Evolve path first:
+       flat compound (every stage = today's)      early 0/8 at 40 units,
+                                                  1/8 at 90 pop; late 0/8
+       stages, Stage I at 0.5 guns / 0.6 guards   early 5/8, wins at ~2:15 --
+                                                  a rush before the first
+                                                  sweep lands; far too soft
+       as shipped, held-out seeds 3001-3008,
+         verdant-hollow + mirefen, 4 Evolve paths:
+           commit ~3:30 (early)                   45/64  (70%)
+           commit 5:00 (into Operational)         14/16
+           commit 8:00 (into Hyperscale)           2/32
+     So the cliff is Hyperscale, not Operational: striking any time before
+     ~7:30 is live, waiting past it is not. Passive (G1) still dies at
+     6:51-6:52 on every seed and the all-in with nobody home (G2) at
+     3:56-5:33 -- nothing here walks to the valley, so neither moved.
+
+     Things tried and backed out, so nobody re-derives them:
+       Stage I at x0.85 depot cap / x1.15 slower depots: the no-Evolve rush
+       at 90 pop won 7/8 on verdant-hollow, so the depots now open at full
+       rate and the thin part of the opening is the gun line alone.
+       Operational as a pure top-up (x1.0 garrison, no tower hp): a strike at
+       5:00 with twice the army out-won the early one 8/8 vs 5/8, so
+       Operational now pours a gun, hires 40% more guards and reinforces the
+       towers (coolHp 1.6).
+       Hyperscale at x1.3 garrison / +3 armour only: a Warren+Den+Ironhide
+       swarm that waited to 8:00 with 110 animals still won 5/8. Doubling the
+       towers' health, splash x1.8 (a massed blob is what it punishes) and a
+       stage-local meltdownCool of 0.5 is what made waiting lose. */
+  stageNotice:    30,       // seconds of warning before a stage completes
+  stages: [
+    { id: 'groundbreak', name: 'Groundbreak',
+      turrets: 0.83, garrison: 1.25, popCap: 1.0, spawnEvery: 1.0 },
+    { id: 'operational', name: 'Operational', at: 240,
+      turrets: 1.0, garrison: 1.4, popCap: 1.3, spawnEvery: 0.85, works: ['pump', 'turret'],
+      coolArmor: 1, coolHp: 1.6, turretDmg: 1.15,
+      notice: 'SITE NOTICE — the campus goes OPERATIONAL: the scaffolded guns pour, the garrison fills out and the coolant towers are reinforced',
+      done:   'THE SITE IS OPERATIONAL — every gun is live, a new one faces the valley, the towers are reinforced and a second intake is drawing' },
+    { id: 'hyperscale', name: 'Hyperscale', at: 450,
+      turrets: 1.0, garrison: 2.0, popCap: 2.0, spawnEvery: 0.6, works: ['turret', 'turret', 'turret'],
+      coolArmor: 3, coolHp: 2.5, meltdownCool: 0.5, turretSplash: 1.8, turretDmg: 1.4,
+      notice: 'SITE NOTICE — HYPERSCALE expansion: three new guns, a bigger garrison, and armoured, redundant coolant towers',
+      done:   'HYPERSCALE — the towers are clad and doubled, three more guns face the valley, and the Core now needs deeper wrecking' },
   ],
+  /* Aggression buys time. Every structure the swarm levels pushes the NEXT
+     stage back by this many seconds, capped per stage so that no amount of
+     demolition freezes the campus forever. Priced by what the structure is to
+     the site: a depot is its workforce, a generator its power, a pump or well
+     its water, a turret merely a gun.
+
+     HALVED from 35/30/20/15/10 with a 120s cap. At those numbers a swarm that
+     never committed at all -- a Forward Den hatching next to the fence and
+     skirmishing by accident -- held Hyperscale off past 8:00 on 3 seeds of 8,
+     and "waiting" stopped being waiting. The cap is per stage, so the most a
+     whole match can buy is two minutes. */
+  stageDelay:     { depot: 25, generator: 20, pump: 12, well: 10, turret: 6 },
+  stageDelayMax:  60,       // most any one stage can be pushed back
 
   /* --- Turret spin-up ------------------------------------------------------
      A Sentry Turret opens at its shipped damage and winds up the longer it is
@@ -2685,6 +2858,87 @@ const RULES = {
   rootsGrowth:    1.55,     // each one costs this much more than the last
   rootsStep:      6,        // popCap gained per purchase
   rootsMax:       5,        // ...and how many the valley will bear
+
+  /* --- Evolve: the swarm's tech path, bought at the Heart Tree -------------
+     THE MEASURED PROBLEM IT IS BUILT AGAINST, not a stat ladder. On this build
+     the intended line fielded ONE army per match: it peaked at 40 units, lost
+     groves 6 -> 2 while massing, committed, and was at single digits inside
+     thirty seconds with income at 3-6/s and nothing left to rebuild with.
+     Guards dealt 63% of all damage the swarm took (1198 hits on seed 1001),
+     drones 20%, turrets 17%.
+
+     So each tier answers one link of that chain, and each tier is a CHOICE of
+     two -- buying one locks the other out for the match:
+
+       I   REBUILD   Warren    -- a cheaper, faster litter: build the army
+                                  sooner (rewards striking early)
+                     Mycelium  -- the dead return part of their cost: an army
+                                  that trades pays for its replacement
+       II  GROUND    Forward Den -- reinforcements hatch at the grove nearest
+                                    the compound, not at the Heart Tree
+                     Thornwall -- bloomed groves fire thorns and hold longer,
+                                  so income survives the army being away
+       III FORM      Alpha     -- the Wolf card becomes the Alpha Wolf (pack)
+                     Ironhide  -- the Boar card becomes the Ironhide Boar
+                                  (armour 6 vs a 10-damage rifle: the answer
+                                  to the 63% of damage guards deal)
+
+     A tier opens once the tier before it is bought. Nothing is free: every
+     evolution is biomass not spent on bodies, so buying the tree delays the
+     strike, and the strike is racing the site's own stages (RULES.stages).
+
+     TUNED AGAINST PAIRED SEEDS, not by feel. First pass (Warren = +lane and
+     -20% build only, Mycelium 40%, Den free, Ironhide armour 7, Alpha x1.25,
+     tiers 110/170/230) measured, verdant-hollow, early strike, seeds 1001-1008:
+       mycelium+den+ironhide 8/8, warren+thornwall+alpha 0-1/8.
+     Warren was a lane nobody could fill (income, not lanes, binds while the
+     groves are held), and Mycelium + Den + Ironhide was simply the best of
+     everything. Then at 130/200/260 a bot that actually SAVED for its tier
+     bought the whole tree by 1:30 and won 60 of 64 -- the tree was a free
+     rush, not a plan. Prices are now 200/350/500 (the full path is ~1050
+     biomass, roughly a 45-animal army), so buying it pushes the strike from
+     ~1:50 to ~3:30, into the Operational window, which is the trade.
+
+     AS SHIPPED, held-out seeds 3001-3008, early strike at 90 pop:
+                                          verdant   mirefen
+       Warren / Den / Ironhide             4/8       5/8
+       Mycelium / Thornwall / Alpha        6/8       7/8
+       Mycelium / Den / Ironhide           5/8       4/8
+       Warren / Thornwall / Alpha          7/8       7/8
+       no Evolve at all                    1/8       2/8
+     Tuning seeds 1001-1008 landed within a seed or two of every cell, so this
+     is not overfit. The Thornwall + Alpha paths are the strongest on both
+     maps (and they field wolf-heavy armies: part of that edge is simply more
+     bodies per pop); Den + Ironhide is the weaker but still live pair. That
+     is the first thing to look at next round, on FRESH seeds.
+
+     Deepen the Roots stays separate: it is capacity, this is character. */
+  evolve: [
+    { id: 'warren',    tier: 1, name: 'Warren',      cost: 200, key: '1',
+      desc: 'Animals cost 20% less and build 25% faster; +1 production lane, never fewer than two' },
+    { id: 'mycelium',  tier: 1, name: 'Mycelium',    cost: 200, key: '2',
+      desc: 'Every animal that dies returns 35% of its cost to the Heart Tree' },
+    { id: 'den',       tier: 2, name: 'Forward Den', cost: 350, key: '3',
+      desc: 'New animals hatch at your bloomed grove nearest the compound' },
+    { id: 'thornwall', tier: 2, name: 'Thornwall',   cost: 350, key: '4',
+      desc: 'Bloomed groves fling thorns at machines and take two-thirds longer to trample' },
+    { id: 'alpha',     tier: 3, name: 'Alpha',       cost: 500, key: '5',
+      desc: 'Wolves are born Alphas: bigger, and a pack of three hits 12% harder' },
+    { id: 'ironhide',  tier: 3, name: 'Ironhide',    cost: 500, key: '6',
+      desc: 'Boars are born Ironhide: armour 7, shrugs off rifle fire' },
+  ],
+  warrenLanes:    1,        // extra production lanes (cap and floor both rise)
+  warrenBuild:    0.75,     // build-time multiplier
+  warrenCost:     0.80,     // unit price multiplier
+  myceliumRefund: 0.35,     // share of a dead animal's cost returned
+  thornDmg:       12,       // per thorn, from each bloomed grove
+  thornRate:      1.2,      // seconds between thorns
+  thornRange:     16,
+  thornDecap:     0.6,      // trample-rate multiplier on a thorned grove
+  packRange:      10,       // Alpha: wolves within this of each other...
+  packSize:       3,        // ...this many together (Alphas or not)...
+  packDmg:        1.12,     // ...hit this much harder
+  denBuild:       1.0,      // Forward Den build-time multiplier (tried 1.2-1.3: see the Evolve note)
 
   spellCost:      40,
   spellCooldown:  26,
@@ -14014,7 +14268,10 @@ function populate() {
     return d;
   });
 
-  for (const [x, z] of TURRETS) {
+  /* Only the guns Stage I has finished stand at 0:00; the rest are pads that
+     pour when the campus goes operational. See RULES.stages. */
+  const standing = stageOpeningTurrets(TURRETS);
+  for (const [x, z] of standing) {
     const t = spawn('turret', x, z);
     G.obstacles.push(t);
   }
@@ -14068,26 +14325,29 @@ function populate() {
     return w;
   });
 
-  /* A site caught mid-build finishes on a clock if you let it. */
-  const con = layout().construction;
-  if (con) {
-    G.construction = { time: con.time, left: con.time, def: con, done: false, warned: {} };
-  } else {
-    G.construction = null;
-  }
+  /* The site's stage clock, its pads, crane and the opening garrison. The
+     groundbreak maps' old `construction` timer and the old siteWorks list are
+     both folded into this one schedule -- see RULES.stages. The garrison is
+     sized by difficulty AND by the opening stage: a Groundbreak site has not
+     hired everybody yet. */
+  initStages();
+  const s0 = RULES.stages[0];
+  garrisonTo(s0.garrison);
+}
 
-  /* SITE WORKS. See RULES.siteWorks for the measurement that made these
-     necessary. A map that already carries a construction timer is already a
-     race against a building site, so it does not get a second one. */
-  G.works = con ? [] : (RULES.siteWorks || []).map(w => ({ def: w, noticed: false, built: false }));
-
-  // starting garrison — sized by difficulty, not hard-coded
-  for (let i = 0; i < RULES.garrisonGuards; i++) {
+/* Top the standing garrison up to `mult` x the difficulty's own numbers.
+   Counts what was already hired by previous stages rather than what is alive,
+   so killing guards is never "refunded" by a stage transition. */
+function garrisonTo(mult, extraGuards = 0) {
+  const st = G.stage;
+  const wantG = Math.round(st.base.guards * mult) + extraGuards;
+  const wantD = Math.round(st.base.drones * mult);
+  for (; st.hiredG < wantG; st.hiredG++) {
     const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(g);
   }
-  for (let i = 0; i < RULES.garrisonDrones; i++) {
+  for (; st.hiredD < wantD; st.hiredD++) {
     const d = spawn('drone', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
                              COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
     assignPatrol(d);
@@ -14340,6 +14600,7 @@ function updateWorld(dt) {
     if (wild > 0 && machine === 0) dir = 1;
     else if (machine > 0 && wild === 0) {
       dir = -Math.min(1, RULES.decapBase + RULES.decapPerExtra * (machine - 1));
+      if (G.evo && G.evo.thornwall) dir *= RULES.thornDecap;      // Thornwall: the briars hold
     }
     if (dir > 0 && !g.owned && G.time < (g.dormantUntil || 0)) dir = 0;
     /* Being pushed off a grove is expensive and used to happen in near-silence.
@@ -14498,32 +14759,9 @@ function updateWorld(dt) {
   G.powered = !G.generators || !G.generators.length
     || G.generators.some(g => g.alive);
 
-  /* --- construction clock --- */
-  if (G.construction && !G.construction.done) {
-    const c = G.construction;
-    c.left -= dt;
-    for (const mark of [0.5, 0.25]) {
-      if (c.left / c.time <= mark && !c.warned[mark]) {
-        c.warned[mark] = true;
-        toast(`Construction ${Math.round((1 - mark) * 100)}% complete`, 'warn');
-        commsEvent('build', 1);
-      }
-    }
-    if (c.left <= 0) {
-      c.done = true;
-      for (const [x, z] of (c.def.addTurrets || [])) G.obstacles.push(spawn('turret', x, z));
-      for (let i = 0; i < (c.def.addGarrison || 0); i++) {
-        const g = spawn('guard', COMPOUND.x + rand(-COMPOUND.hw + 8, COMPOUND.hw - 8),
-                                 COMPOUND.z + rand(-COMPOUND.hd + 8, COMPOUND.hd - 8));
-        assignPatrol(g);
-      }
-      SFX.alarm();
-      commsEvent('built', 1);
-      toast('THE SITE IS OPERATIONAL — defences online', 'warn');
-    }
-  }
-
-  updateSiteWorks();
+  /* --- the site's stage clock (see RULES.stages) --- */
+  updateStages(dt);
+  updateEvolve(dt);
 
   /* --- population --- */
   let pop = 0, mpop = 0;
@@ -14539,7 +14777,10 @@ function updateWorld(dt) {
   function laneCount() {
     const fromGroves = 1 + Math.floor((G.bloomed || 0) / 2);
     const surge = (RULES.surgeLaneAt || []).filter(t => G.biomass >= t).length;
-    return Math.min(RULES.maxLanes || 3, Math.max(fromGroves, 1 + surge));
+    /* Warren lifts the ceiling AND the floor: one grove still builds two at a
+       time, which is the rebuild a broken economy could never afford. */
+    const w = evo().warren ? RULES.warrenLanes : 0;
+    return Math.min((RULES.maxLanes || 3) + w, Math.max(fromGroves + w, 1 + surge));
   }
 
   /* --- production queue -----------------------------------------------------
@@ -14563,7 +14804,12 @@ function updateWorld(dt) {
       G.queue.splice(i, 1);
       if (!G.queue.length) rallyN = 0;      // batch finished; start the next one centred
       const a = rand(0, 6.28);
-      const e = spawn(item.type, BASE.x + Math.cos(a) * 11, BASE.z + Math.sin(a) * 11);
+      /* Evolved forms wear their species' body (see applyForm); Forward Den
+         moves the hatchery up to the front grove (see hatchPoint). */
+      const idef = DEFS[item.type];
+      const hp = hatchPoint();
+      const e = spawn(idef.form || item.type, hp.x + Math.cos(a) * hp.r, hp.z + Math.sin(a) * hp.r);
+      if (idef.form) applyForm(e, item.type);
       if (G.rally) e.setOrder('attackmove', rallySlot());
       if (!animalVoice(e, 'deploy')) SFX.spawn();
       burst(e.pos.clone().setY(e.pos.y + 1), 0x9bff6a, 10, 7, 0.6, 0.6);
@@ -14633,27 +14879,161 @@ function worksFace(p) {
   return (ns + (ns && ew ? '-' : '') + ew) || 'central';
 }
 
-function updateSiteWorks() {
-  if (!G.works || !G.works.length || G.over || !G.core || !G.core.alive) return;
-  for (const w of G.works) {
-    if (w.built) continue;
-    const at = w.def.at;
-    if (!w.noticed && G.time >= at - RULES.worksNotice) {
-      w.noticed = true;
-      /* Pick the spot at NOTICE time and hold it, so the warning names the same
-         place the concrete lands. */
-      w.spot = worksSpot(w.def.kind);
-      if (!w.spot) { w.built = true; continue; }   // campus full: skip it quietly
-      const secs = Math.max(1, Math.round(at - G.time));
-      toast(`${w.def.notice} (${worksFace(w.spot)} quarter, ${secs}s)`, 'machine');
-      commsEvent('works', 1);
+/* =========================================================================
+   SITE STAGES — the campus grows on an announced clock, and the swarm can
+   slow it down. See RULES.stages for the measurement behind every field.
+
+   G.stage.clock is SITE PROGRESS, not match time: it runs at one second per
+   second and every structure the swarm levels takes RULES.stageDelay off it,
+   so "the next stage lands at 4:00" becomes "4:00 plus whatever you knock
+   down first". The HUD shows the live estimate.
+
+   Legible in the world, not just in a toast: pads with scaffolding stand
+   where the Stage II guns will pour, a tower crane over the Core carries a
+   beacon in the current stage's colour, and Hyperscale clads the coolant
+   towers in visible armour bands.
+   ========================================================================= */
+const STAGE_TINT = [0xffb648, 0x39d7ea, 0xff4b3a];   // amber, cyan, red
+const STAGE_KIND = ['depot', 'generator', 'pump', 'well', 'turret'];
+
+/* Which authored turrets stand at 0:00. The ones nearest the Heart Tree are
+   the approach face, and those are what a Groundbreak site has not finished:
+   a swarm that comes early meets a gun line with its front half on pads. A
+   map authored as a construction site already IS its groundbreak state. */
+function stageOpeningTurrets(list) {
+  const con = layout().construction;
+  const share = con ? 1 : (RULES.stages[0].turrets ?? 1);
+  const byReach = list.map(p => ({ p, d: Math.hypot(p[0] - BASE.x, p[1] - BASE.z) }))
+                      .sort((a, b) => b.d - a.d);          // farthest first
+  const keep = Math.max(1, Math.round(list.length * share));
+  G._stagePads = byReach.slice(keep).map(o => o.p);
+  return byReach.slice(0, keep).map(o => o.p);
+}
+
+function initStages() {
+  const con = layout().construction;
+  const S = RULES.stages;
+  const st = G.stage = {
+    i: 0, clock: 0, noticed: false, pushed: 0,
+    /* the difficulty's own numbers, captured once: a stage is a multiple */
+    base: {
+      guards: RULES.garrisonGuards, drones: RULES.garrisonDrones,
+      popCap: RULES.machinePopCap, spawnEvery: DEFS.depot.spawnEvery,
+      coolArmor: DEFS.coolant.armor, meltdownCool: RULES.meltdownCool,
+      turretDmg: DEFS.turret.dmg, turretSplash: DEFS.turret.splash,
+    },
+    hiredG: 0, hiredD: 0,
+    /* A construction map authors its own Stage II: the timer and the guns. */
+    at: S.map((s, k) => (k === 1 && con && con.time) ? con.time : (s.at || 0)),
+    extraGuards: (con && con.addGarrison) || 0,
+    pads: [], counts: stageCounts(),
+  };
+  const padSpots = (G._stagePads || []).concat(con ? (con.addTurrets || []) : []);
+  for (const [x, z] of padSpots) st.pads.push(makePad(x, z));
+  G._stagePads = null;
+  st.crane = makeCrane();
+  applyStage(0);
+}
+
+function stageCounts() {
+  const c = {};
+  for (const k of STAGE_KIND) c[k] = 0;
+  for (const o of G.entities) if (o.alive && o.team === TEAM.MACHINE && c[o.type] !== undefined) c[o.type]++;
+  return c;
+}
+
+/* The multipliers that are pure numbers. Garrison top-ups and new concrete
+   happen in advanceStage, once, because they spawn things. */
+function applyStage(k) {
+  const s = RULES.stages[k], b = G.stage.base;
+  RULES.machinePopCap = Math.max(4, Math.round(b.popCap * (s.popCap ?? 1)));
+  DEFS.depot.spawnEvery = b.spawnEvery * (s.spawnEvery ?? 1);
+  DEFS.coolant.armor = b.coolArmor + (s.coolArmor || 0);
+  RULES.meltdownCool = s.meltdownCool ?? b.meltdownCool;
+  DEFS.turret.dmg = Math.round(b.turretDmg * (s.turretDmg ?? 1));
+  DEFS.turret.splash = b.turretSplash * (s.turretSplash ?? 1);
+  if (G.stage.crane) G.stage.crane.lamp.material = GLOW(STAGE_TINT[k] ?? 0xffffff);
+}
+
+/* How long until the next stage, in seconds of site progress. */
+function stageInfo() {
+  const st = G.stage;
+  if (!st) return null;
+  const S = RULES.stages;
+  const next = st.i + 1 < S.length ? S[st.i + 1] : null;
+  return { i: st.i, name: S[st.i].name, next: next ? next.name : null,
+           left: next ? Math.max(0, st.at[st.i + 1] - st.clock) : 0, pushed: st.pushed };
+}
+
+function updateStages(dt) {
+  const st = G.stage;
+  if (!st || G.over || !G.core || !G.core.alive) return;
+  const S = RULES.stages;
+
+  /* Setbacks: anything the swarm has levelled since last frame. Counted, not
+     hooked into onDeath, so every way a structure can die is caught once. */
+  const now = stageCounts();
+  for (const k of STAGE_KIND) {
+    const lost = st.counts[k] - now[k];
+    if (lost > 0 && st.i + 1 < S.length) {
+      const room = Math.max(0, RULES.stageDelayMax - st.pushed);
+      const d = Math.min(room, lost * ((RULES.stageDelay || {})[k] || 0));
+      if (d > 0) {
+        st.clock -= d; st.pushed += d;
+        toast(`Site delayed — ${S[st.i + 1].name} pushed back ${Math.round(d)}s`
+              + (room - d <= 0 ? ' (the contractor has no slack left)' : ''), 'machine');
+      }
     }
-    if (G.time < at) continue;
-    w.built = true;
-    if (!w.spot) continue;
-    const e = spawn(w.def.kind, w.spot.x, w.spot.z);
+  }
+  st.counts = now;
+
+  /* The crane keeps working while there is a next stage to build. */
+  if (st.crane) st.crane.jib.rotation.y += dt * 0.12;
+  for (const p of st.pads) p.ring.material.opacity = 0.35 + 0.25 * Math.sin(G.time * 3);
+
+  if (st.i + 1 >= S.length) return;
+  st.clock += dt;
+  const at = st.at[st.i + 1];
+  const next = S[st.i + 1];
+  if (!st.noticed && st.clock >= at - RULES.stageNotice) {
+    st.noticed = true;
+    const secs = Math.max(1, Math.round(at - st.clock));
+    toast(`${next.notice} (${secs}s — level a depot, generator or pump to delay it)`, 'machine');
+    commsEvent('works', 1);
+    SFX.alarm();
+  }
+  /* A setback can drag a noticed stage back out of its notice window; say it
+     again when it comes back round rather than going quiet. */
+  if (st.noticed && st.clock < at - RULES.stageNotice - 5) st.noticed = false;
+  if (st.clock >= at) advanceStage();
+}
+
+function advanceStage() {
+  const st = G.stage;
+  const S = RULES.stages;
+  const prev = S[st.i];
+  st.i++; st.noticed = false; st.pushed = 0;
+  const s = S[st.i];
+  applyStage(st.i);
+
+  /* Pads pour when a stage raises the turret share to full. */
+  if ((s.turrets ?? 1) > (prev.turrets ?? 1) || (st.i === 1 && st.pads.length)) {
+    for (const p of st.pads) {
+      G.scene.remove(p.group);
+      const t = spawn('turret', p.x, p.z);
+      G.obstacles.push(t);
+      ring(t.pos, STAGE_TINT[st.i], 14, 1.2);
+    }
+    st.pads.length = 0;
+  }
+  garrisonTo(s.garrison ?? 1, st.i >= 1 ? st.extraGuards : 0);
+
+  for (const kind of (s.works || [])) {
+    const spot = worksSpot(kind);
+    if (!spot) continue;                         // campus full: skip it quietly
+    const e = spawn(kind, spot.x, spot.z);
     G.obstacles.push(e);
-    if (w.def.kind === 'pump') {
+    if (kind === 'pump') {
       G.pumps.push(e);
       e.onDeath = () => {
         const left = G.pumps.filter(q => q.alive).length;
@@ -14662,11 +15042,111 @@ function updateSiteWorks() {
                    : 'The last pump is dead. The water is coming back.');
       };
     }
-    ring(e.pos, 0xffb648, 16, 1.2);
-    SFX.alarm();
-    commsEvent('built', 1);
-    toast(`${w.def.done}`, 'warn');
+    ring(e.pos, STAGE_TINT[st.i], 16, 1.2);
   }
+  if (s.coolArmor) for (const c of G.coolants) cladTower(c, st.i);
+  /* Cladding is also bulk: every tower's ceiling rises by the same absolute
+     amount, and a standing tower gets it as health (an offline one has to be
+     welded up to the new line like any other). */
+  if ((s.coolHp ?? 1) > (prev.coolHp ?? 1)) {
+    for (const c of G.coolants) {
+      const add = (c.baseHp || c.def.hp) * ((s.coolHp ?? 1) - (prev.coolHp ?? 1));
+      c.maxHp += add;
+      if (!c.downed && c.alive) c.hp += add;
+    }
+  }
+  st.counts = stageCounts();          // new concrete is not a setback
+
+  if (st.i + 1 >= RULES.stages.length && st.crane) {
+    /* The site is finished: the crane comes down. */
+    G.scene.remove(st.crane.group);
+    st.crane = null;
+  }
+  SFX.alarm();
+  commsEvent('built', 1);
+  toast(s.done, 'warn');
+}
+
+/* A foundation pad: concrete, four scaffold posts and a pulsing ring, so the
+   player can SEE where the Stage II guns will stand before they do. */
+function makePad(x, z) {
+  const g = new THREE.Group();
+  const y = terrainHeight(x, z);
+  g.position.set(x, y, z);
+  const sm = siteMats();
+  g.add(cyl(sm.concrete, 2.6, 0.5, 0, 0.25, 0));
+  const steel = sm.padSteel;
+  for (const [ox, oz] of [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]]) g.add(box(steel, 0.22, 4.2, 0.22, ox, 2.3, oz));
+  g.add(box(steel, 3.6, 0.2, 0.2, 0, 4.3, -1.6));
+  g.add(box(steel, 3.6, 0.2, 0.2, 0, 4.3, 1.6));
+  g.add(box(steel, 0.2, 0.2, 3.6, -1.6, 4.3, 0));
+  g.add(box(steel, 0.2, 0.2, 3.6, 1.6, 4.3, 0));
+  const rg = new THREE.Mesh(new THREE.RingGeometry(3.2, 3.8, 32), sm.ring);
+  rg.rotation.x = -Math.PI / 2; rg.position.y = 0.35;
+  g.add(rg);
+  G.scene.add(g);
+  return { x, z, group: g, ring: rg };
+}
+
+/* Site dressing is scenery, so it goes dark under unexplored fog exactly like
+   the props do (applyFogMask) -- cloned once, because M() materials are shared
+   with the rest of the compound. The crane's beacon is deliberately NOT masked:
+   it is the one thing about the site you can read from across the valley. */
+let _siteMats = null;
+function siteMats() {
+  if (_siteMats) return _siteMats;
+  const fm = m => applyFogMask(m.clone());
+  return (_siteMats = {
+    concrete: fm(M(0x8a8780)),
+    padSteel: fm(M(0xd08a2a, { metal: 0.4, rough: 0.6 })),
+    craneSteel: fm(M(0xe0a830, { metal: 0.3, rough: 0.6 })),
+    weight: fm(M(0x55524c)),
+    ring: applyFogMask(new THREE.MeshBasicMaterial({ color: STAGE_TINT[0], transparent: true, opacity: 0.5,
+                                                     side: THREE.DoubleSide, depthWrite: false })),
+  });
+}
+
+/* A tower crane beside the Core. The beacon on its jib is the stage, in
+   colour, from anywhere the compound can be seen. */
+function makeCrane() {
+  const cp = G.core.pos;
+  const x = cp.x + 12, z = cp.z + 10;
+  const g = new THREE.Group();
+  g.position.set(x, terrainHeight(x, z), z);
+  const sm = siteMats();
+  const steel = sm.craneSteel;
+  g.add(box(sm.concrete, 3.2, 1, 3.2, 0, 0.5, 0));
+  g.add(box(steel, 1.1, 30, 1.1, 0, 15.5, 0));
+  const jib = new THREE.Group();
+  jib.position.y = 30.5;
+  jib.add(box(steel, 26, 0.9, 0.9, 7, 0, 0));
+  jib.add(box(sm.weight, 3, 2, 2, -6.5, -0.6, 0));          // counterweight
+  jib.add(box(steel, 0.12, 9, 0.12, 16, -4.5, 0));          // hook line
+  const lamp = sph(GLOW(STAGE_TINT[0]), 0.9, 19.5, 0.9, 0);
+  jib.add(lamp);
+  g.add(jib);
+  G.scene.add(g);
+  return { group: g, jib, lamp };
+}
+
+/* Hyperscale cladding: armour bands round every coolant tower. The armour is
+   real (DEFS.coolant.armor), so the tell has to be too. */
+function cladTower(c, stage) {
+  /* Parented to the tower's own mesh so it shares the tower's fog, fate and
+     finale; the mesh is scaled by vScale, so the bands are drawn in its space.
+     One band per stage that armours the plant, lit in that stage's colour, so
+     "how armoured is that tower" reads off the tower itself. */
+  if (!c._clad) {
+    c._clad = new THREE.Group();
+    c._clad.scale.setScalar(1 / (c.vScale || 1));
+    c.mesh.add(c._clad);
+  }
+  const g = c._clad;
+  const n = g.children.length / 2;                 // bands already fitted
+  const plate = M(0x3a3d44, { metal: 0.6, rough: 0.4 });
+  const h = 2.2 + n * 2.6;
+  g.add(cyl(plate, c.radius + 0.35 + n * 0.08, 1.1, 0, h, 0));
+  g.add(cyl(GLOW(STAGE_TINT[stage] ?? STAGE_TINT[2]), c.radius + 0.45 + n * 0.08, 0.18, 0, h + 0.7, 0));
 }
 
 /* Spread arrivals over a widening spiral around the rally flag; a shared point
@@ -14725,7 +15205,165 @@ function deepenRoots() {
   return true;
 }
 
+/* ------------------------------------------------------------- Evolve ----
+   The swarm's tech path. See RULES.evolve for the measured problem each tier
+   answers. Three tiers, two options each, one pick per tier for the match. */
+const evo = () => (G.evo || (G.evo = {}));
+function evolveOwned(id) { return !!evo()[id]; }
+
+/* 'owned' | 'open' | 'closed' (its twin was bought) | 'tier' (earlier tier
+   not bought yet). One place, so the panel, the hotkeys and the harness agree. */
+function evolveStatus(id) {
+  const opt = RULES.evolve.find(o => o.id === id);
+  if (!opt) return 'closed';
+  if (evo()[id]) return 'owned';
+  if (RULES.evolve.some(o => o.tier === opt.tier && o.id !== id && evo()[o.id])) return 'closed';
+  if (opt.tier > 1 && !RULES.evolve.some(o => o.tier === opt.tier - 1 && evo()[o.id])) return 'tier';
+  return 'open';
+}
+
+function evolve(id) {
+  const opt = RULES.evolve.find(o => o.id === id);
+  if (!opt || !G.heart.alive || G.over) return false;
+  const s = evolveStatus(id);
+  if (s !== 'open') {
+    if (s === 'tier') toast(`${opt.name} needs a tier ${opt.tier - 1} evolution first`, 'warn');
+    else if (s === 'closed') toast(`The valley already chose the other path at tier ${opt.tier}`, 'warn');
+    SFX.deny(); return false;
+  }
+  if (G.biomass < opt.cost) { toast(`Not enough biomass to evolve ${opt.name} (${opt.cost})`, 'warn'); SFX.deny(); return false; }
+  G.biomass -= opt.cost;
+  evo()[id] = G.time || 0.001;
+  ring(G.heart.pos, 0xc9ff7a, 26, 1.4);
+  burst(G.heart.pos.clone().setY(G.heart.pos.y + 8), 0xc9ff7a, 26, 12, 1.2, 1);
+  SFX.bloom();
+  toast(`The valley evolves — ${opt.name}: ${opt.desc}`);
+  return true;
+}
+
+/* Tier III forms replace a species on the roster: the Wolf card, the Z key
+   and every queue call all produce the evolved form once it is bought. */
+function rosterType(type) {
+  if (type === 'wolf' && evo().alpha) return 'alpha';
+  if (type === 'boar' && evo().ironhide) return 'ironhide';
+  return type;
+}
+
+/* What a unit costs right now. Warren makes the litter cheaper; everything
+   that shows or charges a price reads it from here. */
+function unitCost(type) {
+  const c = DEFS[type].cost;
+  return evo().warren ? Math.round(c * RULES.warrenCost) : c;
+}
+
+/* Put an evolved form on a freshly spawned body of its base species. The mesh,
+   gait, voice and portrait stay the species'; stats, size and colour change. */
+const _tint = new THREE.Color();
+function applyForm(e, formType) {
+  const d = DEFS[formType];
+  e.def = d;
+  e.formType = formType;
+  e.baseHp = e.hp = e.maxHp = d.hp;
+  e.radius = d.radius;
+  e.vScale *= d.formScale || 1;
+  e.mesh.scale.setScalar(e.vScale);
+  if (d.formTint !== undefined) {
+    _tint.setHex(d.formTint);
+    const skip = new Set();
+    if (e.hb) e.hb.g.traverse(o => skip.add(o));
+    if (e.ring) skip.add(e.ring);
+    e.mesh.traverse(o => {
+      if (!o.isMesh || skip.has(o) || !o.material || Array.isArray(o.material)) return;
+      const src = o.material;
+      if (!src.color) return;
+      const m = src.clone();
+      /* Material.copy drops these, and a shader patch lost silently is how
+         this codebase has been bitten before (see meshes.js). */
+      if (src.onBeforeCompile) m.onBeforeCompile = src.onBeforeCompile;
+      if (src.customProgramCacheKey) m.customProgramCacheKey = src.customProgramCacheKey;
+      m.color.multiply(_tint);
+      o.material = m;
+    });
+  }
+}
+
+/* Where a new animal hatches: the Heart Tree, or with Forward Den the bloomed
+   grove nearest the compound that is not being trampled right now. */
+function hatchPoint() {
+  if (evo().den) {
+    let best = null, bd = 1e9;
+    for (const g of G.groves) {
+      if (!g.owned || g.losing) continue;
+      const d = Math.hypot(g.pos.x - COMPOUND.x, g.pos.z - COMPOUND.z);
+      if (d < bd) { bd = d; best = g; }
+    }
+    if (best) return { x: best.pos.x, z: best.pos.z, r: 6 };
+  }
+  return { x: BASE.x, z: BASE.z, r: 11 };
+}
+
+const _thornNear = [];
+const THORN_SHOT = { color: 0x9bff6a, speed: 55, size: 0.2 };
+let packT = 0;
+function updateEvolve(dt) {
+  const E = G.evo;
+  if (!E || G.over) return;
+
+  /* Mycelium: the dead feed the tree. Read off corpses the frame they fall,
+     so every way an animal can die is caught once. */
+  if (E.mycelium) {
+    for (const e of G.entities) {
+      if (e.alive || e._myc || e.team !== TEAM.WILD || e.isBuilding) continue;
+      e._myc = true;
+      if (G.wallTime - (e.deadAt || 0) > 1) continue;      // died before the rite
+      G.biomass += (e.def.cost || 0) * RULES.myceliumRefund;
+      burst(e.pos.clone().setY(e.pos.y + 0.6), 0xc9ff7a, 6, 3, 0.9, 0.5);
+    }
+  }
+
+  /* Thornwall: every bloomed grove is a small, patient gun. */
+  if (E.thornwall) {
+    for (const g of G.groves) {
+      if (!g.owned) continue;
+      g._thornT = (g._thornT || 0) - dt;
+      if (g._thornT > 0) continue;
+      const list = G.grid.near(g.pos.x, g.pos.z, RULES.thornRange + 2, _thornNear);
+      let best = null, bd = 1e9;
+      for (const o of list) {
+        if (!o.alive || o.team !== TEAM.MACHINE || o.isBuilding) continue;
+        const d = dist2D(o.pos, g.pos) - o.radius;
+        if (d <= RULES.thornRange && d < bd) { bd = d; best = o; }
+      }
+      if (!best) { g._thornT = 0.25; continue; }
+      g._thornT = RULES.thornRate;
+      fireProjectile(new THREE.Vector3(g.pos.x, g.pos.y + 3, g.pos.z), best, RULES.thornDmg, THORN_SHOT, null);
+    }
+  }
+
+  /* Alpha: a wolf running with an Alpha and at least packSize-1 others hits
+     harder. Re-derived four times a second on top of veterancy's multiplier. */
+  if (E.alpha) {
+    packT -= dt;
+    if (packT <= 0) {
+      packT = 0.25;
+      const wolves = G.entities.filter(e => e.alive && e.type === 'wolf' && e.team === TEAM.WILD);
+      const packed = new Set();
+      const r2 = RULES.packRange * RULES.packRange;
+      for (const a of wolves) {
+        if (a.formType !== 'alpha') continue;
+        const near = wolves.filter(w => (w.pos.x - a.pos.x) ** 2 + (w.pos.z - a.pos.z) ** 2 <= r2);
+        if (near.length >= RULES.packSize) for (const w of near) packed.add(w);
+      }
+      for (const w of wolves) {
+        const vet = 1 + 0.12 * (w.vet || 0);
+        w.dmgMult = vet * (packed.has(w) ? RULES.packDmg : 1);
+      }
+    }
+  }
+}
+
 function queueUnit(type) {
+  type = rosterType(type);
   const def = DEFS[type];
   if (!G.heart.alive) return false;
   if (G.lockedUnits && G.lockedUnits.includes(type)) {
@@ -14733,16 +15371,18 @@ function queueUnit(type) {
     SFX.deny(); return false;
   }
   if (type === 'local' && !G._localPr) { G._localPr = true; commsEvent('local'); }
-  if (G.biomass < def.cost) { toast(`Not enough biomass for ${def.name} (${def.cost})`, 'warn'); SFX.deny(); return false; }
+  const cost = unitCost(type);
+  if (G.biomass < cost) { toast(`Not enough biomass for ${def.name} (${cost})`, 'warn'); SFX.deny(); return false; }
   if (G.pop + queuedPop() + (def.pop || 1) > G.popCap) { toast('Wildlife limit reached — the forest can hold no more', 'warn'); SFX.deny(); return false; }
   if (G.queue.length >= 24) { SFX.deny(); return false; }
-  G.biomass -= def.cost;
+  G.biomass -= cost;
   /* Groves also quicken each lane a little, on top of adding lanes. Kept mild:
      the lanes are the real lever, and stacking both at the old 7% made a maxed
      economy produce faster than the pop cap could absorb. */
   const haste = 1 - 0.04 * (G.bloomed || 0);
-  const build = def.build * Math.max(0.55, haste);
-  G.queue.push({ type, remaining: build, total: build });
+  const build = def.build * Math.max(0.55, haste) * (evo().warren ? RULES.warrenBuild : 1)
+              * (evo().den ? RULES.denBuild : 1);
+  G.queue.push({ type, remaining: build, total: build, paid: cost });
   return true;
 }
 
@@ -14753,7 +15393,7 @@ function queuedPop() {
 function cancelQueue(i) {
   const item = G.queue[i];
   if (!item) return;
-  G.biomass += DEFS[item.type].cost;
+  G.biomass += item.paid ?? DEFS[item.type].cost;
   G.queue.splice(i, 1);
 }
 
@@ -16881,6 +17521,7 @@ function initInput(canvasEl, rtsCam) {
 
   initMinimap();
   initCards();
+  initEvolvePanel();
   initCommandPreview();
   document.querySelectorAll('[data-animal-preview]').forEach(button => {
     button.addEventListener('click', async () => {
@@ -17245,6 +17886,7 @@ function onKey(e) {
     if (pausedByPlayer) return setPaused(false);
     if (!document.getElementById('help').classList.contains('hidden')) return toggleHelp();
     if (G.mode !== 'normal') return setMode('normal');
+    if (!document.getElementById('evolve')?.hidden) return toggleEvolve(false);
     /* Escape cancels whatever is outstanding; with nothing left to cancel it
        means "get me out", which in a game is pause. */
     if (G.selection.length) return setSelection([]);
@@ -17278,6 +17920,7 @@ function onKey(e) {
     case 'KeyN': queueUnit('beaver'); return;
     case 'KeyB': queueUnit('local'); return;
     case 'KeyT': deepenRoots(); return;
+    case 'KeyU': toggleEvolve(); return;
   }
 
   const m = /^Digit([1-5])$/.exec(e.code);
@@ -17397,37 +18040,115 @@ function initMinimap() {
 }
 
 /* ------------------------------------------------------- command cards -- */
+/* A card shows whatever its slot currently BUILDS: after a tier III evolution
+   the Wolf slot builds Alpha Wolves, and the card has to say so. `type` is the
+   slot (the dock never grows); rosterType() is what it produces. */
+function paintCard(el, type) {
+  const form = rosterType(type);
+  const d = DEFS[form];
+  el.dataset.form = form;
+  const cost = unitCost(form);
+  el.dataset.cost = String(cost);
+  /* Population is the constraint that decides the late game — a Bear is four
+     Wolves you are not fielding — and it appeared nowhere in the UI.
+
+     Neither did the siege multiplier, which is the single biggest hidden
+     decision in the game: the win condition is a pile of armoured buildings,
+     and only three of the eight buildables hit them harder than they hit
+     flesh. A player could field a perfectly good army that was quietly bad at
+     the only thing that ends the match. Both numbers now sit on the card. */
+  const siege = d.siege || 1;
+  el.classList.toggle('evolved', form !== type);
+  el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${unitPortrait(type, d.icon)}</span>
+    <span class="nm">${d.name}</span>
+    <span class="unit-role">${d.role || UNIT_ROLES[type]}</span>
+    <span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${cost}<i class="pop">${d.pop || 1} pop</i>`
+    + (siege > 1 ? `<i class="siege" title="damage vs structures">×${siege}</i>` : '')
+    + `</span>`;
+  /* Structure DPS against the Server Core (armour 8) — the number that
+     actually decides whether a composition can finish the game. Flat armour is
+     why the multiplier alone understates the gap: it is the difference
+     between "slow" and "you will be here all night". */
+  const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
+  el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.armor} armour · ${d.pop || 1} pop · ${d.build}s`
+    + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
+  el.setAttribute('aria-label', `${d.name}, ${cost} biomass, ${d.pop || 1} population. ${d.blurb}`);
+}
+
+/* --------------------------------------------------------- evolve panel --
+   Opened with U or the Evolve button in the order strip, so the one-row dock
+   stays one row. Three tiers, two choices each; a bought choice closes its
+   twin for the match. Painted from evolveStatus() so the panel, the hotkeys
+   and the harness can never disagree about what is available. */
+function initEvolvePanel() {
+  const body = document.getElementById('evolvebody');
+  if (!body) return;
+  body.innerHTML = '';
+  for (const tier of [1, 2, 3]) {
+    const row = document.createElement('div');
+    row.className = 'evo-tier';
+    row.innerHTML = `<span class="evo-tn">${['I', 'II', 'III'][tier - 1]}</span>`;
+    for (const o of RULES.evolve.filter(x => x.tier === tier)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'evo-opt';
+      b.dataset.evo = o.id;
+      b.innerHTML = `<span class="evo-nm">${o.name}</span><span class="evo-cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${o.cost}</span><span class="evo-desc">${o.desc}</span>`;
+      b.addEventListener('click', () => {
+        if (G.phase !== 'playing' || G.paused || G.over) return;
+        if (evolve(o.id)) refreshEvolve();
+      });
+      row.appendChild(b);
+    }
+    body.appendChild(row);
+  }
+  refreshEvolve();
+}
+
+function toggleEvolve(force) {
+  const p = document.getElementById('evolve');
+  if (!p) return;
+  const open = force !== undefined ? force : p.hidden;
+  p.hidden = !open;
+  const btn = document.getElementById('evolvebtn');
+  if (btn) btn.classList.toggle('active', open);
+  if (open) refreshEvolve();
+}
+
+/* Called from the HUD tick: availability moves with biomass. */
+function refreshEvolve() {
+  let anyOpen = false;
+  for (const b of document.querySelectorAll('#evolvebody .evo-opt')) {
+    const o = RULES.evolve.find(x => x.id === b.dataset.evo);
+    const st = evolveStatus(o.id);
+    const afford = st === 'open' && G.biomass >= o.cost && G.heart && G.heart.alive;
+    if (afford) anyOpen = true;
+    b.dataset.state = st;
+    b.classList.toggle('afford', afford);
+    b.setAttribute('aria-disabled', String(!afford));
+    b.title = st === 'owned' ? `${o.name} — evolved` : st === 'closed' ? `${o.name} — the valley chose the other path`
+            : st === 'tier' ? `${o.name} — needs a tier ${o.tier - 1} evolution first` : `${o.name} — ${o.cost} biomass`;
+  }
+  /* The button glows when something can be bought, so the panel does not
+     need to be open to know it is worth opening. */
+  const btn = document.getElementById('evolvebtn');
+  if (btn) btn.classList.toggle('ready', anyOpen);
+  /* A tier III form changes what a dock slot builds; repaint that card. */
+  for (const c of document.querySelectorAll('#cards .card[data-type]')) {
+    const f = rosterType(c.dataset.type);
+    if (c.dataset.form !== f || c.dataset.cost !== String(unitCost(f))) paintCard(c, c.dataset.type);
+  }
+}
+
 function initCards() {
   const host = document.getElementById('cards');
   host.innerHTML = '';
   for (const type of BUILDABLE) {
-    const d = DEFS[type];
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'card';
     el.dataset.type = type;
-    /* Population is the constraint that decides the late game — a Bear is four
-       Wolves you are not fielding — and it appeared nowhere in the UI.
-
-       Neither did the siege multiplier, which is the single biggest hidden
-       decision in the game: the win condition is a pile of armoured buildings,
-       and only three of the eight buildables hit them harder than they hit
-       flesh. A player could field a perfectly good army that was quietly bad at
-       the only thing that ends the match. Both numbers now sit on the card. */
-    const siege = d.siege || 1;
-    el.innerHTML = `<span class="key">${d.key}</span><span class="ico">${unitPortrait(type, d.icon)}</span>
-      <span class="nm">${d.name}</span>
-      <span class="unit-role">${UNIT_ROLES[type]}</span>
-      <span class="cost"><svg class="cost-glyph" aria-hidden="true"><use href="#i-leaf"/></svg>${d.cost}<i class="pop">${d.pop || 1} pop</i>`
-      + (siege > 1 ? `<i class="siege" title="damage vs structures">×${siege}</i>` : '')
-      + `</span>`;
-    /* Structure DPS against the Server Core (armour 8) — the number that
-       actually decides whether a composition can finish the game. Flat armour is
-       why the multiplier alone understates the gap: it is the difference
-       between "slow" and "you will be here all night". */
-    const vsCore = (Math.max(1, d.dmg * siege - DEFS.core.armor) / d.rate).toFixed(1);
-    el.title = `${d.name} — ${d.blurb}\n${d.hp} hp · ${d.dmg} dmg · ${d.pop || 1} pop · ${d.build}s`
-      + `\nvs structures ×${siege} · ${vsCore} dps into the Server Core`;
+    paintCard(el, type);
     /* Shift-click queues five. Filling a 96-pop army one press at a time is
        not a decision, it is typing. */
     el.addEventListener('click', ev => {
@@ -17435,7 +18156,6 @@ function initCards() {
       const n = ev.shiftKey ? 5 : 1;
       for (let i = 0; i < n; i++) if (!queueUnit(type)) break;
     });
-    el.setAttribute('aria-label', `${d.name}, ${d.cost} biomass, ${d.pop || 1} population. ${d.blurb}`);
     host.appendChild(el);
   }
   /* Deepen the Roots — the late game's second thing to buy. Sits at the end of
@@ -17534,6 +18254,7 @@ function initCommandPreview() {
     else if (cmd === 'attack') { if (commandable().length) setMode('attack'); }
     else if (cmd === 'water') sendToWater();
     else if (cmd === 'spell') enterSpellMode();
+    else if (cmd === 'evolve') toggleEvolve();
     else stanceOrder(cmd);
   });
 }
@@ -17552,7 +18273,7 @@ function updateCommandPreview() {
   const hasUnits = commandable().length > 0;
   for (const btn of commandButtons) {
     const cmd = btn.dataset.command;
-    btn.disabled = !hasUnits && !['all', 'spell'].includes(cmd);
+    btn.disabled = !hasUnits && !['all', 'spell', 'evolve'].includes(cmd);
     btn.classList.toggle('active', (cmd === 'spell' && spell) || (cmd === 'attack' && attack));
   }
   if (!spell && !attack) return;
@@ -17640,6 +18361,19 @@ function updateHUD() {
     sw.classList.toggle('dry', left < 10);
   }
 
+  /* The site's stage, and how long until the next one. The countdown is SITE
+     progress, so it jumps back when the swarm levels a depot, a generator or a
+     pump -- which is the point: the player watches aggression buy time. */
+  const sr = el('stageres'), si = stageInfo();
+  if (sr && si) {
+    sr.dataset.stage = String(si.i);
+    el('stagename').textContent = ['I', 'II', 'III'][si.i] || String(si.i + 1);
+    const lab = sr.querySelector('.res-label');
+    if (lab && lab.textContent !== si.name) lab.textContent = si.name;
+    el('stagesub').textContent = si.next ? `${si.next.toLowerCase()} in ${fmt(si.left)}` : 'fully built';
+    sr.classList.toggle('low', !!si.next && si.left < 30);
+  }
+
   /* Water. The pumps have always drained the lakes and quietly cut grove yield;
      until this readout existed the player had no way to see it happening, let
      alone plan around it. Now it also gates how long a drink lasts. */
@@ -17705,9 +18439,9 @@ function updateHUD() {
 
   /* cards */
   for (const c of cards) {
-    const d = DEFS[c.dataset.type];
+    const d = DEFS[rosterType(c.dataset.type)];      // what the slot builds now (tier III forms)
     const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
-    const afford = !gated && G.biomass >= d.cost && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const afford = !gated && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
     c.setAttribute('aria-disabled', String(!afford));
@@ -17720,6 +18454,7 @@ function updateHUD() {
     rootsCard.classList.toggle('locked', unavailable);
     rootsCard.setAttribute('aria-disabled', String(unavailable));
   }
+  refreshEvolve();          // what can be evolved moves with biomass
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
   spellCard.setAttribute('aria-disabled', String(rem > 0 || G.biomass < RULES.spellCost));
@@ -18190,7 +18925,13 @@ function schedule() {
 
 if (HEADLESS) {
   // synchronous stepping so automated checks can fast-forward the simulation
-  window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) frame(last + ms, true); };
+  /* `last` starts at whatever performance.now() read at page load, and
+     (last + 33) - last is not exactly 33 in floating point -- the rounding
+     depends on the magnitude of `last`. So two runs of one seed stepped
+     different dt and drifted apart by the second minute (measured: seed 1001
+     ended 2:15 / 2:16 / 2:20 across four identical runs). Snapping `last` to
+     a whole millisecond makes every synthetic step exactly `ms`. */
+  window.__step = (frames = 60, ms = 33) => { for (let i = 0; i < frames; i++) { last = Math.round(last); frame(last + ms, true); } };
   /* deterministic by default; opt back into real time to watch a run */
   window.__auto = (on = true) => { autoDrive = !!on; if (on) schedule(); return autoDrive; };
   window.__isPinned = () => !autoDrive;
@@ -18218,7 +18959,7 @@ if (HEADLESS) {
       G.spellReady = G.time + RULES.spellCooldown;
       return castOvergrowth({ x, z });
     },
-    deepenRoots, rootsPrice,
+    deepenRoots, rootsPrice, evolve, evolveStatus, stageInfo,
     /* The live tuning tables. Balance work needs an A/B on the SAME build —
        toggling a rule at runtime and replaying a scenario is the only way to
        attribute a measured change to one lever rather than to map RNG. */

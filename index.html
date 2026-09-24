@@ -27,6 +27,7 @@
     <symbol id="i-grove" viewBox="0 0 24 24"><path d="m12 2-7 9h4l-6 7h18l-6-7h4L12 2ZM12 18v4"/></symbol>
     <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 2S4 11 4 15a8 8 0 0 0 16 0c0-4-8-13-8-13Z"/><path d="M8 15a4 4 0 0 0 4 4"/></symbol>
     <symbol id="i-threat" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z M12 9v5 M12 17v1"/></symbol>
+    <symbol id="i-site" viewBox="0 0 24 24"><path d="M5 21V4h1.5M5 5h15l-3 3M11 5v6M9 11h4M3 21h18"/></symbol>
   </defs></svg>
   <div id="topbar">
     <div class="res" title="Biomass · spend to grow wildlife">
@@ -48,6 +49,10 @@
     <div class="res" id="sweepres" title="Time until the next security sweep">
       <svg class="glyph" aria-hidden="true"><use href="#i-threat"/></svg><span id="sweeptime">--</span>
       <span class="res-label">Next sweep</span><span class="sub" id="sweepsub">next sweep</span>
+    </div>
+    <div class="res" id="stageres" title="TerraByte site stage · level depots, generators and pumps to push the next stage back">
+      <svg class="glyph" aria-hidden="true"><use href="#i-site"/></svg><span id="stagename">I</span>
+      <span class="res-label">Site stage</span><span class="sub" id="stagesub">groundbreak</span>
     </div>
     <div id="objective">
       <div class="obj-title" id="mapname">FIELD OBJECTIVE</div>
@@ -85,6 +90,11 @@
     <button data-command="stop" title="Clear current orders"><kbd>S</kbd> Stop</button>
     <button data-command="water" title="Send selected wildlife to drink"><kbd>W</kbd> Drink</button>
     <button data-command="spell" title="Preview Overgrowth before casting"><kbd>F</kbd> Overgrowth</button>
+    <button data-command="evolve" id="evolvebtn" title="Evolve the swarm at the Heart Tree (U)"><kbd>U</kbd> Evolve</button>
+  </div>
+  <div id="evolve" hidden role="dialog" aria-label="Evolve the swarm">
+    <div class="panel-title">EVOLVE <span>one path per tier · U to close</span></div>
+    <div id="evolvebody"></div>
   </div>
       <div id="cards"></div>
       <div id="queue"></div>
