@@ -262,7 +262,12 @@ export const DEFS = {
 
 /* ---------------------------------------------------------- economy/game -- */
 export const RULES = {
-  startBiomass:   200,
+  /* Raised 200 -> 300, heart 0.7 -> 1.5/s, grove 3.2 -> 4.0/s from a playtest:
+     "the security sweeps overwhelm my units pretty easily... we should be able
+     to accumulate more resources to build up faster". The harness bot plays a
+     perfect opening; a person does not, and the first sweep arrived before a
+     human could field enough to meet it. */
+  startBiomass:   300,
   /* --- WHAT THE OUTCOME VARIANCE ACTUALLY IS (correction) -------------------
      Commit 43a8905 concluded that outcomes are "dominated by compound layout --
      where the third tower sits relative to the other two". THAT IS WRONG, and
@@ -309,8 +314,8 @@ export const RULES = {
      the pop ceiling. Lanes, not population and not money, are what caps a
      swarm's ability to replace losses mid-assault. */
   maxLanes:       4,
-  baseIncome:     0.7,      // per second from the Heart Tree
-  grovIncome:     3.2,      // per second per bloomed grove
+  baseIncome:     1.5,      // per second from the Heart Tree
+  grovIncome:     4.0,      // per second per bloomed grove
   captureTime:    3.0,      // seconds standing on a grove
   /* --- Losing a grove is slower than taking one ----------------------------
      MEASURED across two full matches: end screens read "bloomed at peak 3/6,
