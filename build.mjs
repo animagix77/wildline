@@ -59,18 +59,20 @@ const MODULES = [
   'src/ai.js',
   'src/camera.js',
   'src/perf.js',
+  'src/unit-portraits.js',
+  'src/share-card.js',
   'src/screens.js',
   'src/tactics.js',
   'src/ground-fx.js',
   'src/tactical-fx.js',
-  'src/unit-portraits.js',
   'src/input.js',
   'src/hud.js',
+  'src/raids.js',
   'src/main.js',
 ];
 for (const f of MODULES) if (!exists(f)) throw new Error(`missing module: ${f}`);
 
-const STYLES = ['style.css', 'ui-extra.css', 'ui-design.css'].filter(exists);
+const STYLES = ['style.css', 'ui-extra.css', 'ui-design.css', 'raid-ui.css'].filter(exists);
 
 /* ---------------------------------------------------------------- three -- */
 function inlineThree() {

@@ -1,0 +1,185 @@
+<!doctype html>
+<!-- Judge Dean LLC · First Raid and Beavers Only browser regression checks. -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Critters vs Compute · raid checks</title>
+<style>
+body{margin:0;background:#102016;color:#dbe6d4;font:13px system-ui}
+pre{padding:16px;white-space:pre-wrap}iframe{display:block;width:1280px;height:800px;border:0;max-width:100%}
+</style>
+<pre id="results" role="status">Loading raid checks…</pre>
+<div id="fixture"></div>
+<script type="module">
+const args = new URLSearchParams(location.search);
+const source = args.get('bundle') === '1' ? 'wildline.html' : 'index.html';
+const raid = args.get('raid') === 'beaver-raid' ? 'beaver-raid' : 'first-raid';
+const lines = [], output = document.querySelector('#results');
+const report = text => { lines.push(text); output.textContent = lines.join('\n'); };
+const assert = (value, message) => { if (!value) throw new Error(message); report('PASS · ' + message); };
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const frames = [];
+const fixtures = document.querySelector('#fixture');
+
+async function boot(seed) {
+  const iframe = document.createElement('iframe');
+  iframe.title = `Raid fixture ${seed}`;
+  iframe.style.width = `${Math.max(360, Number(args.get('width')) || 1280)}px`;
+  iframe.style.height = `${Math.max(600, Number(args.get('height')) || 800)}px`;
+  frames.push(iframe);
+  const loaded = new Promise(resolve => iframe.addEventListener('load', resolve, { once: true }));
+  iframe.src = `../${source}?headless=1&raid=${raid}&rseed=${seed}&map=substation-gary`;
+  fixtures.append(iframe);
+  await loaded;
+  const w = iframe.contentWindow;
+  for (let i = 0; i < 100 && !w.__begin; i++) await delay(100);
+  if (!w.__begin) throw new Error(`${source} did not expose the headless harness`);
+  w.__step(1);
+  w.__begin();
+  for (let i = 0; i < 60 && w.G.phase !== 'playing'; i++) {
+    await delay(100);
+    w.__begin();
+  }
+  if (w.G.phase !== 'playing') throw new Error('Raid did not enter play');
+  return { iframe, w, G: w.G, api: w.__api, doc: w.document };
+}
+
+function snapshot(G) {
+  // Only gameplay values: renderer UUIDs, decorative placement and clocks do
+  // not determine the repeatable challenge's starting state.
+  return JSON.stringify({
+    mode: G.raid.id, seed: G.raid.seed, biomass: G.biomass,
+    entities: G.entities.map(e => ({
+      id: e.id, type: e.type, team: e.team, hp: e.hp,
+      x: e.pos.x, z: e.pos.z,
+      spawnTimer: e.spawnTimer,
+    })),
+  });
+}
+
+try {
+  const first = await boot(7777);
+  const { w, G, api, doc } = first;
+  assert(!w.__lastErr, 'raid boots without a runtime error');
+  assert(G.raid?.id === raid && G.map.id === 'first-raid', 'raid link selects its fixed map despite a conflicting map parameter');
+  assert(!G.campaignSite, 'standalone raid does not become a campaign mission');
+  assert(Object.keys(w.__validateMaps()).length === 0, 'all authored maps validate, including the raid');
+  const initial = snapshot(G);
+  const second = await boot(8888);
+  assert(initial === snapshot(second.G), 'separate boots reproduce the same gameplay state despite different rseed parameters');
+  second.iframe.remove();
+
+  w.__step(3, 33);
+  const wildlife = () => G.entities.filter(e => e.alive && e.team === 'wild' && !e.isBuilding);
+  const composition = wildlife().reduce((all, e) => { all[e.type] = (all[e.type] || 0) + 1; return all; }, {});
+  const expected = raid === 'beaver-raid' ? { beaver: 6 } : { wolf: 4, beaver: 2, capybara: 1 };
+  assert(Object.keys(composition).length === Object.keys(expected).length
+    && Object.entries(expected).every(([type, count]) => composition[type] === count), 'starting pack matches the advertised raid');
+  assert(!Number.isFinite(G.nextWave) && !Number.isFinite(G.nextDetail), 'short raid has no surprise escalating sweeps');
+  assert(G.raid.hero?.alive && G.raid.hero.type === 'beaver', 'the featured beaver is a real living member of the pack');
+
+  const guide = doc.querySelector('#raid-guide');
+  const stage = () => guide.dataset.step;
+  const action = () => doc.querySelector('#raid-action');
+  const key = code => w.dispatchEvent(new w.KeyboardEvent('keydown', { code, bubbles: true }));
+  assert(guide && stage() === 'select', 'guidance begins with selecting the pack');
+  const t = G.time, selection = G.selection.map(e => e.id).join(',');
+  key('KeyP');
+  action().click();
+  w.__step(3, 100);
+  assert(G.paused && G.time === t && G.selection.map(e => e.id).join(',') === selection && stage() === 'select', 'pause blocks both simulation and tutorial action buttons');
+  assert(api.queueUnit('beaver') === false, 'paused recruitment cannot bypass the UI through the production API');
+  key('KeyP');
+  action().click();
+  w.__step(3, 100);
+  assert(G.selection.length === wildlife().length && stage() === 'grove', 'select action chooses the pack and advances only after selection');
+
+  const toggle = doc.querySelector('#raid-toggle');
+  toggle.click();
+  assert(toggle.getAttribute('aria-expanded') === 'false', 'guidance can be collapsed accessibly');
+  toggle.click();
+  assert(toggle.getAttribute('aria-expanded') === 'true', 'guidance can be expanded again');
+  const guideRect = guide.getBoundingClientRect();
+  const dockRect = doc.querySelector('#bottombar').getBoundingClientRect();
+  assert(guideRect.left >= 0 && guideRect.right <= w.innerWidth && guideRect.bottom <= dockRect.top,
+    'expanded guidance fits the viewport without covering recruitment');
+
+  const biomassBefore = G.biomass, queueBefore = G.queue.length;
+  assert(api.queueUnit('bear') === false && G.biomass === biomassBefore && G.queue.length === queueBefore, 'recruitment API rejects species outside the raid rules without spending biomass');
+  const bearCard = doc.querySelector('.card[data-type="bear"]');
+  assert(bearCard && (bearCard.hidden || bearCard.disabled || bearCard.getAttribute('aria-disabled') === 'true'), 'restricted recruitment is also unavailable in the UI');
+  bearCard.click();
+  assert(G.biomass === biomassBefore && G.queue.length === queueBefore, 'restricted card clicks cannot bypass the roster rules');
+  key('KeyC'); key('KeyT'); key('KeyU');
+  assert(G.biomass === biomassBefore && G.queue.length === queueBefore && doc.querySelector('#evolve').hidden,
+    'hotkeys cannot recruit restricted species, buy hidden root upgrades, or open evolution');
+  const countBefore = wildlife().filter(e => e.type === 'beaver').length;
+  assert(api.queueUnit('beaver'), 'an allowed affordable beaver can be recruited');
+  w.__step(60, 100);
+  assert(wildlife().filter(e => e.type === 'beaver').length === countBefore + 1, 'allowed recruitment completes normally');
+
+  action().click();
+  const grove = G.groves[0];
+  assert(G.selection.some(e => e.order.pos && Math.hypot(e.order.pos.x - grove.pos.x, e.order.pos.z - grove.pos.z) < 15), 'grove guidance issues a real movement order');
+  report('FIXTURE · Move the pack onto the grove to exercise capture without waiting for the walk.');
+  wildlife().forEach((unit, i) => {
+    unit.pos.set(grove.pos.x + Math.cos(i) * 2, grove.pos.y, grove.pos.z + Math.sin(i) * 2);
+    unit.setOrder('hold');
+  });
+  w.__step(Math.ceil((api.RULES.captureTime + 1) * 10), 100);
+  assert(grove.owned && stage() === 'pump', 'actual presence-based capture advances the guide to the intake');
+  action().click();
+  const pump = G.pumps.find(e => e.alive);
+  assert(pump && G.selection.some(e => e.order.target === pump || e.target === pump), 'pump guidance issues an actual attack order');
+  report('FIXTURE · Lower objective HP and use actual beaver strikes to test completion and finale wiring. This is not a balance playthrough.');
+  const hero = G.raid.hero;
+  pump.hp = 1;
+  hero.strike(pump);
+  w.__step(3, 100);
+  assert(!pump.alive && stage() === 'coolant', 'destroying the intake advances the guide to cooling');
+  action().click();
+  const coolant = G.coolants.find(e => e.alive && !e.downed);
+  assert(coolant && G.selection.some(e => e.order.target === coolant || e.target === coolant), 'coolant guidance issues an actual attack order');
+  coolant.hp = 1;
+  hero.strike(coolant);
+  w.__step(3, 100);
+  assert(coolant.downed && G.coreExposed && stage() === 'hold', 'disabling cooling begins the hold rather than winning immediately');
+  assert(!G.over && G.heat > 0, 'meltdown progresses while the raid remains playable');
+
+  G.heat = 0.9999;
+  w.__step(2, 100);
+  assert(G.over && G.finale && !doc.querySelector('#endcard'), 'victory plays the finale before covering the battlefield with results');
+  const finishTime = G.time;
+  for (let i = 0; i < 200 && !doc.querySelector('#endcard'); i++) w.__step(1, 100);
+  assert(doc.querySelector('#endcard')?.textContent.includes('VICTORY'), 'the synthetic victory fixture reaches the result screen');
+  assert(doc.querySelector('#share-download') && doc.querySelector('#share-copy'), 'results offer card download and a playable challenge link');
+  assert(doc.querySelector('.share-moment') && doc.querySelector('.share-hero'), 'the results expose a memorable moment and the actual featured animal');
+  const shownTime = `${Math.floor(finishTime / 60)}:${String(Math.floor(finishTime % 60)).padStart(2, '0')}`;
+  assert(G.time === finishTime && doc.querySelector('.share-moment').textContent.includes(shownTime),
+    'shared completion time matches gameplay time and excludes the finale');
+  assert(doc.documentElement.scrollWidth <= w.innerWidth, 'result sharing does not cause horizontal page overflow');
+
+  // Force the denied/unavailable clipboard path without ever writing to the
+  // tester's real clipboard. The fallback is part of the user-facing feature.
+  Object.defineProperty(w.navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: async () => { throw new Error('Clipboard intentionally unavailable in regression fixture'); } },
+  });
+  doc.querySelector('#share-copy').click();
+  await delay(100);
+  const link = doc.querySelector('#share-link');
+  assert(link && !link.hidden && link.getBoundingClientRect().height > 0, 'clipboard denial reveals a selectable link instead of failing silently');
+  const challengeURL = new URL(link.value);
+  assert(challengeURL.origin === 'https://animagix77.github.io'
+    && challengeURL.pathname === '/wildline/' && challengeURL.searchParams.get('raid') === raid
+    && !['headless', 'rseed', 'map'].some(key => challengeURL.searchParams.has(key)), 'shared link opens the same public challenge without test-only parameters');
+
+  const programs = G.renderer.info.programs;
+  assert(programs.every(p => !p.diagnostics || p.diagnostics.runnable !== false), 'all raid and finale shaders compile');
+  assert(!w.__lastErr, 'no runtime errors through guidance, combat, finale, and sharing');
+  report(`DONE · ${source} · ${raid} · raid regression checks`);
+} catch (error) {
+  report('FAIL · ' + (error.stack || error));
+}
+</script>
+</html>

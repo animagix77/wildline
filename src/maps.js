@@ -345,6 +345,29 @@ MAPS['pourhouse'] = {
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
 };
 
+/* Judge Dean LLC — a small, open field station for guided and fixed-seed raids.
+   Kept out of QUICK_ROTATION and the campaign so existing progression is intact. */
+MAPS['first-raid'] = {
+  id: 'first-raid', name: 'Beaverbrook Station', archetype: 'valley', faction: 'wild',
+  terra: { ampl: 3, rippleA: 0.4, blightReach: 28 },
+  palette: {
+    ...MAPS['verdant-hollow'].palette,
+    bg: 0x33432d, fog: 0x7c9272, fogNear: 190, fogFar: 460,
+    skyHorizon: 0xe9d5a6, skyTop: 0x6da5c4,
+    grade: { shadows: 0x7a8891, highlights: 0x998d72, saturation: 1.08, contrast: 1.02, vignette: 0.2, grain: 0.02 },
+  },
+  mood: { sunC: 0xffd8a0, sunI: 2.0, sunOffset: [-70, 100, 45],
+    hemiSky: 0xd5e6d0, hemiGround: 0x415236, hemiI: 1.0,
+    cloudShadow: 0.15, wind: { amp: 0.6, speed: 0.8 } },
+  season: 'spring', props: { trees: 260, rocks: 80, ferns: 240 },
+  base: { x: -42, z: 40 },
+  compound: { x: 26, z: -5, hw: 35, hd: 30 }, openPerimeter: true,
+  groves: [{ x: -21, z: 24 }],
+  turrets: [], depots: [], generators: [], wells: [],
+  pumps: [[3, 6]], coolants: [[21, -8]], core: { x: 43, z: -9 },
+  water: [{ x: -11, z: 5, r: 10, drain: 0.004 }], weather: 'clear',
+};
+
 export const DEFAULT_MAP = 'verdant-hollow';
 
 /* Structure radii, mirrored from config so this stays a pure data check. */

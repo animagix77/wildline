@@ -3,7 +3,36 @@
 A browser 3D RTS in the spirit of Command & Conquer and Warcraft. You command a valley's
 wildlife against a fortified hyperscale data centre.
 
-**Ships as one file.** `wildline.html` is ~3.9 MB: three.js r169, game code, images,
+## Start with a short raid
+
+The October 26 update by **Judge Dean LLC** adds two direct browser entries:
+
+- [First Raid](https://animagix77.github.io/wildline/?raid=first-raid): a guided
+  introduction with wolves, two beavers and a capybara. Select the pack, bloom a
+  grove, break an intake pump, disable cooling and hold for the meltdown.
+- [Beavers Only](https://animagix77.github.io/wildline/?raid=beaver-raid): the same
+  small field station with six beavers, more guards and a repair technician.
+  Only beavers can be recruited. Compare completion time and animals lost.
+
+Both use a fixed gameplay seed and rules, ignore map/seed overrides, and take
+roughly 1–3 minutes while learning (optimal guided test runs finish faster).
+Guide buttons issue real orders; the normal selection and right-click controls
+also work. The guide can be minimised. Campaign saves are left untouched.
+
+After the station explodes, foliage reclaims the yard and an earned beaver
+highlight can appear. Result screens offer a local PNG field report and a
+playable challenge link, with a selectable URL if clipboard access is blocked.
+Cards report the actual result, time, score, casualties and featured animal's
+survival. There are no accounts, uploads, audience analytics or tracking.
+
+With the local server running, `tools/raid-pass.html` checks the guided flow,
+fixed scenario, recruitment restrictions, pause, finale and sharing fallback.
+Add `?raid=beaver-raid&bundle=1&width=390` for the standalone challenge at phone
+width. The harness explicitly labels its positioning/damage fixtures; those
+verify wiring, not difficulty. Normal guide-only playthroughs are checked
+separately before release.
+
+**Ships as one file.** `wildline.html` is ~5.7 MB: three.js r169, game code, images,
 styles and recorded wildlife effects are embedded. Meshes, materials, particles,
 weapons and ambient effects are generated in code. The one exception is the score: twelve music tracks
 (~40 MB — see [MUSIC.md](MUSIC.md)) stream lazily from `music/`, and the game runs

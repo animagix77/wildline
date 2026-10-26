@@ -40,7 +40,7 @@ export function initHUD() {
   });
   const pips = el('objpips');
   pips.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < G.map.coolants.length + 1; i++) {
     const p = document.createElement('div');
     p.className = 'pip alive';
     pips.appendChild(p);
@@ -64,8 +64,10 @@ export function updateHUD() {
      has to tell them how long they have. */
   const sw = el('sweepres');
   if (sw) {
+    sw.hidden = !!G.raid?.noWaves;
+    sw.style.display = G.raid?.noWaves ? 'none' : '';
     const left = Math.max(0, (G.nextWave || 0) - G.time);
-    el('sweeptime').textContent = fmt(left);
+    el('sweeptime').textContent = Number.isFinite(left) ? fmt(left) : '—';
     el('sweepsub').textContent = `sweep ${(G.waveNum || 0) + 1} · ${G.machinePop || 0} out`;   // machines standing, so the countdown has a size next to it
     sw.classList.toggle('low', left < 30);
     sw.classList.toggle('dry', left < 10);
@@ -75,6 +77,7 @@ export function updateHUD() {
      progress, so it jumps back when the swarm levels a depot, a generator or a
      pump -- which is the point: the player watches aggression buy time. */
   const sr = el('stageres'), si = stageInfo();
+  if (sr) sr.style.display = G.raid ? 'none' : '';
   if (sr && si) {
     sr.dataset.stage = String(si.i);
     el('stagename').textContent = ['I', 'II', 'III'][si.i] || String(si.i + 1);
@@ -117,9 +120,9 @@ export function updateHUD() {
   /* objective */
   const left = coolantsOnline();
   const pips = el('objpips').children;
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < G.coolants.length; i++)
     pips[i].className = 'pip ' + (G.coolants[i].downed ? 'dead' : 'alive');
-  pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
+  pips[G.coolants.length].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
   /* The objective line has to carry the one thing that separates this ending
      from every previous build: the towers coming back. "3 left" after you have
      killed two reads as lost progress unless the line says who did it. */
@@ -151,7 +154,9 @@ export function updateHUD() {
   for (const c of cards) {
     const d = DEFS[rosterType(c.dataset.type)];      // what the slot builds now (tier III forms)
     const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
-    const afford = !gated && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const raidLocked = G.raid && !G.raid.allowedUnits.includes(c.dataset.type);
+    const afford = !gated && !raidLocked && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    c.hidden = !!raidLocked;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
     c.setAttribute('aria-disabled', String(!afford));
@@ -159,12 +164,15 @@ export function updateHUD() {
   /* Deepen the Roots: price climbs with each purchase, so the card is re-read
      rather than painted once at init. */
   if (rootsCard) {
+    rootsCard.hidden = !!G.raid;
     refreshRootsCard();
     const unavailable = rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive;
     rootsCard.classList.toggle('locked', unavailable);
     rootsCard.setAttribute('aria-disabled', String(unavailable));
   }
   refreshEvolve();          // what can be evolved moves with biomass
+  const evolveButton = el('evolvebtn');
+  if (evolveButton) evolveButton.hidden = !!G.raid;
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
   spellCard.setAttribute('aria-disabled', String(rem > 0 || G.biomass < RULES.spellCost));

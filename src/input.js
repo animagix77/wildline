@@ -631,6 +631,7 @@ function initEvolvePanel() {
 }
 
 export function toggleEvolve(force) {
+  if (G.raid) return;
   const p = document.getElementById('evolve');
   if (!p) return;
   const open = force !== undefined ? force : p.hidden;

@@ -37,6 +37,7 @@ import { initPerf, perfFrame } from './perf.js';
    missing-import bugs in this project; the flattened bundle is not a check. */
 import { musicPlay, musicState, updateMusic, trackForMap } from './music.js';
 import { updateVat, vatStats } from './vat.js';
+import { raidFromURL, configureRaid, initRaid, updateRaid } from './raids.js';
 
 const gameCanvas = document.getElementById('scene');
 window.G = G;                       // handy for tinkering from the console
@@ -72,9 +73,10 @@ scene.add(G.fxRoot);
    loadMap() must run before buildScene(): terrain, shader uniforms and the
    compound footprint are all read at construction time. */
 const pending = pendingMission();
+const activeRaid = raidFromURL();
 // hasOwnProperty: `{"site":"constructor"}` used to resolve to a truthy non-site
 // and crash the boot before the title screen could render
-const pendingSite = (pending && pending.mode === 'campaign'
+const pendingSite = (!activeRaid && pending && pending.mode === 'campaign'
   && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
 /* Quick battles CYCLE the rotation — five maps, five seasons, five kinds of
    light — instead of loading verdant-hollow forever, which is what "maps never
@@ -86,16 +88,18 @@ const HEADLESS = new URLSearchParams(location.search).has('headless');
 /* ?map=<id> pins a specific map -- art iteration needs to LOOK at a map
    without clicking through four rotation slots to reach it. Works headless
    too, where it overrides the DEFAULT_MAP pin. */
-const FORCE_MAP = new URLSearchParams(location.search).get('map');
+const requestedMap = new URLSearchParams(location.search).get('map');
+// The teaching map requires raid rules (it deliberately has no perimeter gates).
+const FORCE_MAP = requestedMap === 'first-raid' ? null : requestedMap;
 let quickMap = DEFAULT_MAP;
-if (!HEADLESS) {
+if (!HEADLESS && !activeRaid) {
   try {
     const n = parseInt(localStorage.getItem('cvc.qrot') || '0', 10) || 0;
     quickMap = QUICK_ROTATION[n % QUICK_ROTATION.length];
     localStorage.setItem('cvc.qrot', String(n + 1));
   } catch (_) { /* storage blocked: stay on the default */ }
 }
-loadMap(pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
+loadMap(activeRaid ? 'first-raid' : pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
 
 /* Data check: overlapping structures used to ship silently. Loud in the console
    and reachable from the page so a layout edit can be checked in one call. */
@@ -145,6 +149,10 @@ document.getElementById('loading').remove();
    lights up once the world is actually built and a frame has been presented. */
 let splashDone = false;
 showSplash(() => { splashDone = true; openTitle(); });
+if (activeRaid) {
+  const start = document.getElementById('sp-continue');
+  if (start) start.textContent = activeRaid === 'beaver-raid' ? 'START BEAVERS ONLY' : 'START FIRST RAID';
+}
 
 /* -------------------------------------------------------------- boot --- */
 G.phase = 'menu';
@@ -160,13 +168,21 @@ function launchMission() {
   rtsCamera.focus(BASE, true, 95);   // the orbit leaves dist at 150; reset to default
   rtsCamera.update(0.016);
   G.phase = 'playing';
+  initRaid();
+  G.pop = G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding)
+    .reduce((n, e) => n + (e.def.pop || 1), 0);
+  updateHUD();
   musicPlay(trackForMap(G.map));
-  toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
+  if (!G.raid) toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
 }
 
 function openTitle() {
   musicPlay('title');
-  if (pendingSite) {
+  if (activeRaid) {
+    applyDifficulty(DIFFICULTIES[1]);
+    configureRaid(activeRaid);
+    launchMission();
+  } else if (pendingSite) {
     /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
        perks earned from liberated ground. Order matters: applyDifficulty first. */
     applyDifficulty(DIFFICULTIES[1]);
@@ -273,7 +289,7 @@ function frame(now, manual) {
   if (G.over && G.phase === 'playing') G.phase = 'over';
   /* The compound's death throes run on the real clock, after G.over and
      therefore outside the 'playing' block below. See runFinale in world.js. */
-  updateFinale(simDt || dt);
+  updateFinale(simDt);
 
   if (G.phase === 'playing' && !G.paused) {
     G.time += dt;
@@ -288,6 +304,7 @@ function frame(now, manual) {
     ambientVoices(dt);
     updateAI(dt);
     updateWorld(dt);
+    updateRaid(dt);
     updateWater(dt);
     updateFog(dt);
     updateVerdant(dt);
@@ -298,6 +315,7 @@ function frame(now, manual) {
     for (const e of G.entities) if (e.alive && e.isBuilding) e.update(dt);
     fogRevealAll();
     updateFog(dt);
+    if (G.finale) updateVerdant(simDt);
     reapDead(dt);
   }
 

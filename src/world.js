@@ -323,6 +323,8 @@ function buildProps(scene) {
   }
 
   // yard clutter inside the compound: containers + pipe runs
+  // The small teaching station keeps the target silhouettes unobstructed.
+  if (G.map.openPerimeter) return;
   const yard = new THREE.Group();
   for (let i = 0; i < 16; i++) {
     const x = COMPOUND.x + vrand(-COMPOUND.hw + 8, COMPOUND.hw - 8);
@@ -369,8 +371,8 @@ export function populate() {
   G.obstacles.push(heart);
   G.rally = new THREE.Vector3(BASE.x + 14, 0, BASE.z - 10);
 
-  for (let i = 0; i < 4; i++)
-    spawn('wolf', BASE.x + rand(6, 16), BASE.z + rand(-10, 8));
+  for (const type of (G.raid?.startingUnits || ['wolf', 'wolf', 'wolf', 'wolf']))
+    spawn(type, BASE.x + rand(6, 16), BASE.z + rand(-10, 8));
 
   /* Veterans who survived the last strike muster at the Heart Tree, rank intact. */
   if (G.campaignSite) {
@@ -392,7 +394,7 @@ export function populate() {
   });
 
   /* ---- compound ---- */
-  buildPerimeter();
+  if (!layout().openPerimeter) buildPerimeter();
 
   /* Authored per map, defaulting to the compound's own centre. The literal that
      used to live here was verdant-hollow's, so on relay-shed the Core's collision
@@ -620,7 +622,7 @@ function groveTint(g, t) {
    irrelevant to the result, and running the real death path would fire their
    onDeath toasts ("Generator down -- 1 still feeding the guns") over the top
    of a victory. This is pyrotechnics on corpses. */
-const FINALE_SECS = 5.0;
+const FINALE_SECS = 8.5;
 
 function startFinale() {
   const cx = G.core.pos.x, cz = G.core.pos.z;
@@ -632,6 +634,9 @@ function startFinale() {
     .sort((a, b) => dist2D(a.pos, { x: cx, z: cz }) - dist2D(b.pos, { x: cx, z: cz }));
 
   G.finale = { t: 0, next: 0.25, i: 0, targets, done: false };
+  document.body.classList.add('reclaiming');
+  const guide = document.getElementById('raid-guide');
+  if (guide) guide.hidden = true;
 
   SFX.boomBig(G.core.pos);
   if (G.rts) {
@@ -665,15 +670,83 @@ export function updateFinale(dt) {
   }
 
   /* a last big one on the Core itself, halfway through */
-  if (!F.big && F.t > FINALE_SECS * 0.55) {
+  if (!F.big && F.t > 2.75) {
     F.big = true;
     chainExplosion(G.core.pos, G.core.def.radius * 1.4, 9, 2.6, {});
     if (G.rts) G.rts.shake = Math.min(3, (G.rts.shake || 0) + 1.6);
   }
 
+  if (!F.reclaimed && F.t >= 4.8) {
+    F.reclaimed = true;
+    musicStop(0.8);
+    SFX.bloom();
+    animalVoice({ type: 'raven', pos: G.core.pos }, 'idle');
+    revealReclamation(F);
+  }
+  if (F.sprouts) {
+    for (const sprout of F.sprouts.children) {
+      const growth = clamp((F.t - 4.8 - sprout.userData.delay) / 1.2, 0.01, 1);
+      sprout.scale.setScalar(growth);
+    }
+  }
+
   if (F.t >= FINALE_SECS) {
     F.done = true;
+    document.body.classList.remove('reclaiming');
+    document.getElementById('reclamation-caption')?.remove();
     endMission(true);
+  }
+}
+
+/* Judge Dean LLC — a quiet, readable payoff after the existing chain explosion. */
+function revealReclamation(F) {
+  const sprouts = new THREE.Group();
+  const geo = new THREE.OctahedronGeometry(1, 0);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x438847, roughness: 0.85 });
+  const petalMat = new THREE.MeshStandardMaterial({ color: 0xf0cda1, roughness: 0.9 });
+  for (let i = 0; i < 40; i++) {
+    const angle = i * 2.39996, radius = 9 + Math.sqrt(i / 40) * 28;
+    const x = G.core.pos.x + Math.cos(angle) * radius;
+    const z = G.core.pos.z + Math.sin(angle) * radius;
+    const sprout = new THREE.Group();
+    sprout.position.set(x, terrainHeight(x, z) + 0.1, z);
+    sprout.rotation.y = angle;
+    sprout.userData.delay = radius / 24 - 0.35;
+    for (let j = 0; j < 5; j++) {
+      const leaf = new THREE.Mesh(geo, mat);
+      const a = j * Math.PI * 2 / 5;
+      leaf.scale.set(0.55, 0.2, 1.6);
+      leaf.position.set(Math.sin(a) * 0.7, 0.45, Math.cos(a) * 0.7);
+      leaf.rotation.set(-0.45, a, 0);
+      sprout.add(leaf);
+    }
+    if (i % 3 === 0) {
+      for (let j = 0; j < 5; j++) {
+        const petal = new THREE.Mesh(geo, petalMat);
+        const a = j * Math.PI * 2 / 5;
+        petal.scale.set(0.4, 0.2, 0.6);
+        petal.position.set(Math.sin(a) * 0.35, 1.1, Math.cos(a) * 0.35);
+        petal.rotation.y = a;
+        sprout.add(petal);
+      }
+    }
+    sprout.scale.setScalar(0.01);
+    sprouts.add(sprout);
+  }
+  G.scene.add(sprouts);
+  F.sprouts = sprouts;
+  const caption = document.createElement('div');
+  caption.id = 'reclamation-caption';
+  caption.setAttribute('role', 'status');
+  const earned = G.raid?.heroAction;
+  const title = document.createElement('h2');
+  title.textContent = earned ? 'Unscheduled beaver maintenance.' : 'The valley has the last word.';
+  const detail = document.createElement('p');
+  detail.textContent = 'TERRABYTE SOLUTIONS · SERVICE UNAVAILABLE';
+  caption.append(title, detail);
+  document.getElementById('app').append(caption);
+  if (G.raid?.hero?.alive && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    G.rts.focus(G.raid.hero.pos, false, 64);
   }
 }
 
@@ -1398,6 +1471,7 @@ export function rootsPrice() {
 export function rootsMaxed() { return rootsBought() >= RULES.rootsMax; }
 
 export function deepenRoots() {
+  if (G.raid || G.over || G.paused || G.phase !== 'playing') return false;
   if (!G.heart.alive) return false;
   if (rootsMaxed()) { toast('The roots are as deep as this valley goes', 'warn'); SFX.deny(); return false; }
   const price = rootsPrice();
@@ -1429,6 +1503,7 @@ export function evolveStatus(id) {
 }
 
 export function evolve(id) {
+  if (G.raid || G.over || G.paused || G.phase !== 'playing') return false;
   const opt = RULES.evolve.find(o => o.id === id);
   if (!opt || !G.heart.alive || G.over) return false;
   const s = evolveStatus(id);
@@ -1569,6 +1644,11 @@ function updateEvolve(dt) {
 }
 
 export function queueUnit(type) {
+  if (G.over || G.paused || G.phase !== 'playing') return false;
+  if (G.raid && !G.raid.allowedUnits.includes(type)) {
+    toast(`This raid recruits ${G.raid.allowedUnits.map(t => DEFS[t].name).join(', ')}.`, 'warn');
+    SFX.deny(); return false;
+  }
   type = rosterType(type);
   const def = DEFS[type];
   if (!G.heart.alive) return false;

@@ -153,7 +153,14 @@ function stampGoal() {
     else born.delete(g.id);            // lose the grove, the clock resets
   }
 
+  // Judge Dean LLC: a visible return of life after the machines fall silent.
+  const reclaimed = !!G.finale?.reclaimed;
+  if (reclaimed && G.core) {
+    add(G.core.pos.x, G.core.pos.z, Math.min(85, 8 + (G.finale.t - 4.8) * 22), 255);
+  }
+
   /* the campus poisons the ground it sits on */
+  if (reclaimed) return;
   for (let j = 0; j < VGRID; j++) {
     for (let i = 0; i < VGRID; i++) {
       const k = j * VGRID + i;

@@ -1457,6 +1457,72 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--leaf);outline
 #cards .card.evolved{border-color:#c9ff7a44}
 @media(max-width:760px){.evo-tier{grid-template-columns:1fr}.evo-tn{display:none}.evo-desc{font-size:9px}}
 
+
+/* ---- raid-ui.css ---- */
+/* Judge Dean LLC — a compact first raid and a result worth passing along. */
+#cards .card[hidden],#rootscard[hidden],#evolvebtn[hidden]{display:none}
+#startscreen .ss-raid-start{align-self:center;padding:22px;border:1px solid #b4d88766;border-radius:10px;background:linear-gradient(140deg,#2d4226ee,#12251fee)}
+.raid-eyebrow{display:block;font-size:9px;letter-spacing:1.7px;color:#b4d887}
+.ss-raid-start h2{font-size:clamp(20px,2.2vw,28px);line-height:1.2;font-weight:650;margin:12px 0;color:#f0efdf}
+.ss-raid-start p{font-size:12px;line-height:1.6;color:#b7c9aa;margin:0 0 17px}
+.raid-launch{display:block;padding:12px 15px;border:1px solid #b4d887;border-radius:6px;background:#b4d887;color:#132315;font-size:16px;font-weight:650;text-decoration:none;line-height:1.35}
+.raid-launch span{display:block;font-size:10px;font-weight:400;margin-top:2px}
+.raid-launch:hover{background:#d0eaa9}
+.raid-launch-secondary{margin-top:8px;background:#b4d88708;color:#d6e3c6;border-color:#b4d88750;font-size:12px}
+.raid-launch-secondary:hover{background:#b4d8871c}
+#startscreen .ss-cols{grid-column:1/-1;flex-direction:row;align-items:flex-start}
+#startscreen .ss-cols>.ss-card{flex:1;min-width:0}
+#startscreen .ss-head{align-self:center}
+#startscreen .ss-eyebrow{margin-bottom:15px}
+#startscreen .ss-diff-card{padding:10px 13px}
+#startscreen .ss-diff-card .dm{display:none}
+#startscreen .ss-diff-card .db{font-size:10px}
+
+.share-moment{padding:18px 20px;background:#b4d88709;border:1px solid #b4d88745;border-radius:8px;margin:10px 0 14px;text-align:left}
+.share-moment h2{font-size:clamp(18px,2.4vw,27px);font-weight:650;line-height:1.2;color:#e7efcf;letter-spacing:.3px;margin:0 0 8px}
+.share-moment p{font-size:12px;line-height:1.55;color:#b2c3a7;margin:5px 0 10px}
+.share-moment .share-hero{color:#dbe5c9}
+.share-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.share-actions button,.raid-result-link{padding:10px 14px;border:1px solid #b4d88760;border-radius:5px;background:#bdd4960c;color:#e1ebce;font:12px var(--font);cursor:pointer;text-decoration:none;text-align:center}
+.share-actions button:hover,.raid-result-link:hover{background:#b4d88722}
+.share-actions button:first-child{background:#b4d887;color:#142313}
+#share-link{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:10px;border:1px solid #9bbd7e;border-radius:4px;background:#0c1c13;color:#e1ebce;font:12px var(--font)}
+#share-link[hidden]{display:none}
+.share-moment #share-status{font-size:10px;margin-bottom:0;min-height:16px;color:#8ea582}
+.es-foot .raid-result-link{margin-top:8px;min-width:180px}
+
+#raid-guide{position:absolute;top:100px;left:12px;z-index:18;width:min(320px,calc(100vw - 24px));box-sizing:border-box;padding:12px 14px;border:1px solid #bfd89b55;border-radius:7px;background:#11251bf2;box-shadow:0 4px 22px #0004;color:#dce7cc;font:12px var(--font)}
+.raid-guide-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:9px;letter-spacing:1px;color:#a9c48d}
+#raid-step{font-size:14px;font-weight:600;line-height:1.35;margin:8px 0 5px}
+#raid-copy{font-size:11px;line-height:1.5;margin:4px 0 9px;color:#b8c9aa}
+#raid-action,#raid-focus,#raid-toggle{font:11px var(--font);border:1px solid #b4d88766;border-radius:4px;padding:7px 9px;cursor:pointer;background:#b4d88714;color:#dce7cc}
+#raid-action{background:#b4d887;color:#152510;margin-right:5px}
+#raid-toggle{font-size:9px;padding:4px 6px}
+#raid-progress{margin-top:8px;font-size:9px;color:#8fac7a;line-height:1.4}
+body.menu #raid-guide,#raid-guide[hidden]{display:none}
+#reclamation-caption{position:absolute;top:22%;left:50%;transform:translateX(-50%);z-index:19;width:min(700px,calc(100vw - 32px));box-sizing:border-box;text-align:center;pointer-events:none;color:#edf3db;background:#0c1d13e8;border:1px solid #b4d8876b;border-radius:8px;padding:20px 24px;box-shadow:0 8px 40px #0005;font-family:var(--font)}
+#reclamation-caption[hidden]{display:none}
+#reclamation-caption h2{font-size:clamp(22px,4vw,38px);line-height:1.15;margin:0 0 10px;letter-spacing:.5px}
+#reclamation-caption p,#reclamation-caption small{font-size:12px;line-height:1.5;color:#b8cba4;margin:0}
+body.reclaiming #bottombar,body.reclaiming #topbar{opacity:0;pointer-events:none;transition:opacity .5s}
+body.reclaiming #toasts,body.reclaiming #comms,body.reclaiming #raid-guide{display:none}
+@media(max-width:760px){
+  #startscreen .ss-panel{gap:15px;padding:18px}
+  #startscreen .ss-head{padding-top:0}
+  #startscreen .ss-mark{font-size:40px;margin-bottom:9px}
+  #startscreen .ss-eyebrow{font-size:8px;margin-bottom:10px}
+  #startscreen .ss-tag{font-size:12px}
+  #startscreen .ss-raid-start{padding:15px}
+  #startscreen .ss-cols{flex-direction:column;gap:7px}
+  #startscreen .ss-diff-card .db{display:none}
+  #raid-guide{top:153px;left:8px;width:min(290px,calc(100vw - 16px));padding:9px 11px}
+  #raid-action,#raid-focus,#raid-toggle{min-height:34px}
+  .share-moment{padding:14px}
+  .share-actions{flex-direction:column}
+  .share-actions button{width:100%}
+  #reclamation-caption{padding:16px}
+}
+
 </style>
 </head>
 <body>
@@ -3882,6 +3948,29 @@ MAPS['pourhouse'] = {
     generators: [[79, -42], [94, -75]],
     wells: [[21, -75]],
   construction: { time: 360, addTurrets: [[26, -66], [86, -66], [56, -44]], addGarrison: 8 },
+};
+
+/* Judge Dean LLC — a small, open field station for guided and fixed-seed raids.
+   Kept out of QUICK_ROTATION and the campaign so existing progression is intact. */
+MAPS['first-raid'] = {
+  id: 'first-raid', name: 'Beaverbrook Station', archetype: 'valley', faction: 'wild',
+  terra: { ampl: 3, rippleA: 0.4, blightReach: 28 },
+  palette: {
+    ...MAPS['verdant-hollow'].palette,
+    bg: 0x33432d, fog: 0x7c9272, fogNear: 190, fogFar: 460,
+    skyHorizon: 0xe9d5a6, skyTop: 0x6da5c4,
+    grade: { shadows: 0x7a8891, highlights: 0x998d72, saturation: 1.08, contrast: 1.02, vignette: 0.2, grain: 0.02 },
+  },
+  mood: { sunC: 0xffd8a0, sunI: 2.0, sunOffset: [-70, 100, 45],
+    hemiSky: 0xd5e6d0, hemiGround: 0x415236, hemiI: 1.0,
+    cloudShadow: 0.15, wind: { amp: 0.6, speed: 0.8 } },
+  season: 'spring', props: { trees: 260, rocks: 80, ferns: 240 },
+  base: { x: -42, z: 40 },
+  compound: { x: 26, z: -5, hw: 35, hd: 30 }, openPerimeter: true,
+  groves: [{ x: -21, z: 24 }],
+  turrets: [], depots: [], generators: [], wells: [],
+  pumps: [[3, 6]], coolants: [[21, -8]], core: { x: 43, z: -9 },
+  water: [{ x: -11, z: 5, r: 10, drain: 0.004 }], weather: 'clear',
 };
 
 const DEFAULT_MAP = 'verdant-hollow';
@@ -11605,6 +11694,10 @@ function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  // Judge Dean LLC: retain earned raid highlights, never a fabricated MVP.
+  if (G.raid && attacker?.type === 'beaver' && target.team === TEAM.MACHINE && target.isBuilding) {
+    attacker.raidDamage = (attacker.raidDamage || 0) + Math.min(dealt, Math.max(0, target.hp + dealt));
+  }
   /* Balance instrumentation. Off unless a harness installs G.__dmgLog, so it
      costs one property read per hit in a normal game. Worth keeping: every
      balance question this project has asked -- "what is actually killing the
@@ -11696,6 +11789,11 @@ function takeOffline(e, killer) {
   e.downed = true;
   e.hp = 0;
   e.downedAt = G.time;
+  if (G.raid && e.type === 'coolant' && killer?.type === 'beaver') {
+    G.raid.hero = killer;
+    G.raid.heroName = killer.nickname || 'Beaver';
+    G.raid.heroAction = 'Disabled the coolant tower';
+  }
   /* Guaranteed downtime. See RULES.coolantLockout — this is what lets a player
      chain three take-downs instead of needing all three at once. */
   e.lockoutUntil = G.time + RULES.coolantLockout;
@@ -11724,6 +11822,11 @@ function bringOnline(e) {
 
 function kill(e, killer) {
   if (!e.alive) return;
+  if (G.raid && e.type === 'pump' && killer?.type === 'beaver') {
+    G.raid.hero = killer;
+    G.raid.heroName = killer.nickname || 'Beaver';
+    G.raid.heroAction = 'Stopped the intake pump';
+  }
   if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
     killer.kills = (killer.kills || 0) + 1;
     if (killer.refreshVeterancy) killer.refreshVeterancy();
@@ -14284,7 +14387,14 @@ function stampGoal() {
     else born.delete(g.id);            // lose the grove, the clock resets
   }
 
+  // Judge Dean LLC: a visible return of life after the machines fall silent.
+  const reclaimed = !!G.finale?.reclaimed;
+  if (reclaimed && G.core) {
+    add(G.core.pos.x, G.core.pos.z, Math.min(85, 8 + (G.finale.t - 4.8) * 22), 255);
+  }
+
   /* the campus poisons the ground it sits on */
+  if (reclaimed) return;
   for (let j = 0; j < VGRID; j++) {
     for (let i = 0; i < VGRID; i++) {
       const k = j * VGRID + i;
@@ -14637,6 +14747,8 @@ function buildProps(scene) {
   }
 
   // yard clutter inside the compound: containers + pipe runs
+  // The small teaching station keeps the target silhouettes unobstructed.
+  if (G.map.openPerimeter) return;
   const yard = new THREE.Group();
   for (let i = 0; i < 16; i++) {
     const x = COMPOUND.x + vrand(-COMPOUND.hw + 8, COMPOUND.hw - 8);
@@ -14683,8 +14795,8 @@ function populate() {
   G.obstacles.push(heart);
   G.rally = new THREE.Vector3(BASE.x + 14, 0, BASE.z - 10);
 
-  for (let i = 0; i < 4; i++)
-    spawn('wolf', BASE.x + rand(6, 16), BASE.z + rand(-10, 8));
+  for (const type of (G.raid?.startingUnits || ['wolf', 'wolf', 'wolf', 'wolf']))
+    spawn(type, BASE.x + rand(6, 16), BASE.z + rand(-10, 8));
 
   /* Veterans who survived the last strike muster at the Heart Tree, rank intact. */
   if (G.campaignSite) {
@@ -14706,7 +14818,7 @@ function populate() {
   });
 
   /* ---- compound ---- */
-  buildPerimeter();
+  if (!layout().openPerimeter) buildPerimeter();
 
   /* Authored per map, defaulting to the compound's own centre. The literal that
      used to live here was verdant-hollow's, so on relay-shed the Core's collision
@@ -14934,7 +15046,7 @@ function groveTint(g, t) {
    irrelevant to the result, and running the real death path would fire their
    onDeath toasts ("Generator down -- 1 still feeding the guns") over the top
    of a victory. This is pyrotechnics on corpses. */
-const FINALE_SECS = 5.0;
+const FINALE_SECS = 8.5;
 
 function startFinale() {
   const cx = G.core.pos.x, cz = G.core.pos.z;
@@ -14946,6 +15058,9 @@ function startFinale() {
     .sort((a, b) => dist2D(a.pos, { x: cx, z: cz }) - dist2D(b.pos, { x: cx, z: cz }));
 
   G.finale = { t: 0, next: 0.25, i: 0, targets, done: false };
+  document.body.classList.add('reclaiming');
+  const guide = document.getElementById('raid-guide');
+  if (guide) guide.hidden = true;
 
   SFX.boomBig(G.core.pos);
   if (G.rts) {
@@ -14979,15 +15094,83 @@ function updateFinale(dt) {
   }
 
   /* a last big one on the Core itself, halfway through */
-  if (!F.big && F.t > FINALE_SECS * 0.55) {
+  if (!F.big && F.t > 2.75) {
     F.big = true;
     chainExplosion(G.core.pos, G.core.def.radius * 1.4, 9, 2.6, {});
     if (G.rts) G.rts.shake = Math.min(3, (G.rts.shake || 0) + 1.6);
   }
 
+  if (!F.reclaimed && F.t >= 4.8) {
+    F.reclaimed = true;
+    musicStop(0.8);
+    SFX.bloom();
+    animalVoice({ type: 'raven', pos: G.core.pos }, 'idle');
+    revealReclamation(F);
+  }
+  if (F.sprouts) {
+    for (const sprout of F.sprouts.children) {
+      const growth = clamp((F.t - 4.8 - sprout.userData.delay) / 1.2, 0.01, 1);
+      sprout.scale.setScalar(growth);
+    }
+  }
+
   if (F.t >= FINALE_SECS) {
     F.done = true;
+    document.body.classList.remove('reclaiming');
+    document.getElementById('reclamation-caption')?.remove();
     endMission(true);
+  }
+}
+
+/* Judge Dean LLC — a quiet, readable payoff after the existing chain explosion. */
+function revealReclamation(F) {
+  const sprouts = new THREE.Group();
+  const geo = new THREE.OctahedronGeometry(1, 0);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x438847, roughness: 0.85 });
+  const petalMat = new THREE.MeshStandardMaterial({ color: 0xf0cda1, roughness: 0.9 });
+  for (let i = 0; i < 40; i++) {
+    const angle = i * 2.39996, radius = 9 + Math.sqrt(i / 40) * 28;
+    const x = G.core.pos.x + Math.cos(angle) * radius;
+    const z = G.core.pos.z + Math.sin(angle) * radius;
+    const sprout = new THREE.Group();
+    sprout.position.set(x, terrainHeight(x, z) + 0.1, z);
+    sprout.rotation.y = angle;
+    sprout.userData.delay = radius / 24 - 0.35;
+    for (let j = 0; j < 5; j++) {
+      const leaf = new THREE.Mesh(geo, mat);
+      const a = j * Math.PI * 2 / 5;
+      leaf.scale.set(0.55, 0.2, 1.6);
+      leaf.position.set(Math.sin(a) * 0.7, 0.45, Math.cos(a) * 0.7);
+      leaf.rotation.set(-0.45, a, 0);
+      sprout.add(leaf);
+    }
+    if (i % 3 === 0) {
+      for (let j = 0; j < 5; j++) {
+        const petal = new THREE.Mesh(geo, petalMat);
+        const a = j * Math.PI * 2 / 5;
+        petal.scale.set(0.4, 0.2, 0.6);
+        petal.position.set(Math.sin(a) * 0.35, 1.1, Math.cos(a) * 0.35);
+        petal.rotation.y = a;
+        sprout.add(petal);
+      }
+    }
+    sprout.scale.setScalar(0.01);
+    sprouts.add(sprout);
+  }
+  G.scene.add(sprouts);
+  F.sprouts = sprouts;
+  const caption = document.createElement('div');
+  caption.id = 'reclamation-caption';
+  caption.setAttribute('role', 'status');
+  const earned = G.raid?.heroAction;
+  const title = document.createElement('h2');
+  title.textContent = earned ? 'Unscheduled beaver maintenance.' : 'The valley has the last word.';
+  const detail = document.createElement('p');
+  detail.textContent = 'TERRABYTE SOLUTIONS · SERVICE UNAVAILABLE';
+  caption.append(title, detail);
+  document.getElementById('app').append(caption);
+  if (G.raid?.hero?.alive && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    G.rts.focus(G.raid.hero.pos, false, 64);
   }
 }
 
@@ -15712,6 +15895,7 @@ function rootsPrice() {
 function rootsMaxed() { return rootsBought() >= RULES.rootsMax; }
 
 function deepenRoots() {
+  if (G.raid || G.over || G.paused || G.phase !== 'playing') return false;
   if (!G.heart.alive) return false;
   if (rootsMaxed()) { toast('The roots are as deep as this valley goes', 'warn'); SFX.deny(); return false; }
   const price = rootsPrice();
@@ -15743,6 +15927,7 @@ function evolveStatus(id) {
 }
 
 function evolve(id) {
+  if (G.raid || G.over || G.paused || G.phase !== 'playing') return false;
   const opt = RULES.evolve.find(o => o.id === id);
   if (!opt || !G.heart.alive || G.over) return false;
   const s = evolveStatus(id);
@@ -15883,6 +16068,11 @@ function updateEvolve(dt) {
 }
 
 function queueUnit(type) {
+  if (G.over || G.paused || G.phase !== 'playing') return false;
+  if (G.raid && !G.raid.allowedUnits.includes(type)) {
+    toast(`This raid recruits ${G.raid.allowedUnits.map(t => DEFS[t].name).join(', ')}.`, 'warn');
+    SFX.deny(); return false;
+  }
   type = rosterType(type);
   const def = DEFS[type];
   if (!G.heart.alive) return false;
@@ -16919,6 +17109,161 @@ function perfDrawSpark() {
 }
 
 
+/* =================== src/unit-portraits.js =================== */
+/* Small, consistent field-guide portraits. Inline vectors also ship offline. */
+const UNIT_ROLES = { wolf: 'Fast melee', capybara: 'Frontline', boar: 'Armoured', bear: 'Siege', raven: 'Flying', porcupine: 'Ranged', beaver: 'Engineer', local: 'Marksman' };
+const PORTRAIT_PATHS = {
+  wolf: '<path fill="#98a99d" d="M8 7 18 12 29 6 33 25 24 36 13 30 7 19Z"/><path fill="#485e55" d="m10 10 6 6-7 4m19-10-5 7 7 4"/><path fill="#e2e7cf" d="m12 22 11-4 8 7-8 10-9-6Z"/><path fill="#192e28" d="m22 26 7-1-4 5-4-1Z"/><path d="m15 20 3 1m8-3 3-1"/>',
+  bear: '<circle fill="#6b5845" cx="11" cy="10" r="6"/><circle fill="#6b5845" cx="29" cy="10" r="6"/><path fill="#927650" d="M7 14 14 8 27 9 34 19 31 31 21 36 9 30Z"/><path fill="#c3ac7c" d="m14 24 9-6 8 7-5 8-11-1Z"/><path fill="#29342b" d="m20 24 7-1-1 5-5 1Z"/><path d="m12 19 3 1m11-3 3 1"/>',
+  boar: '<path fill="#735a49" d="m6 8 11 6 12-7 5 20-11 9L9 30 5 18Z"/><path fill="#af8868" d="m12 23 13-4 9 9-10 7-12-4Z"/><ellipse fill="#d0a581" cx="26" cy="28" rx="8" ry="5"/><path fill="#eee7c9" d="m12 29-2-9 7 9m16-2 3-9-1 13Z"/><path d="m14 19 4 1m6 7v2m5-3v2"/>',
+  capybara: '<path fill="#b09263" d="m7 13 10-6 12 7 6 10-5 10-19-2-7-8Z"/><circle fill="#846b4b" cx="11" cy="12" r="4"/><circle fill="#846b4b" cx="25" cy="11" r="4"/><path fill="#d1b581" d="m14 22 15-2 6 6-5 7-16-2Z"/><path d="m12 19 3 1m10-3 3 1m0 8 3 1m-12 4h9"/>',
+  raven: '<path fill="#536c70" d="m4 27 11-12 8-8 8 6-2 9-10 13-5-6Z"/><path fill="#263e43" d="m5 27 14-9 6 5-8 12Z"/><path fill="#c8ba85" d="m28 14 10 5-12 3Z"/><path fill="#93aeb0" d="m15 17 6-7 7 2-5 3Z"/><circle fill="#eadbb3" cx="26" cy="15" r="1.4"/>',
+  porcupine: '<path fill="#d1bc87" d="m3 25 1-13 5 7 1-16 6 14 5-14 3 15 8-12-1 17 8-5-5 15-17 4Z"/><path fill="#665d46" d="m7 24 9-7 13 4 6 10-13 6-13-4Z"/><path fill="#ab9670" d="m22 24 10 2 6 7-13 2-5-5Z"/><path d="m26 28 2 1m6 3h2"/>',
+  beaver: '<path fill="#786449" d="m5 17 8-10 15 3 7 12-4 12-17 2-9-8Z"/><circle fill="#a1865e" cx="10" cy="12" r="4"/><circle fill="#a1865e" cx="28" cy="13" r="4"/><path fill="#c0a878" d="m12 23 15-4 6 7-5 7-14-1Z"/><path fill="#efe6c9" d="m19 28 8-1-1 9-6 1Z"/><path fill="#303d30" d="m20 23 8 1-3 5-5-1Z"/><path d="m12 20 3 1m13-3 2 1m-7 12v5"/>',
+  local: '<path fill="#b5a079" d="m12 10 16 1 3 15-9 9-12-8Z"/><path fill="#547062" d="m5 15 7-9 16 1 7 11-16-3Z"/><path fill="#9a754f" d="m10 23 11 7 10-5-3 10-13 1Z"/><path d="m14 20 3 1m8-1 3 1"/>',
+};
+function unitPortrait(type, fallback = '•') {
+  const shape = PORTRAIT_PATHS[type];
+  return shape ? `<svg class="unit-portrait" viewBox="0 0 40 40" aria-hidden="true"><g stroke="#25382b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${shape}</g></svg>` : fallback;
+}
+
+
+/* =================== src/share-card.js =================== */
+/* Judge Dean LLC — local result cards and explicit, player-initiated sharing. */
+
+
+
+const SHARE_RAID_IDS = new Set(['first-raid', 'beaver-raid']);
+const GAME_PUBLIC_URL = 'https://animagix77.github.io/wildline/';
+
+function raidURL(id, { publicLink = false } = {}) {
+  const url = new URL(publicLink ? GAME_PUBLIC_URL : location.href);
+  url.search = '';
+  url.hash = '';
+  if (SHARE_RAID_IDS.has(id)) url.searchParams.set('raid', id);
+  return url.href;
+}
+
+function resultDetails(win, stats) {
+  const raid = G.raid;
+  const hero = raid?.hero;
+  const survivor = hero?.alive;
+  const species = hero ? (DEFS[hero.type]?.name || 'Beaver') : '';
+  const heroName = raid?.heroName || hero?.nickname || species;
+  const seconds = Math.max(0, Math.floor(stats?.timeSec || 0));
+  const mode = raid?.title || `${G.map?.name || 'Quick Battle'} · ${G.difficulty?.name || 'Grove'}`;
+  const title = win ? (raid?.heroAction ? 'UNSCHEDULED BEAVER MAINTENANCE.' : 'THE VALLEY HAS THE LAST WORD.') : 'THE VALLEY WILL TRY AGAIN.';
+  return {
+    title, mode, win,
+    time: `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
+    score: Math.max(0, Math.round(stats?.score || 0)),
+    lost: Math.max(0, Math.round(stats?.unitsLostTotal || 0)),
+    hero: hero ? (heroName === species ? species : `${heroName} the ${species}`) : '',
+    heroState: hero ? (survivor ? 'Survived the raid.' : 'Remembered by the valley.') : '',
+    action: raid?.heroAction || '',
+    url: raidURL(raid?.id || 'beaver-raid', { publicLink: true }),
+  };
+}
+
+/* All art is drawn here: the card works offline and never captures private UI. */
+function createResultCard({ win, stats }) {
+  const data = resultDetails(win, stats);
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200; canvas.height = 800;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Image export is unavailable in this browser.');
+  const gradient = ctx.createLinearGradient(0, 0, 1200, 800);
+  gradient.addColorStop(0, '#203a2d'); gradient.addColorStop(1, '#071510');
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, 1200, 800);
+  ctx.strokeStyle = '#78915e'; ctx.lineWidth = 2; ctx.strokeRect(24, 24, 1152, 752);
+  ctx.fillStyle = '#b4d887'; ctx.font = '600 19px sans-serif';
+  ctx.fillText('CRITTERS VS COMPUTE  /  FIELD REPORT', 66, 87);
+  ctx.fillStyle = '#f0efdf'; ctx.font = '800 50px sans-serif';
+  const lines = data.title === 'UNSCHEDULED BEAVER MAINTENANCE.'
+    ? ['UNSCHEDULED', 'BEAVER MAINTENANCE.']
+    : data.win ? ['THE VALLEY HAS', 'THE LAST WORD.'] : ['THE VALLEY', 'WILL TRY AGAIN.'];
+  lines.forEach((line, i) => ctx.fillText(line, 66, 170 + i * 61));
+  ctx.fillStyle = '#acbba5'; ctx.font = '24px sans-serif'; ctx.fillText(data.mode, 68, 281, 1030);
+
+  // A beaver portrait, framed like a corporate employee-of-the-month badge.
+  const ellipse = (x, y, rx, ry, color) => {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  };
+  ellipse(936, 465, 158, 158, '#2b4431');
+  ellipse(860, 390, 30, 32, '#b39666'); ellipse(1009, 390, 30, 32, '#b39666');
+  ellipse(936, 459, 108, 107, '#8c744e'); ellipse(936, 500, 86, 62, '#c4ab76');
+  ellipse(893, 449, 8, 10, '#102017'); ellipse(977, 449, 8, 10, '#102017');
+  ctx.fillStyle = '#eee7c9'; ctx.fillRect(917, 522, 17, 39); ctx.fillRect(939, 522, 17, 39);
+  ellipse(936, 504, 26, 16, '#26382b');
+  ctx.fillStyle = '#b4d887'; ctx.font = '600 18px sans-serif';
+  ctx.fillText(data.win ? 'CAMPUS OFFLINE' : 'RAID ATTEMPT', 68, 346);
+  ctx.fillStyle = '#f0efdf'; ctx.font = '700 69px sans-serif'; ctx.fillText(data.time, 66, 422);
+  ctx.fillStyle = '#acbba5'; ctx.font = '20px sans-serif';
+  ctx.fillText(`${data.score.toLocaleString('en-US')} points  ·  ${data.lost} wildlife lost`, 68, 466);
+  if (data.hero) {
+    ctx.fillStyle = '#e5eacf'; ctx.font = '600 24px sans-serif'; ctx.fillText(data.hero, 68, 535, 650);
+    ctx.fillStyle = '#acbba5'; ctx.font = '20px sans-serif'; ctx.fillText(data.heroState, 68, 570, 650);
+    if (data.action) { ctx.font = '17px sans-serif'; ctx.fillText(data.action, 68, 602, 650); }
+  } else {
+    ctx.fillStyle = '#acbba5'; ctx.font = '20px sans-serif'; ctx.fillText('Can you do it with only beavers?', 68, 546);
+  }
+  ctx.strokeStyle = '#4c6446'; ctx.beginPath(); ctx.moveTo(66, 647); ctx.lineTo(1134, 647); ctx.stroke();
+  ctx.fillStyle = '#b4d887'; ctx.font = '600 21px sans-serif'; ctx.fillText(G.raid ? 'TRY THE SAME RAID' : 'TAKE THE BEAVERS ONLY CHALLENGE', 68, 688);
+  ctx.fillStyle = '#e5eacf'; ctx.font = '19px sans-serif'; ctx.fillText(data.url.replace('https://', ''), 68, 724, 1060);
+  ctx.fillStyle = '#91a58a'; ctx.font = '14px sans-serif'; ctx.fillText('Judge Dean LLC  ·  Play free in your browser', 68, 758);
+  return canvas;
+}
+
+function addShareActions(container, { win, stats }) {
+  const data = resultDetails(win, stats);
+  const section = document.createElement('section');
+  section.className = 'share-moment';
+  const heading = document.createElement('h2'); heading.textContent = data.title;
+  section.append(heading);
+  const summary = document.createElement('p');
+  summary.textContent = `${data.mode} · ${data.time} · ${data.win ? 'Campus offline' : 'Raid attempt'}`;
+  section.append(summary);
+  if (data.hero) {
+    const hero = document.createElement('p'); hero.className = 'share-hero';
+    hero.textContent = `${data.hero}. ${data.heroState}${data.action ? ' ' + data.action : ''}`;
+    section.append(hero);
+  }
+  const actions = document.createElement('div'); actions.className = 'share-actions';
+  const download = document.createElement('button'); download.type = 'button';
+  download.id = 'share-download'; download.textContent = 'Download result card';
+  const copy = document.createElement('button'); copy.type = 'button';
+  copy.id = 'share-copy'; copy.textContent = G.raid ? 'Copy this raid link' : 'Copy beaver challenge link';
+  const link = document.createElement('input'); link.id = 'share-link'; link.type = 'text';
+  link.readOnly = true; link.value = data.url; link.hidden = true;
+  link.setAttribute('aria-label', 'Playable challenge link');
+  const status = document.createElement('p'); status.id = 'share-status';
+  status.setAttribute('role', 'status'); status.textContent = 'A card for your friends. No account needed.';
+  actions.append(download, copy); section.append(actions, link, status);
+  copy.addEventListener('click', async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(data.url);
+      status.textContent = 'Raid link copied. Send it to someone who could use a beaver army.';
+    } catch (_) {
+      link.hidden = false; link.focus(); link.select();
+      status.textContent = 'Copy the selected link to share this raid.';
+    }
+  });
+  download.addEventListener('click', () => {
+    try {
+      const card = createResultCard({ win, stats });
+      const a = document.createElement('a');
+      a.href = card.toDataURL('image/png');
+      a.download = `critters-vs-compute-${G.raid?.id || 'field-report'}-${data.win ? 'victory' : 'attempt'}.png`;
+      document.body.append(a); a.click(); a.remove();
+      status.textContent = 'Result card ready. Your browser will save the PNG.';
+    } catch (_) { status.textContent = 'Image export is unavailable here. You can still copy the raid link.'; }
+  });
+  container.append(section);
+  return section;
+}
+
+
 /* =================== src/screens.js =================== */
 /* =========================================================================
    Critters vs Compute — full-screen states: the title screen and the run summary.
@@ -16926,6 +17271,7 @@ function perfDrawSpark() {
    Both are plain DOM injected into #app. The WebGL canvas is never touched;
    these sit above it. All motion is CSS (transform / opacity only).
    ========================================================================= */
+
 
 
 
@@ -17135,11 +17481,21 @@ function showStartScreen(onStart) {
     <div class="ss-rule"></div>
   `));
 
+  /* Judge Dean LLC — let a new player start with one small, legible raid. */
+  const raidStart = sxEl('section', 'ss-raid-start', `
+    <span class="raid-eyebrow">SMALL ANIMALS. LARGE CONSEQUENCES.</span>
+    <h2>A beaver. A server farm.<br>A very bad day for Corporate.</h2>
+    <p>Learn by doing: lead a little pack, break the cooling, and watch the campus go dark.</p>
+    <a id="ss-first-raid" class="raid-launch" href="${raidURL('first-raid')}">First Raid <span>1–3 min · guided</span></a>
+    <a id="ss-beaver-raid" class="raid-launch raid-launch-secondary" href="${raidURL('beaver-raid')}">Beavers Only <span>Same raid. Just beavers. Beat your time.</span></a>
+  `);
+  panel.appendChild(raidStart);
+
   /* ---- brief + controls ---- */
   const cols = sxEl('div', 'ss-cols');
 
-  cols.appendChild(sxEl('section', 'ss-card', `
-    <h2>Mission brief</h2>
+  cols.appendChild(sxEl('details', 'ss-card ss-guide', `
+    <summary>Full-game mission brief <span>THE LARGER FIGHT +</span></summary>
     <dl class="ss-brief">
       <dt>You</dt>
       <dd>A <b>Heart Tree</b> and four wolves. Your only resource is <b>biomass</b> — walk any
@@ -17148,8 +17504,8 @@ function showStartScreen(onStart) {
       <dd>A hyperscale campus: walls, sentry turrets, patrolling guards and
           <b>Security Depots</b> that keep printing more. Every sweep is bigger than the last.</dd>
       <dt class="win">Win</dt>
-      <dd>Break the <b>3 Coolant Towers</b>. The <b>Server Core</b> overheats, loses its
-          shielding, and can then be brought down.</dd>
+      <dd>Damage the <b>Coolant Towers</b> to reduce cooling. Once the <b>Server Core</b>
+          heats up, keep cooling low until meltdown. Stop technicians restoring the towers.</dd>
       <dt class="lose">Lose</dt>
       <dd>Protect your <b>Heart Tree</b>. If it falls, the valley is lost.</dd>
     </dl>
@@ -17187,7 +17543,7 @@ function showStartScreen(onStart) {
   if (index < 0) index = 0;
 
   const diffWrap = sxEl('section', 'ss-diff');
-  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Choose your challenge'));
+  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Quick Battle difficulty'));
   const row = sxEl('div', 'ss-diff-row');
 
   const pct = v => (v === 1 ? '—' : (v > 1 ? '+' : '') + Math.round((v - 1) * 100) + '%');
@@ -17228,7 +17584,7 @@ function showStartScreen(onStart) {
   camp.addEventListener('click', () => showCampaignMap());
   foot.appendChild(sxCoffee('Enjoying it? Buy me a coffee'));
   foot.appendChild(sxEl('p', 'ss-hint',
-    `${sxKey('←')}${sxKey('→')} choose challenge · ${sxKey('Enter')} begin · audio starts on your first click`));
+    `${sxKey('←')}${sxKey('→')} choose Quick Battle difficulty · audio starts on your first click`));
   panel.appendChild(foot);
 
   root.appendChild(panel);
@@ -17280,7 +17636,7 @@ function showStartScreen(onStart) {
     switch (ev.key) {
       case 'Enter':
       case ' ':
-        ev.preventDefault(); ev.stopPropagation(); begin_(); break;
+        ev.preventDefault(); ev.stopPropagation(); location.assign(raidURL('first-raid')); break;
       case 'ArrowLeft':
         ev.preventDefault(); ev.stopPropagation(); select(index - 1); break;
       case 'ArrowRight':
@@ -17293,7 +17649,7 @@ function showStartScreen(onStart) {
   window.addEventListener('keydown', startKeyHandler, true);
 
   /* Focus the primary action so Enter/Space work without a click first. */
-  begin.focus({ preventScroll: true });
+  raidStart.querySelector('#ss-first-raid').focus({ preventScroll: true });
   return root;
 }
 
@@ -17452,6 +17808,8 @@ function showEndScreen(win, stats, onRestart, opts = {}) {
     ${!win && sxPostMortem(s) ? `<p class="es-flavour es-postmortem">${sxPostMortem(s)}</p>` : ''}
   `));
 
+  addShareActions(panel, { win, stats: s });
+
   panel.appendChild(sxEl('div', 'es-topline', `
     <div class="es-rank rank-${s.rank}">
       <span class="rl">${s.rank}</span>
@@ -17497,14 +17855,22 @@ function showEndScreen(win, stats, onRestart, opts = {}) {
   `));
 
   panel.appendChild(grid);
-  panel.appendChild(sxCoffeeCTA(win));
 
   const foot = sxEl('div', 'es-foot');
   const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
+  if (G.raid) {
+    if (G.raid.id !== 'beaver-raid') {
+      const challenge = document.createElement('a'); challenge.className = 'raid-result-link';
+      challenge.href = raidURL('beaver-raid'); challenge.textContent = 'Try Beavers Only'; foot.appendChild(challenge);
+    }
+    const full = document.createElement('a'); full.className = 'raid-result-link';
+    full.href = raidURL(null); full.textContent = 'Explore the full game'; foot.appendChild(full);
+  }
   panel.appendChild(foot);
+  panel.appendChild(sxCoffeeCTA(win));
 
   root.appendChild(panel);
   sxHost().appendChild(root);
@@ -17984,25 +18350,6 @@ function updateTacticalFX() {
 }
 
 function tacticalStats() { return { count: tacticalMesh?.count || 0, limit: TACTICAL_LIMIT, targets: tacticalTargets.size }; }
-
-
-/* =================== src/unit-portraits.js =================== */
-/* Small, consistent field-guide portraits. Inline vectors also ship offline. */
-const UNIT_ROLES = { wolf: 'Fast melee', capybara: 'Frontline', boar: 'Armoured', bear: 'Siege', raven: 'Flying', porcupine: 'Ranged', beaver: 'Engineer', local: 'Marksman' };
-const PORTRAIT_PATHS = {
-  wolf: '<path fill="#98a99d" d="M8 7 18 12 29 6 33 25 24 36 13 30 7 19Z"/><path fill="#485e55" d="m10 10 6 6-7 4m19-10-5 7 7 4"/><path fill="#e2e7cf" d="m12 22 11-4 8 7-8 10-9-6Z"/><path fill="#192e28" d="m22 26 7-1-4 5-4-1Z"/><path d="m15 20 3 1m8-3 3-1"/>',
-  bear: '<circle fill="#6b5845" cx="11" cy="10" r="6"/><circle fill="#6b5845" cx="29" cy="10" r="6"/><path fill="#927650" d="M7 14 14 8 27 9 34 19 31 31 21 36 9 30Z"/><path fill="#c3ac7c" d="m14 24 9-6 8 7-5 8-11-1Z"/><path fill="#29342b" d="m20 24 7-1-1 5-5 1Z"/><path d="m12 19 3 1m11-3 3 1"/>',
-  boar: '<path fill="#735a49" d="m6 8 11 6 12-7 5 20-11 9L9 30 5 18Z"/><path fill="#af8868" d="m12 23 13-4 9 9-10 7-12-4Z"/><ellipse fill="#d0a581" cx="26" cy="28" rx="8" ry="5"/><path fill="#eee7c9" d="m12 29-2-9 7 9m16-2 3-9-1 13Z"/><path d="m14 19 4 1m6 7v2m5-3v2"/>',
-  capybara: '<path fill="#b09263" d="m7 13 10-6 12 7 6 10-5 10-19-2-7-8Z"/><circle fill="#846b4b" cx="11" cy="12" r="4"/><circle fill="#846b4b" cx="25" cy="11" r="4"/><path fill="#d1b581" d="m14 22 15-2 6 6-5 7-16-2Z"/><path d="m12 19 3 1m10-3 3 1m0 8 3 1m-12 4h9"/>',
-  raven: '<path fill="#536c70" d="m4 27 11-12 8-8 8 6-2 9-10 13-5-6Z"/><path fill="#263e43" d="m5 27 14-9 6 5-8 12Z"/><path fill="#c8ba85" d="m28 14 10 5-12 3Z"/><path fill="#93aeb0" d="m15 17 6-7 7 2-5 3Z"/><circle fill="#eadbb3" cx="26" cy="15" r="1.4"/>',
-  porcupine: '<path fill="#d1bc87" d="m3 25 1-13 5 7 1-16 6 14 5-14 3 15 8-12-1 17 8-5-5 15-17 4Z"/><path fill="#665d46" d="m7 24 9-7 13 4 6 10-13 6-13-4Z"/><path fill="#ab9670" d="m22 24 10 2 6 7-13 2-5-5Z"/><path d="m26 28 2 1m6 3h2"/>',
-  beaver: '<path fill="#786449" d="m5 17 8-10 15 3 7 12-4 12-17 2-9-8Z"/><circle fill="#a1865e" cx="10" cy="12" r="4"/><circle fill="#a1865e" cx="28" cy="13" r="4"/><path fill="#c0a878" d="m12 23 15-4 6 7-5 7-14-1Z"/><path fill="#efe6c9" d="m19 28 8-1-1 9-6 1Z"/><path fill="#303d30" d="m20 23 8 1-3 5-5-1Z"/><path d="m12 20 3 1m13-3 2 1m-7 12v5"/>',
-  local: '<path fill="#b5a079" d="m12 10 16 1 3 15-9 9-12-8Z"/><path fill="#547062" d="m5 15 7-9 16 1 7 11-16-3Z"/><path fill="#9a754f" d="m10 23 11 7 10-5-3 10-13 1Z"/><path d="m14 20 3 1m8-1 3 1"/>',
-};
-function unitPortrait(type, fallback = '•') {
-  const shape = PORTRAIT_PATHS[type];
-  return shape ? `<svg class="unit-portrait" viewBox="0 0 40 40" aria-hidden="true"><g stroke="#25382b" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${shape}</g></svg>` : fallback;
-}
 
 
 /* =================== src/input.js =================== */
@@ -18626,6 +18973,7 @@ function initEvolvePanel() {
 }
 
 function toggleEvolve(force) {
+  if (G.raid) return;
   const p = document.getElementById('evolve');
   if (!p) return;
   const open = force !== undefined ? force : p.hidden;
@@ -18850,7 +19198,7 @@ function initHUD() {
   });
   const pips = el('objpips');
   pips.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < G.map.coolants.length + 1; i++) {
     const p = document.createElement('div');
     p.className = 'pip alive';
     pips.appendChild(p);
@@ -18874,8 +19222,10 @@ function updateHUD() {
      has to tell them how long they have. */
   const sw = el('sweepres');
   if (sw) {
+    sw.hidden = !!G.raid?.noWaves;
+    sw.style.display = G.raid?.noWaves ? 'none' : '';
     const left = Math.max(0, (G.nextWave || 0) - G.time);
-    el('sweeptime').textContent = fmt(left);
+    el('sweeptime').textContent = Number.isFinite(left) ? fmt(left) : '—';
     el('sweepsub').textContent = `sweep ${(G.waveNum || 0) + 1} · ${G.machinePop || 0} out`;   // machines standing, so the countdown has a size next to it
     sw.classList.toggle('low', left < 30);
     sw.classList.toggle('dry', left < 10);
@@ -18885,6 +19235,7 @@ function updateHUD() {
      progress, so it jumps back when the swarm levels a depot, a generator or a
      pump -- which is the point: the player watches aggression buy time. */
   const sr = el('stageres'), si = stageInfo();
+  if (sr) sr.style.display = G.raid ? 'none' : '';
   if (sr && si) {
     sr.dataset.stage = String(si.i);
     el('stagename').textContent = ['I', 'II', 'III'][si.i] || String(si.i + 1);
@@ -18927,9 +19278,9 @@ function updateHUD() {
   /* objective */
   const left = coolantsOnline();
   const pips = el('objpips').children;
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < G.coolants.length; i++)
     pips[i].className = 'pip ' + (G.coolants[i].downed ? 'dead' : 'alive');
-  pips[3].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
+  pips[G.coolants.length].className = 'pip ' + (G.core.alive ? (G.coreExposed ? 'alive' : '') : 'dead');
   /* The objective line has to carry the one thing that separates this ending
      from every previous build: the towers coming back. "3 left" after you have
      killed two reads as lost progress unless the line says who did it. */
@@ -18961,7 +19312,9 @@ function updateHUD() {
   for (const c of cards) {
     const d = DEFS[rosterType(c.dataset.type)];      // what the slot builds now (tier III forms)
     const gated = G.lockedUnits && G.lockedUnits.includes(c.dataset.type);
-    const afford = !gated && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    const raidLocked = G.raid && !G.raid.allowedUnits.includes(c.dataset.type);
+    const afford = !gated && !raidLocked && G.biomass >= unitCost(rosterType(c.dataset.type)) && G.pop + queuedPop() + (d.pop || 1) <= G.popCap && G.heart.alive;
+    c.hidden = !!raidLocked;
     c.classList.toggle('locked', !afford);
     c.classList.toggle('gated', !!gated);
     c.setAttribute('aria-disabled', String(!afford));
@@ -18969,12 +19322,15 @@ function updateHUD() {
   /* Deepen the Roots: price climbs with each purchase, so the card is re-read
      rather than painted once at init. */
   if (rootsCard) {
+    rootsCard.hidden = !!G.raid;
     refreshRootsCard();
     const unavailable = rootsMaxed() || G.biomass < rootsPrice() || !G.heart.alive;
     rootsCard.classList.toggle('locked', unavailable);
     rootsCard.setAttribute('aria-disabled', String(unavailable));
   }
   refreshEvolve();          // what can be evolved moves with biomass
+  const evolveButton = el('evolvebtn');
+  if (evolveButton) evolveButton.hidden = !!G.raid;
   const cd = spellCard.querySelector('.cd');
   const rem = G.spellReady - G.time;
   spellCard.setAttribute('aria-disabled', String(rem > 0 || G.biomass < RULES.spellCost));
@@ -19266,6 +19622,196 @@ function drawMinimap() {
 }
 
 
+/* =================== src/raids.js =================== */
+/* Judge Dean LLC — short guided raids. No accounts, analytics or new save keys. */
+
+
+
+
+
+
+
+
+
+const RAID_IDS = ['first-raid', 'beaver-raid'];
+const RAID_SEED = 20261026;
+let raidGuide = null;
+let raidLastStep = '';
+
+function raidFromURL(search = location.search) {
+  const id = new URLSearchParams(search).get('raid');
+  return RAID_IDS.includes(id) ? id : null;
+}
+
+// Called once per page, after difficulty is applied and before populate().
+function configureRaid(id) {
+  if (!RAID_IDS.includes(id)) return null;
+  const beavers = id === 'beaver-raid';
+  G.raid = {
+    id, title: beavers ? 'Beavers Only' : 'First Raid', seed: RAID_SEED, version: 1,
+    startingUnits: beavers ? Array(6).fill('beaver')
+      : ['wolf', 'wolf', 'wolf', 'wolf', 'beaver', 'beaver', 'capybara'],
+    allowedUnits: beavers ? ['beaver'] : ['wolf', 'beaver', 'capybara'],
+    noWaves: true, noEvolution: true, hero: null, heroName: 'Bramble',
+    step: 'select', selected: false, captured: false, pumpBroken: false,
+  };
+  seedSim(RAID_SEED); // A shared raid ignores caller-supplied rseed/map/difficulty.
+  Object.assign(RULES, {
+    startBiomass: beavers ? 128 : 100, baseIncome: 1.5, grovIncome: 4,
+    popCap: 40, firstWaveAt: Infinity, waveEvery: Infinity,
+    garrisonGuards: 0, garrisonDrones: 0, machinePopCap: 8,
+    meltdownSeconds: beavers ? 26 : 20, meltdownCool: 0.3,
+    emergencyTechs: beavers ? 1 : 0, emergencyEvery: 24,
+    stages: [{ id: 'field-station', name: 'Field station', at: 0,
+      garrison: 1, turrets: 1, popCap: 1, works: [], meltdownCool: 0.3 }],
+  });
+  DEFS.guard.dmg = beavers ? 9 : 7;
+  G.biomass = RULES.startBiomass;
+  G.popCap = RULES.popCap;
+  G.nextWave = G.nextDetail = Infinity;
+  return G.raid;
+}
+
+function initRaid() {
+  if (!G.raid) return;
+  const beavers = G.raid.id === 'beaver-raid';
+  document.body.classList.add('raid-mode');
+  document.body.dataset.raid = G.raid.id;
+  // The short scenario is a visible tactical puzzle; fog remains in the campaign.
+  fogRevealAll();
+  for (const lake of G.lakes || []) lake.level = 0.72;
+  for (const pump of G.pumps) pump.baseHp = pump.hp = pump.maxHp = beavers ? 520 : 280;
+  for (const tower of G.coolants) tower.baseHp = tower.hp = tower.maxHp = beavers ? 520 : 380;
+  const guards = beavers ? [[18, -4], [22, -18], [31, 5], [47, -21]] : [[22, -18], [31, 5]];
+  for (const [x, z] of guards) {
+    const guard = spawn('guard', x, z);
+    guard.setOrder('hold');
+  }
+  G.raid.hero = G.entities.find(e => e.alive && e.type === 'beaver');
+  const names = ['Bramble', 'Brook', 'Willow', 'Fern', 'Moss', 'Reed'];
+  G.entities.filter(e => e.alive && e.type === 'beaver')
+    .forEach((e, i) => { e.nickname = names[i % names.length]; });
+  if (G.rts) G.rts.focus({ x: -8, y: 0, z: 10 }, true, 94);
+  raidGuide?.remove();
+  raidGuide = document.createElement('section');
+  raidGuide.id = 'raid-guide';
+  raidGuide.setAttribute('aria-label', 'Raid field guide');
+  raidGuide.innerHTML = `<div class="raid-guide-head"><span>${G.raid.title} · 1–3 minutes</span><button id="raid-toggle" type="button" aria-expanded="true" aria-controls="raid-instructions" title="Minimise the field guide">−</button></div>
+    <div id="raid-instructions"><div id="raid-step" aria-live="polite"></div><p id="raid-copy"></p><div id="raid-progress"></div>
+    <div class="raid-actions"><button id="raid-action" type="button"></button><button id="raid-focus" type="button">Show target</button></div></div>`;
+  document.getElementById('app').appendChild(raidGuide);
+  document.getElementById('raid-toggle').addEventListener('click', () => {
+    const collapsed = raidGuide.classList.toggle('collapsed');
+    const button = document.getElementById('raid-toggle');
+    document.getElementById('raid-instructions').hidden = collapsed;
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.textContent = collapsed ? '+' : '−';
+    button.title = collapsed ? 'Expand the field guide' : 'Minimise the field guide';
+  });
+  document.getElementById('raid-action').addEventListener('click', raidAction);
+  document.getElementById('raid-focus').addEventListener('click', () => {
+    if (G.over) return;
+    const target = raidTargetEntity();
+    if (target && G.rts) G.rts.focus(target.pos, false, 70);
+  });
+  raidLastStep = '';
+  updateRaid(0);
+}
+
+function raidPack() {
+  return G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding);
+}
+
+function raidSelectPack() {
+  for (const e of G.selection) e.selected = false;
+  G.selection = raidPack();
+  for (const e of G.selection) e.selected = true;
+  return G.selection;
+}
+
+function raidTargetEntity() {
+  switch (G.raid?.step) {
+    case 'select': return G.raid.hero?.alive ? G.raid.hero : raidPack()[0];
+    case 'grove': return G.groves[0];
+    case 'pump': return G.pumps.find(e => e.alive);
+    default: return G.coolants[0];
+  }
+}
+
+function raidAction() {
+  if (!G.raid || G.over || G.paused || G.phase !== 'playing') return;
+  const units = raidSelectPack();
+  if (!units.length) { toast('Grow another animal at the Heart Tree to keep going.'); return; }
+  const step = G.raid.step;
+  if (step === 'select') {
+    G.raid.selected = true;
+    animalVoice(units[0], 'select');
+    SFX.select();
+  } else {
+    const target = raidTargetEntity();
+    if (!target) return;
+    if (step === 'grove' || step === 'hold') {
+      const destination = target.pos.clone();
+      if (step === 'hold') destination.z += target.radius + 4;
+      const slots = makeFormation(units, destination);
+      units.forEach((e, i) => e.setOrder(step === 'grove' ? 'move' : 'attackmove', slots[i]));
+    } else {
+      for (const e of units) e.setOrder('attack', target.pos.clone(), target);
+    }
+    if (G.rts) G.rts.focus(target.pos, false, 78);
+    SFX.order();
+  }
+  updateRaid(0);
+}
+
+function updateRaid(dt) {
+  if (!G.raid || !raidGuide) return;
+  if (G.over) { raidGuide.hidden = true; G.raid.step = 'done'; raidGuide.dataset.step = 'done'; return; }
+  // Pausing freezes both guidance state and gameplay actions.
+  if (G.paused || G.phase !== 'playing') return;
+  const R = G.raid;
+  R.selected ||= G.selection.some(e => e.alive && e.team === TEAM.WILD && !e.isBuilding);
+  R.captured ||= !!G.groves[0]?.owned;
+  R.pumpBroken ||= G.pumps.every(e => !e.alive);
+  const tower = G.coolants[0];
+  R.step = !R.selected ? 'select' : !R.captured ? 'grove' : !R.pumpBroken ? 'pump'
+    : tower?.alive && !tower.downed ? 'coolant' : 'hold';
+  raidGuide.dataset.step = R.step;
+  const challenge = R.id === 'beaver-raid';
+  if (R.step !== raidLastStep) {
+    raidLastStep = R.step;
+    const copy = {
+      select: ['01 / Meet your pack', challenge
+        ? 'Six beavers. One field station. Same layout every run. Select your crew to begin.'
+        : 'Meet Bramble and a fellow beaver, four wolves and a capybara. Select your pack to begin.', 'Select pack'],
+      grove: ['02 / Bring the grove to life', 'Send the pack to the pale grove. Stay nearby until it blooms: living ground earns biomass for more animals.', 'Send pack to grove'],
+      pump: ['03 / Give the water back', 'The intake is draining this pond. Beavers chew through structures; keep the pack together and break the pump.', 'Attack pump'],
+      coolant: ['04 / Switch off the cooling', challenge
+        ? 'Break the coolant tower. A technician will try to restart it. You can grow more beavers at the Heart Tree.'
+        : 'Water is returning. Now disable the coolant tower so the Server Core overheats. Your capybara protects and heals nearby allies.', 'Disable cooling'],
+      hold: ['05 / Hold for the meltdown', challenge
+        ? 'Keep the tower down. Your beavers must stop the repair technician while the Core heats up.'
+        : 'Keep the pack by the tower and watch the Core temperature. Once it reaches 100%, the station shuts down.', 'Defend tower'],
+    }[R.step];
+    document.getElementById('raid-step').textContent = copy[0];
+    document.getElementById('raid-copy').textContent = copy[1];
+    document.getElementById('raid-action').textContent = copy[2];
+  }
+  const living = raidPack().length;
+  let progress = `${living} animals ready · ${challenge ? 'Beavers Only · fixed challenge' : 'Click the field or use the guide buttons'}`;
+  if (R.step === 'grove') progress = `Grove blooming · ${Math.min(100, Math.round((G.groves[0]?.prog || 0) / RULES.captureTime * 100))}%`;
+  if (R.step === 'pump') {
+    const pump = G.pumps.find(e => e.alive);
+    progress = `Pump health · ${pump ? Math.max(0, Math.ceil(pump.hp)) : 0}`;
+  }
+  if (R.step === 'coolant') progress = `Cooling capacity · ${Math.round((G.coolFrac ?? 1) * 100)}%`;
+  if (R.step === 'hold') progress = `Core temperature · ${Math.min(100, Math.round(G.heat * 100))}%`;
+  if (!living) progress = 'Your pack fell. Recruit at the Heart Tree, then select the new animals.';
+  const node = document.getElementById('raid-progress');
+  if (node.textContent !== progress) node.textContent = progress;
+}
+
+
 /* =================== src/main.js =================== */
 /* PRE-EXISTING BUG, found by a console check during the meltdown work: main.js
    used musicPlay / musicState / updateMusic with no import at all. The flat
@@ -19273,6 +19819,7 @@ function drawMinimap() {
    wildline.html worked fine — while the dev page threw
    "updateMusic is not defined" on EVERY FRAME. Same class as the three earlier
    missing-import bugs in this project; the flattened bundle is not a check. */
+
 
 
 
@@ -19310,9 +19857,10 @@ scene.add(G.fxRoot);
    loadMap() must run before buildScene(): terrain, shader uniforms and the
    compound footprint are all read at construction time. */
 const pending = pendingMission();
+const activeRaid = raidFromURL();
 // hasOwnProperty: `{"site":"constructor"}` used to resolve to a truthy non-site
 // and crash the boot before the title screen could render
-const pendingSite = (pending && pending.mode === 'campaign'
+const pendingSite = (!activeRaid && pending && pending.mode === 'campaign'
   && Object.prototype.hasOwnProperty.call(SITES, pending.site)) ? SITES[pending.site] : null;
 /* Quick battles CYCLE the rotation — five maps, five seasons, five kinds of
    light — instead of loading verdant-hollow forever, which is what "maps never
@@ -19324,16 +19872,18 @@ const HEADLESS = new URLSearchParams(location.search).has('headless');
 /* ?map=<id> pins a specific map -- art iteration needs to LOOK at a map
    without clicking through four rotation slots to reach it. Works headless
    too, where it overrides the DEFAULT_MAP pin. */
-const FORCE_MAP = new URLSearchParams(location.search).get('map');
+const requestedMap = new URLSearchParams(location.search).get('map');
+// The teaching map requires raid rules (it deliberately has no perimeter gates).
+const FORCE_MAP = requestedMap === 'first-raid' ? null : requestedMap;
 let quickMap = DEFAULT_MAP;
-if (!HEADLESS) {
+if (!HEADLESS && !activeRaid) {
   try {
     const n = parseInt(localStorage.getItem('cvc.qrot') || '0', 10) || 0;
     quickMap = QUICK_ROTATION[n % QUICK_ROTATION.length];
     localStorage.setItem('cvc.qrot', String(n + 1));
   } catch (_) { /* storage blocked: stay on the default */ }
 }
-loadMap(pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
+loadMap(activeRaid ? 'first-raid' : pendingSite ? pendingSite.map : (FORCE_MAP || quickMap));
 
 /* Data check: overlapping structures used to ship silently. Loud in the console
    and reachable from the page so a layout edit can be checked in one call. */
@@ -19383,6 +19933,10 @@ document.getElementById('loading').remove();
    lights up once the world is actually built and a frame has been presented. */
 let splashDone = false;
 showSplash(() => { splashDone = true; openTitle(); });
+if (activeRaid) {
+  const start = document.getElementById('sp-continue');
+  if (start) start.textContent = activeRaid === 'beaver-raid' ? 'START BEAVERS ONLY' : 'START FIRST RAID';
+}
 
 /* -------------------------------------------------------------- boot --- */
 G.phase = 'menu';
@@ -19398,13 +19952,21 @@ function launchMission() {
   rtsCamera.focus(BASE, true, 95);   // the orbit leaves dist at 150; reset to default
   rtsCamera.update(0.016);
   G.phase = 'playing';
+  initRaid();
+  G.pop = G.entities.filter(e => e.alive && e.team === TEAM.WILD && !e.isBuilding)
+    .reduce((n, e) => n + (e.def.pop || 1), 0);
+  updateHUD();
   musicPlay(trackForMap(G.map));
-  toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
+  if (!G.raid) toast('Walk a beast onto a Grove to bloom it. F1 for orders, F3 for stats.');
 }
 
 function openTitle() {
   musicPlay('title');
-  if (pendingSite) {
+  if (activeRaid) {
+    applyDifficulty(DIFFICULTIES[1]);
+    configureRaid(activeRaid);
+    launchMission();
+  } else if (pendingSite) {
     /* Campaign strike: fixed GROVE baseline, then the campaign's scaling and the
        perks earned from liberated ground. Order matters: applyDifficulty first. */
     applyDifficulty(DIFFICULTIES[1]);
@@ -19511,7 +20073,7 @@ function frame(now, manual) {
   if (G.over && G.phase === 'playing') G.phase = 'over';
   /* The compound's death throes run on the real clock, after G.over and
      therefore outside the 'playing' block below. See runFinale in world.js. */
-  updateFinale(simDt || dt);
+  updateFinale(simDt);
 
   if (G.phase === 'playing' && !G.paused) {
     G.time += dt;
@@ -19526,6 +20088,7 @@ function frame(now, manual) {
     ambientVoices(dt);
     updateAI(dt);
     updateWorld(dt);
+    updateRaid(dt);
     updateWater(dt);
     updateFog(dt);
     updateVerdant(dt);
@@ -19536,6 +20099,7 @@ function frame(now, manual) {
     for (const e of G.entities) if (e.alive && e.isBuilding) e.update(dt);
     fogRevealAll();
     updateFog(dt);
+    if (G.finale) updateVerdant(simDt);
     reapDead(dt);
   }
 

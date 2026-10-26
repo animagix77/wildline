@@ -10,6 +10,7 @@ import { G } from './state.js';
 import { SITES, CORP, campState, campReset, siteStatus, scalingFor, setPending, campaignComplete, packSummary, exportCode, importCode, saveSummary } from './campaign.js';
 import { musicPlay } from './music.js';
 import { rankFor } from './score.js';
+import { addShareActions, raidURL } from './share-card.js';
 
 /* ======================================================== difficulties == */
 /*
@@ -213,11 +214,21 @@ export function showStartScreen(onStart) {
     <div class="ss-rule"></div>
   `));
 
+  /* Judge Dean LLC — let a new player start with one small, legible raid. */
+  const raidStart = sxEl('section', 'ss-raid-start', `
+    <span class="raid-eyebrow">SMALL ANIMALS. LARGE CONSEQUENCES.</span>
+    <h2>A beaver. A server farm.<br>A very bad day for Corporate.</h2>
+    <p>Learn by doing: lead a little pack, break the cooling, and watch the campus go dark.</p>
+    <a id="ss-first-raid" class="raid-launch" href="${raidURL('first-raid')}">First Raid <span>1–3 min · guided</span></a>
+    <a id="ss-beaver-raid" class="raid-launch raid-launch-secondary" href="${raidURL('beaver-raid')}">Beavers Only <span>Same raid. Just beavers. Beat your time.</span></a>
+  `);
+  panel.appendChild(raidStart);
+
   /* ---- brief + controls ---- */
   const cols = sxEl('div', 'ss-cols');
 
-  cols.appendChild(sxEl('section', 'ss-card', `
-    <h2>Mission brief</h2>
+  cols.appendChild(sxEl('details', 'ss-card ss-guide', `
+    <summary>Full-game mission brief <span>THE LARGER FIGHT +</span></summary>
     <dl class="ss-brief">
       <dt>You</dt>
       <dd>A <b>Heart Tree</b> and four wolves. Your only resource is <b>biomass</b> — walk any
@@ -226,8 +237,8 @@ export function showStartScreen(onStart) {
       <dd>A hyperscale campus: walls, sentry turrets, patrolling guards and
           <b>Security Depots</b> that keep printing more. Every sweep is bigger than the last.</dd>
       <dt class="win">Win</dt>
-      <dd>Break the <b>3 Coolant Towers</b>. The <b>Server Core</b> overheats, loses its
-          shielding, and can then be brought down.</dd>
+      <dd>Damage the <b>Coolant Towers</b> to reduce cooling. Once the <b>Server Core</b>
+          heats up, keep cooling low until meltdown. Stop technicians restoring the towers.</dd>
       <dt class="lose">Lose</dt>
       <dd>Protect your <b>Heart Tree</b>. If it falls, the valley is lost.</dd>
     </dl>
@@ -265,7 +276,7 @@ export function showStartScreen(onStart) {
   if (index < 0) index = 0;
 
   const diffWrap = sxEl('section', 'ss-diff');
-  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Choose your challenge'));
+  diffWrap.appendChild(sxEl('h2', 'ss-diff-title', 'Quick Battle difficulty'));
   const row = sxEl('div', 'ss-diff-row');
 
   const pct = v => (v === 1 ? '—' : (v > 1 ? '+' : '') + Math.round((v - 1) * 100) + '%');
@@ -306,7 +317,7 @@ export function showStartScreen(onStart) {
   camp.addEventListener('click', () => showCampaignMap());
   foot.appendChild(sxCoffee('Enjoying it? Buy me a coffee'));
   foot.appendChild(sxEl('p', 'ss-hint',
-    `${sxKey('←')}${sxKey('→')} choose challenge · ${sxKey('Enter')} begin · audio starts on your first click`));
+    `${sxKey('←')}${sxKey('→')} choose Quick Battle difficulty · audio starts on your first click`));
   panel.appendChild(foot);
 
   root.appendChild(panel);
@@ -358,7 +369,7 @@ export function showStartScreen(onStart) {
     switch (ev.key) {
       case 'Enter':
       case ' ':
-        ev.preventDefault(); ev.stopPropagation(); begin_(); break;
+        ev.preventDefault(); ev.stopPropagation(); location.assign(raidURL('first-raid')); break;
       case 'ArrowLeft':
         ev.preventDefault(); ev.stopPropagation(); select(index - 1); break;
       case 'ArrowRight':
@@ -371,7 +382,7 @@ export function showStartScreen(onStart) {
   window.addEventListener('keydown', startKeyHandler, true);
 
   /* Focus the primary action so Enter/Space work without a click first. */
-  begin.focus({ preventScroll: true });
+  raidStart.querySelector('#ss-first-raid').focus({ preventScroll: true });
   return root;
 }
 
@@ -530,6 +541,8 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
     ${!win && sxPostMortem(s) ? `<p class="es-flavour es-postmortem">${sxPostMortem(s)}</p>` : ''}
   `));
 
+  addShareActions(panel, { win, stats: s });
+
   panel.appendChild(sxEl('div', 'es-topline', `
     <div class="es-rank rank-${s.rank}">
       <span class="rl">${s.rank}</span>
@@ -575,14 +588,22 @@ export function showEndScreen(win, stats, onRestart, opts = {}) {
   `));
 
   panel.appendChild(grid);
-  panel.appendChild(sxCoffeeCTA(win));
 
   const foot = sxEl('div', 'es-foot');
   const again = sxEl('button', 'ss-begin es-again', `<span>${opts.buttonLabel || 'Run it again'}</span>`);
   again.id = 'es-again';
   again.type = 'button';
   foot.appendChild(again);
+  if (G.raid) {
+    if (G.raid.id !== 'beaver-raid') {
+      const challenge = document.createElement('a'); challenge.className = 'raid-result-link';
+      challenge.href = raidURL('beaver-raid'); challenge.textContent = 'Try Beavers Only'; foot.appendChild(challenge);
+    }
+    const full = document.createElement('a'); full.className = 'raid-result-link';
+    full.href = raidURL(null); full.textContent = 'Explore the full game'; foot.appendChild(full);
+  }
   panel.appendChild(foot);
+  panel.appendChild(sxCoffeeCTA(win));
 
   root.appendChild(panel);
   sxHost().appendChild(root);

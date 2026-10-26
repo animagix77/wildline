@@ -203,6 +203,10 @@ export function applyDamage(target, amount, attacker) {
   const def = target.def;
   const dealt = Math.max(1, amount - (def.armor || 0));
   target.hp -= dealt;
+  // Judge Dean LLC: retain earned raid highlights, never a fabricated MVP.
+  if (G.raid && attacker?.type === 'beaver' && target.team === TEAM.MACHINE && target.isBuilding) {
+    attacker.raidDamage = (attacker.raidDamage || 0) + Math.min(dealt, Math.max(0, target.hp + dealt));
+  }
   /* Balance instrumentation. Off unless a harness installs G.__dmgLog, so it
      costs one property read per hit in a normal game. Worth keeping: every
      balance question this project has asked -- "what is actually killing the
@@ -294,6 +298,11 @@ export function takeOffline(e, killer) {
   e.downed = true;
   e.hp = 0;
   e.downedAt = G.time;
+  if (G.raid && e.type === 'coolant' && killer?.type === 'beaver') {
+    G.raid.hero = killer;
+    G.raid.heroName = killer.nickname || 'Beaver';
+    G.raid.heroAction = 'Disabled the coolant tower';
+  }
   /* Guaranteed downtime. See RULES.coolantLockout — this is what lets a player
      chain three take-downs instead of needing all three at once. */
   e.lockoutUntil = G.time + RULES.coolantLockout;
@@ -322,6 +331,11 @@ export function bringOnline(e) {
 
 export function kill(e, killer) {
   if (!e.alive) return;
+  if (G.raid && e.type === 'pump' && killer?.type === 'beaver') {
+    G.raid.hero = killer;
+    G.raid.heroName = killer.nickname || 'Beaver';
+    G.raid.heroAction = 'Stopped the intake pump';
+  }
   if (killer && killer.alive && killer.team !== e.team && !killer.isBuilding) {
     killer.kills = (killer.kills || 0) + 1;
     if (killer.refreshVeterancy) killer.refreshVeterancy();
